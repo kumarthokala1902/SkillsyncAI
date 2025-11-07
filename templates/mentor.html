@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="bg-white rounded-2xl shadow-xl p-8 card">
+        <div class="flex items-start justify-between mb-6">
+            <div>
+                <h1 class="text-4xl font-bold text-gray-800 mb-2">{{ mentor.name }}</h1>
+                <p class="text-lg text-purple-600 font-semibold">
+                    {% if mentor.is_mentor %}Mentor{% else %}Learner{% endif %}
+                </p>
+            </div>
+        </div>
+        
+        <div class="mb-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-3">Bio</h3>
+            <p class="text-gray-700">{{ mentor.bio or 'No bio available.' }}</p>
+        </div>
+        
+        <div class="mb-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-3">Skills</h3>
+            <div class="flex flex-wrap gap-2">
+                {% for skill in mentor.get_skills_list() %}
+                    <span class="bg-purple-100 text-purple-800 px-4 py-2 rounded-full font-semibold">{{ skill }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="mb-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-3">Goals</h3>
+            <div class="flex flex-wrap gap-2">
+                {% for goal in mentor.get_goals_list() %}
+                    <span class="bg-green-100 text-green-800 px-4 py-2 rounded-full font-semibold">{{ goal }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        
+        {% if mentor.is_mentor and mentor.availability %}
+            <div class="mb-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-3">Availability</h3>
+                <p class="text-gray-700">{{ mentor.availability }}</p>
+            </div>
+        {% endif %}
+        
+        {% if mentor.is_mentor and current_user.id != mentor.id %}
+            <div class="border-t pt-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">Book a Session</h3>
+                <form method="POST" action="{{ url_for('book_session', mentor_id=mentor.id) }}">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 font-semibold mb-2">Topic</label>
+                        <input type="text" name="topic" required placeholder="What would you like to discuss?" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-purple-500 focus:outline-none">
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-gray-700 font-semibold mb-2">Date & Time</label>
+                            <input type="datetime-local" name="scheduled_time" required class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-purple-500 focus:outline-none">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-gray-700 font-semibold mb-2">Duration (minutes)</label>
+                            <select name="duration" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-purple-500 focus:outline-none">
+                                <option value="30">30 minutes</option>
+                                <option value="60">60 minutes</option>
+                                <option value="90">90 minutes</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="w-full btn-primary text-white py-3 rounded-lg font-semibold text-lg shadow-lg">
+                        Book Session
+                    </button>
+                </form>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

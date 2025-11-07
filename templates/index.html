@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="text-center py-20">
+    <h1 class="text-6xl font-bold text-white mb-6">
+        SkillSync
+    </h1>
+    <p class="text-3xl text-white mb-4">
+        Where AI Connects Minds to Learn, Grow & Shine Together
+    </p>
+    <p class="text-xl text-purple-100 mb-12 max-w-2xl mx-auto">
+        Connect with mentors and peers who share your passion. Let AI match you with the perfect learning partners based on your skills and goals.
+    </p>
+    <div class="space-x-4">
+        <a href="{{ url_for('register') }}" class="btn-primary text-white px-8 py-4 rounded-full text-lg font-semibold shadow-xl inline-block">
+            Start Your Journey
+        </a>
+        <a href="{{ url_for('login') }}" class="bg-white text-purple-600 px-8 py-4 rounded-full text-lg font-semibold shadow-xl hover:bg-gray-100 inline-block">
+            Sign In
+        </a>
+    </div>
+</div>
+
+<div class="max-w-6xl mx-auto mt-20 grid grid-cols-1 md:grid-cols-3 gap-8">
+    <div class="bg-white rounded-2xl p-8 shadow-xl card">
+        <div class="text-4xl mb-4">🤝</div>
+        <h3 class="text-2xl font-bold text-gray-800 mb-3">AI-Powered Matching</h3>
+        <p class="text-gray-600">Our intelligent algorithm connects you with mentors and peers who align perfectly with your learning goals.</p>
+    </div>
+    <div class="bg-white rounded-2xl p-8 shadow-xl card">
+        <div class="text-4xl mb-4">📈</div>
+        <h3 class="text-2xl font-bold text-gray-800 mb-3">Track Your Growth</h3>
+        <p class="text-gray-600">Visualize your skill development journey with interactive progress charts and personalized insights.</p>
+    </div>
+    <div class="bg-white rounded-2xl p-8 shadow-xl card">
+        <div class="text-4xl mb-4">💬</div>
+        <h3 class="text-2xl font-bold text-gray-800 mb-3">Micro-Mentorship</h3>
+        <p class="text-gray-600">Schedule focused 30-minute sessions with experts to get targeted guidance when you need it most.</p>
+    </div>
+</div>
+{% endblock %}
