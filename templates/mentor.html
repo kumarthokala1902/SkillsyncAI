@@ -1,78 +1,381 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ mentor.name }} - SkillSync</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        .dark-gradient {
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+        }
+        .card-dark {
+            background: rgba(23, 25, 35, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        .nav-dark {
+            background: rgba(15, 17, 27, 0.98);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .hover-lift:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .input-dark {
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
+        }
+        .input-dark:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+    </style>
+</head>
+<body class="dark-gradient min-h-screen text-gray-200">
+    <!-- Navigation -->
+    <nav class="nav-dark shadow-2xl sticky top-0 z-50">
+        <div class="w-full px-8">
+            <div class="flex justify-between items-center py-5">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl">
+                        <i class="fas fa-sync-alt text-white text-xl"></i>
+                    </div>
+                    <span class="text-2xl font-bold text-white tracking-tight">SkillSync</span>
+                </div>
+                <div class="flex items-center space-x-8">
+                    <a href="{{ url_for('dashboard') }}" class="text-gray-300 hover:text-blue-400 transition-all duration-300 text-lg flex items-center space-x-2 px-4 py-2 rounded-xl hover:bg-white/5">
+                        <i class="fas fa-home"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="{{ url_for('sessions') }}" class="text-gray-300 hover:text-blue-400 transition-all duration-300 text-lg flex items-center space-x-2 px-4 py-2 rounded-xl hover:bg-white/5">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span>Sessions</span>
+                    </a>
+                    <a href="{{ url_for('progress') }}" class="text-gray-300 hover:text-blue-400 transition-all duration-300 text-lg flex items-center space-x-2 px-4 py-2 rounded-xl hover:bg-white/5">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Progress</span>
+                    </a>
+                    <div class="flex items-center space-x-4">
+                        <div class="text-right">
+                            <p class="text-white font-medium text-lg">{{ current_user.name }}</p>
+                            <p class="text-gray-400 text-sm">
+                                {% if current_user.is_mentor %}
+                                    <span class="text-blue-400">Mentor</span>
+                                {% else %}
+                                    <span class="text-green-400">Learner</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+                            {{ current_user.name[0] }}
+                        </div>
+                    </div>
+                    <a href="{{ url_for('logout') }}" class="text-gray-300 hover:text-red-400 transition-all duration-300 text-lg flex items-center space-x-2 px-4 py-2 rounded-xl hover:bg-red-500/10">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
 
-{% block content %}
-<div class="max-w-4xl mx-auto">
-    <div class="bg-white rounded-2xl shadow-xl p-8 card">
-        <div class="flex items-start justify-between mb-6">
-            <div>
-                <h1 class="text-4xl font-bold text-gray-800 mb-2">{{ mentor.name }}</h1>
-                <p class="text-lg text-purple-600 font-semibold">
-                    {% if mentor.is_mentor %}Mentor{% else %}Learner{% endif %}
-                </p>
-            </div>
-        </div>
-        
-        <div class="mb-6">
-            <h3 class="text-xl font-bold text-gray-800 mb-3">Bio</h3>
-            <p class="text-gray-700">{{ mentor.bio or 'No bio available.' }}</p>
-        </div>
-        
-        <div class="mb-6">
-            <h3 class="text-xl font-bold text-gray-800 mb-3">Skills</h3>
-            <div class="flex flex-wrap gap-2">
-                {% for skill in mentor.get_skills_list() %}
-                    <span class="bg-purple-100 text-purple-800 px-4 py-2 rounded-full font-semibold">{{ skill }}</span>
-                {% endfor %}
-            </div>
-        </div>
-        
-        <div class="mb-6">
-            <h3 class="text-xl font-bold text-gray-800 mb-3">Goals</h3>
-            <div class="flex flex-wrap gap-2">
-                {% for goal in mentor.get_goals_list() %}
-                    <span class="bg-green-100 text-green-800 px-4 py-2 rounded-full font-semibold">{{ goal }}</span>
-                {% endfor %}
-            </div>
-        </div>
-        
-        {% if mentor.is_mentor and mentor.availability %}
-            <div class="mb-6">
-                <h3 class="text-xl font-bold text-gray-800 mb-3">Availability</h3>
-                <p class="text-gray-700">{{ mentor.availability }}</p>
-            </div>
-        {% endif %}
-        
-        {% if mentor.is_mentor and current_user.id != mentor.id %}
-            <div class="border-t pt-6">
-                <h3 class="text-xl font-bold text-gray-800 mb-4">Book a Session</h3>
-                <form method="POST" action="{{ url_for('book_session', mentor_id=mentor.id) }}">
-                    <div class="mb-4">
-                        <label class="block text-gray-700 font-semibold mb-2">Topic</label>
-                        <input type="text" name="topic" required placeholder="What would you like to discuss?" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-purple-500 focus:outline-none">
-                    </div>
-                    
-                    <div class="grid grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label class="block text-gray-700 font-semibold mb-2">Date & Time</label>
-                            <input type="datetime-local" name="scheduled_time" required class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-purple-500 focus:outline-none">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-gray-700 font-semibold mb-2">Duration (minutes)</label>
-                            <select name="duration" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-purple-500 focus:outline-none">
-                                <option value="30">30 minutes</option>
-                                <option value="60">60 minutes</option>
-                                <option value="90">90 minutes</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <button type="submit" class="w-full btn-primary text-white py-3 rounded-lg font-semibold text-lg shadow-lg">
-                        Book Session
-                    </button>
-                </form>
-            </div>
-        {% endif %}
+    <!-- Background Animation -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute top-0 left-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div class="absolute bottom-0 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style="animation-delay: 2s;"></div>
     </div>
-</div>
-{% endblock %}
+
+    <!-- Main Content -->
+    <div class="w-full py-8 px-8 relative z-10">
+        <!-- Back Button -->
+        <a href="{{ url_for('dashboard') }}" class="inline-flex items-center space-x-2 text-blue-400 hover:text-blue-300 transition duration-300 mb-8 group">
+            <i class="fas fa-arrow-left group-hover:-translate-x-1 transition-transform duration-300"></i>
+            <span>Back to Dashboard</span>
+        </a>
+
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+            <!-- Left Column - Mentor Profile -->
+            <div class="xl:col-span-2 space-y-8">
+                <!-- Mentor Profile Card -->
+                <div class="card-dark rounded-2xl p-8 hover-lift">
+                    <div class="flex items-start justify-between mb-8">
+                        <div class="flex items-center space-x-6">
+                            <div class="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold">
+                                {{ mentor.name[0] }}
+                            </div>
+                            <div>
+                                <h1 class="text-3xl font-bold text-white mb-2">{{ mentor.name }}</h1>
+                                <div class="flex items-center space-x-4">
+                                    <span class="flex items-center space-x-2 text-blue-400">
+                                        <i class="fas fa-chalkboard-teacher"></i>
+                                        <span class="font-medium">Mentor</span>
+                                    </span>
+                                    <span class="flex items-center space-x-2 text-green-400">
+                                        <i class="fas fa-envelope"></i>
+                                        <span class="text-gray-400">{{ mentor.email }}</span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="glass-effect rounded-2xl p-4 text-center">
+                                <p class="text-sm text-gray-400 mb-1">Ready to</p>
+                                <p class="font-bold text-white text-lg">Mentor</p>
+                                <div class="w-12 h-1 bg-gradient-to-r from-green-500 to-green-600 rounded-full mx-auto mt-2"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Skills Section -->
+                    <div class="mb-8">
+                        <h2 class="text-xl font-bold text-white mb-4 flex items-center">
+                            <i class="fas fa-tools text-blue-400 mr-3 text-2xl"></i>
+                            Expertise & Skills
+                        </h2>
+                        <div class="flex flex-wrap gap-3">
+                            {% for skill in mentor.get_skills_list() %}
+                            <span class="glass-effect text-blue-300 px-4 py-2 rounded-xl text-sm font-medium border border-blue-500/20">
+                                <i class="fas fa-star text-yellow-400 mr-2"></i>{{ skill }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Bio Section -->
+                    {% if mentor.bio %}
+                    <div class="mb-8">
+                        <h2 class="text-xl font-bold text-white mb-4 flex items-center">
+                            <i class="fas fa-user text-green-400 mr-3 text-2xl"></i>
+                            About Me
+                        </h2>
+                        <div class="glass-effect rounded-2xl p-6">
+                            <p class="text-gray-300 leading-relaxed text-lg">{{ mentor.bio }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Goals Section -->
+                    <div class="mb-8">
+                        <h2 class="text-xl font-bold text-white mb-4 flex items-center">
+                            <i class="fas fa-bullseye text-purple-400 mr-3 text-2xl"></i>
+                            Mentoring Approach
+                        </h2>
+                        <div class="glass-effect rounded-2xl p-6">
+                            <p class="text-gray-300 text-lg">{{ mentor.goals }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Availability Section -->
+                    {% if mentor.availability %}
+                    <div>
+                        <h2 class="text-xl font-bold text-white mb-4 flex items-center">
+                            <i class="fas fa-clock text-orange-400 mr-3 text-2xl"></i>
+                            Availability
+                        </h2>
+                        <div class="glass-effect rounded-2xl p-6">
+                            <div class="flex items-center space-x-3">
+                                <i class="fas fa-calendar-check text-orange-400 text-xl"></i>
+                                <p class="text-gray-300 text-lg">{{ mentor.availability }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Right Column - Book Session -->
+            <div class="space-y-8">
+                <!-- Book Session Card -->
+                <div class="card-dark rounded-2xl p-8 hover-lift">
+                    <h2 class="text-2xl font-bold text-white mb-6 flex items-center">
+                        <i class="fas fa-calendar-plus text-green-400 mr-3 text-2xl"></i>
+                        Book Session
+                    </h2>
+
+                    <!-- Flash Messages -->
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            <div class="mb-6 space-y-3">
+                                {% for category, message in messages %}
+                                    <div class="p-4 rounded-2xl border-l-4 {% if category == 'error' %}border-red-500 bg-red-500/10{% else %}border-green-500 bg-green-500/10{% endif %}">
+                                        <div class="flex items-center space-x-3">
+                                            <i class="fas {% if category == 'error' %}fa-exclamation-triangle text-red-400{% else %}fa-check-circle text-green-400{% endif %} text-xl"></i>
+                                            <p class="text-white">{{ message }}</p>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="POST" action="{{ url_for('book_session', mentor_id=mentor.id) }}" class="space-y-6">
+                        <div>
+                            <label for="topic" class="block text-sm font-medium text-gray-300 mb-3">
+                                Session Topic *
+                            </label>
+                            <input type="text" id="topic" name="topic" required
+                                   class="input-dark w-full px-4 py-3 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300"
+                                   placeholder="What would you like to learn?">
+                        </div>
+
+                        <div class="space-y-4">
+                            <div>
+                                <label for="scheduled_time" class="block text-sm font-medium text-gray-300 mb-3">
+                                    Date & Time *
+                                </label>
+                                <input type="datetime-local" id="scheduled_time" name="scheduled_time" required
+                                       class="input-dark w-full px-4 py-3 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300">
+                            </div>
+
+                            <div>
+                                <label for="duration" class="block text-sm font-medium text-gray-300 mb-3">
+                                    Duration
+                                </label>
+                                <select id="duration" name="duration"
+                                        class="input-dark w-full px-4 py-3 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300">
+                                    <option value="30">30 minutes</option>
+                                    <option value="45">45 minutes</option>
+                                    <option value="60" selected>60 minutes</option>
+                                    <option value="90">90 minutes</option>
+                                    <option value="120">120 minutes</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Info Box -->
+                        <div class="glass-effect p-6 rounded-2xl border border-blue-500/20">
+                            <div class="flex items-start space-x-3">
+                                <i class="fas fa-info-circle text-blue-400 text-xl mt-1"></i>
+                                <div>
+                                    <p class="text-sm text-blue-300 font-medium mb-1">Session Booking Info</p>
+                                    <p class="text-xs text-gray-400">
+                                        After booking, the mentor will confirm the session and provide a Google Meet link if available.
+                                        You'll be able to manage your session from the Sessions page.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="space-y-3">
+                            <button type="submit"
+                                    class="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-green-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105 shadow-lg">
+                                <i class="fas fa-calendar-check mr-3"></i>Book Session Now
+                            </button>
+                            <a href="{{ url_for('dashboard') }}"
+                               class="w-full glass-effect text-gray-300 py-4 px-6 rounded-xl font-semibold hover:bg-white/5 transition-all duration-300 text-center block">
+                                <i class="fas fa-times mr-3"></i>Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Mentor Stats Card -->
+                <div class="card-dark rounded-2xl p-6 hover-lift">
+                    <h3 class="text-lg font-bold text-white mb-4 flex items-center">
+                        <i class="fas fa-chart-line text-purple-400 mr-3"></i>
+                        Mentor Stats
+                    </h3>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between p-3 glass-effect rounded-xl">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-users text-blue-400"></i>
+                                </div>
+                                <span class="text-gray-400">Students Mentored</span>
+                            </div>
+                            <span class="font-bold text-blue-400 text-lg">25+</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 glass-effect rounded-xl">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-clock text-green-400"></i>
+                                </div>
+                                <span class="text-gray-400">Sessions Completed</span>
+                            </div>
+                            <span class="font-bold text-green-400 text-lg">100+</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 glass-effect rounded-xl">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-star text-purple-400"></i>
+                                </div>
+                                <span class="text-gray-400">Rating</span>
+                            </div>
+                            <span class="font-bold text-purple-400 text-lg">4.9/5</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900/80 border-t border-gray-800/50 mt-16 backdrop-blur-lg">
+        <div class="w-full py-8 px-8">
+            <div class="text-center text-gray-400 text-sm">
+                <p class="text-lg mb-2">🚀 SkillSync - Empowering Global Learning Communities</p>
+                <p>&copy; 2024 SkillSync. All rights reserved. Building the future of education, one connection at a time.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Set minimum datetime to current time
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        
+        const minDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+        document.getElementById('scheduled_time').min = minDateTime;
+
+        // Add some interactive elements
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add animation to skill tags
+            const skillTags = document.querySelectorAll('.glass-effect');
+            skillTags.forEach((tag, index) => {
+                tag.style.animationDelay = `${index * 0.1}s`;
+                tag.classList.add('animate-fade-in-up');
+            });
+        });
+    </script>
+
+    <style>
+        .animate-fade-in-up {
+            animation: fadeInUp 0.6s ease-out forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</body>
+</html>

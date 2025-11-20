@@ -1,89 +1,455 @@
-{% extends "base.html" %}
-
-{% block content %}
-<div class="max-w-7xl mx-auto">
-    <div class="mb-8">
-        <h1 class="text-4xl font-bold text-white mb-2">Hey {{ current_user.name }}! 👋</h1>
-        <p class="text-xl text-purple-100">Let's grow together today!</p>
-    </div>
-    
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div class="bg-white rounded-2xl p-6 shadow-xl card">
-            <h3 class="text-lg font-semibold text-gray-700 mb-2">Your Role</h3>
-            <p class="text-3xl font-bold text-purple-600">
-                {% if current_user.is_mentor %}Mentor{% else %}Learner{% endif %}
-            </p>
-        </div>
-        
-        <div class="bg-white rounded-2xl p-6 shadow-xl card">
-            <h3 class="text-lg font-semibold text-gray-700 mb-2">Active Skills</h3>
-            <p class="text-3xl font-bold text-purple-600">{{ skill_progress|length }}</p>
-        </div>
-        
-        <div class="bg-white rounded-2xl p-6 shadow-xl card">
-            <h3 class="text-lg font-semibold text-gray-700 mb-2">Upcoming Sessions</h3>
-            <p class="text-3xl font-bold text-purple-600">{{ upcoming_sessions|length }}</p>
-        </div>
-    </div>
-    
-    <div class="bg-white rounded-2xl p-6 shadow-xl mb-8 card">
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">Your Skills</h2>
-        <div class="flex flex-wrap gap-2">
-            {% for skill in current_user.get_skills_list() %}
-                <span class="bg-purple-100 text-purple-800 px-4 py-2 rounded-full font-semibold">{{ skill }}</span>
-            {% endfor %}
-        </div>
-    </div>
-    
-    <div class="bg-white rounded-2xl p-6 shadow-xl mb-8 card">
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">Your Goals</h2>
-        <div class="flex flex-wrap gap-2">
-            {% for goal in current_user.get_goals_list() %}
-                <span class="bg-green-100 text-green-800 px-4 py-2 rounded-full font-semibold">{{ goal }}</span>
-            {% endfor %}
-        </div>
-    </div>
-    
-    <div class="bg-white rounded-2xl p-6 shadow-xl card">
-        <h2 class="text-2xl font-bold text-gray-800 mb-6">
-            {% if current_user.is_mentor %}
-                Top Matched Learners
-            {% else %}
-                Recommended Mentors for You
-            {% endif %}
-        </h2>
-        
-        {% if matches %}
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {% for match in matches %}
-                    <div class="border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow">
-                        <div class="flex items-center justify-between mb-4">
-                            <h3 class="text-xl font-bold text-gray-800">{{ match.user.name }}</h3>
-                            <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
-                                {{ match.percentage }}% Match
-                            </span>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - SkillSync</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        .dark-gradient {
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+        }
+        .card-dark {
+            background: rgba(23, 25, 35, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        .nav-dark {
+            background: rgba(15, 17, 27, 0.98);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .progress-bg {
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .hover-lift:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .stats-gradient {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+        }
+    </style>
+</head>
+<body class="dark-gradient min-h-screen text-gray-200">
+    <!-- Navigation -->
+    <nav class="nav-dark shadow-2xl sticky top-0 z-50">
+        <div class="w-full px-8">
+            <div class="flex justify-between items-center py-5">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl">
+                        <i class="fas fa-sync-alt text-white text-xl"></i>
+                    </div>
+                    <span class="text-2xl font-bold text-white tracking-tight">SkillSync</span>
+                </div>
+                <div class="flex items-center space-x-8">
+                    <a href="{{ url_for('dashboard') }}" class="text-blue-400 font-semibold text-lg flex items-center space-x-2 px-4 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                        <i class="fas fa-home"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="{{ url_for('sessions') }}" class="text-gray-300 hover:text-blue-400 transition-all duration-300 text-lg flex items-center space-x-2 px-4 py-2 rounded-xl hover:bg-white/5">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span>Sessions</span>
+                    </a>
+                    <a href="{{ url_for('progress') }}" class="text-gray-300 hover:text-blue-400 transition-all duration-300 text-lg flex items-center space-x-2 px-4 py-2 rounded-xl hover:bg-white/5">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Progress</span>
+                    </a>
+                    <div class="flex items-center space-x-4">
+                        <div class="text-right">
+                            <p class="text-white font-medium text-lg">{{ current_user.name }}</p>
+                            <p class="text-gray-400 text-sm">
+                                {% if current_user.is_mentor %}
+                                    <span class="text-blue-400">Mentor</span>
+                                {% else %}
+                                    <span class="text-green-400">Learner</span>
+                                {% endif %}
+                            </p>
                         </div>
-                        
-                        <p class="text-gray-600 text-sm mb-4">{{ match.user.bio[:100] }}...</p>
-                        
-                        <div class="mb-4">
-                            <p class="text-sm font-semibold text-gray-700 mb-2">Skills:</p>
-                            <div class="flex flex-wrap gap-1">
-                                {% for skill in match.user.get_skills_list()[:3] %}
-                                    <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">{{ skill }}</span>
-                                {% endfor %}
+                        <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+                            {{ current_user.name[0] }}
+                        </div>
+                    </div>
+                    <a href="{{ url_for('logout') }}" class="text-gray-300 hover:text-red-400 transition-all duration-300 text-lg flex items-center space-x-2 px-4 py-2 rounded-xl hover:bg-red-500/10">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Background Animation -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute top-0 left-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div class="absolute bottom-0 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style="animation-delay: 2s;"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl animate-pulse" style="animation-delay: 1s;"></div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="w-full py-8 px-8 relative z-10">
+        <!-- Welcome Section -->
+        <div class="card-dark rounded-2xl p-8 mb-8 hover-lift">
+            <div class="flex items-center justify-between">
+                <div class="flex-1">
+                    <h1 class="text-4xl font-bold text-white mb-3">
+                        Welcome back, <span class="gradient-text">{{ current_user.name }}</span>! 
+                        {% if current_user.is_mentor %}
+                            <span class="text-blue-400 text-2xl ml-3">👨‍🏫 Mentor</span>
+                        {% else %}
+                            <span class="text-green-400 text-2xl ml-3">🎓 Learner</span>
+                        {% endif %}
+                    </h1>
+                    <p class="text-xl text-gray-400 mb-6">
+                        {% if current_user.is_mentor %}
+                            Share your knowledge and guide the next generation of learners.
+                        {% else %}
+                            Accelerate your growth with personalized mentorship and peer learning.
+                        {% endif %}
+                    </p>
+                    <div class="flex items-center space-x-6 text-gray-500">
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-calendar text-blue-400"></i>
+                            <span>{{ current_user.created_at.strftime('%B %d, %Y') }}</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-chart-line text-green-400"></i>
+                            <span>{{ skill_progress|length }} Skills Tracked</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-users text-purple-400"></i>
+                            <span>{{ matches|length }} Connections</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="stats-gradient rounded-2xl p-6 text-center">
+                        <p class="text-sm text-gray-400 mb-2">Member since</p>
+                        <p class="font-bold text-white text-2xl">{{ current_user.created_at.strftime('%B %Y') }}</p>
+                        <div class="w-16 h-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mx-auto mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mb-8">
+                    {% for category, message in messages %}
+                        <div class="card-dark rounded-2xl p-6 border-l-4 {% if category == 'error' %}border-red-500 bg-red-500/10{% else %}border-green-500 bg-green-500/10{% endif %}">
+                            <div class="flex items-center space-x-3">
+                                <i class="fas {% if category == 'error' %}fa-exclamation-triangle text-red-400{% else %}fa-check-circle text-green-400{% endif %} text-xl"></i>
+                                <p class="text-white text-lg">{{ message }}</p>
                             </div>
                         </div>
-                        
-                        <a href="{{ url_for('mentor_profile', mentor_id=match.user.id) }}" class="block w-full text-center bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700 font-semibold">
-                            View Profile
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="grid grid-cols-1 xl:grid-cols-4 gap-8">
+            <!-- Main Content Area -->
+            <div class="xl:col-span-3 space-y-8">
+                <!-- Community Section -->
+                <div class="card-dark rounded-2xl p-8 hover-lift">
+                    <div class="flex items-center justify-between mb-8">
+                        <h2 class="text-2xl font-bold text-white">
+                            {% if current_user.is_mentor %}
+                                <i class="fas fa-user-graduate text-green-400 mr-4 text-3xl"></i>
+                                Active Learners <span class="text-green-400">({{ matches|length }})</span>
+                            {% else %}
+                                <i class="fas fa-chalkboard-teacher text-blue-400 mr-4 text-3xl"></i>
+                                Available Mentors <span class="text-blue-400">({{ matches|length }})</span>
+                            {% endif %}
+                        </h2>
+                        <div class="flex items-center space-x-4">
+                            <span class="glass-effect text-blue-300 text-sm font-medium px-4 py-2 rounded-xl">
+                                {{ matches|length }} Total
+                            </span>
+                            <button class="glass-effect text-gray-300 hover:text-white transition duration-300 px-4 py-2 rounded-xl">
+                                <i class="fas fa-filter mr-2"></i>Filter
+                            </button>
+                        </div>
+                    </div>
+
+                    {% if matches %}
+                    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                        {% for user in matches %}
+                        <div class="glass-effect rounded-2xl p-6 hover:bg-white/5 transition-all duration-500 group">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">
+                                        {{ user.name[0] }}
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-white text-lg group-hover:text-blue-300 transition duration-300">{{ user.name }}</h3>
+                                        <span class="{% if current_user.is_mentor %}bg-green-500/20 text-green-300{% else %}bg-blue-500/20 text-blue-300{% endif %} text-xs px-3 py-1 rounded-full">
+                                            {% if current_user.is_mentor %}Learner{% else %}Mentor{% endif %}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-3 mb-4">
+                                <div>
+                                    <p class="text-sm text-gray-400 mb-1">Skills</p>
+                                    <p class="text-white text-sm font-medium">
+                                        {{ user.skills[:60] }}{% if user.skills|length > 60 %}...{% endif %}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-400 mb-1">Goals</p>
+                                    <p class="text-white text-sm">
+                                        {{ user.goals[:80] }}{% if user.goals|length > 80 %}...{% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            {% if user.bio %}
+                            <div class="mb-4">
+                                <p class="text-sm text-gray-500 italic">
+                                    "{{ user.bio[:120] }}{% if user.bio|length > 120 %}...{% endif %}"
+                                </p>
+                            </div>
+                            {% endif %}
+                            
+                            <div class="flex items-center justify-between text-sm text-gray-500 mb-4">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fas fa-envelope text-blue-400"></i>
+                                    <span class="text-xs">{{ user.email[:20] }}...</span>
+                                </div>
+                                {% if user.availability %}
+                                <div class="flex items-center space-x-2">
+                                    <i class="fas fa-clock text-green-400"></i>
+                                    <span class="text-xs">Available</span>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            {% if current_user.is_mentor %}
+                            <div class="text-center text-gray-500 text-sm py-2 border-t border-gray-700/50">
+                                <i class="fas fa-comment-alt mr-2"></i>Contact to schedule sessions
+                            </div>
+                            {% else %}
+                            <a href="{{ url_for('mentor_profile', mentor_id=user.id) }}" 
+                               class="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 px-4 rounded-xl text-sm font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 block text-center group">
+                                <i class="fas fa-eye mr-2"></i>View Profile & Book Session
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-12">
+                        <i class="fas fa-users text-gray-600 text-6xl mb-4"></i>
+                        <h3 class="text-2xl font-bold text-gray-400 mb-2">
+                            {% if current_user.is_mentor %}
+                                No Active Learners
+                            {% else %}
+                                No Available Mentors
+                            {% endif %}
+                        </h3>
+                        <p class="text-gray-500 text-lg">
+                            {% if current_user.is_mentor %}
+                                Encourage more learners to join the platform and start their journey!
+                            {% else %}
+                                Check back later for mentors matching your learning goals.
+                            {% endif %}
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Skills Progress -->
+                <div class="card-dark rounded-2xl p-8 hover-lift">
+                    <div class="flex items-center justify-between mb-8">
+                        <h2 class="text-2xl font-bold text-white">
+                            <i class="fas fa-chart-line text-purple-400 mr-4 text-3xl"></i>
+                            Skill Progress Tracker
+                        </h2>
+                        <span class="glass-effect text-purple-300 text-sm font-medium px-4 py-2 rounded-xl">
+                            {{ skill_progress|length }} Skills
+                        </span>
+                    </div>
+                    
+                    <div class="space-y-6">
+                        {% for skill in skill_progress %}
+                        <div class="flex items-center justify-between p-4 rounded-xl glass-effect hover:bg-white/5 transition duration-300">
+                            <div class="flex-1 mr-6">
+                                <div class="flex justify-between items-center mb-3">
+                                    <span class="text-lg font-semibold text-white">{{ skill.skill_name }}</span>
+                                    <span class="text-lg font-bold text-purple-400">{{ (skill.level * 100)|int }}%</span>
+                                </div>
+                                <div class="w-full progress-bg rounded-full h-3">
+                                    <div class="bg-gradient-to-r from-purple-500 to-pink-600 h-3 rounded-full transition-all duration-1000 ease-out" 
+                                         style="width: {{ skill.level * 100 }}%"></div>
+                                </div>
+                            </div>
+                            <form method="POST" action="{{ url_for('update_progress', skill_id=skill.id) }}" class="ml-4">
+                                <button type="submit" 
+                                        class="bg-gradient-to-r from-purple-600 to-pink-700 text-white px-4 py-2 rounded-xl text-sm font-medium hover:from-purple-700 hover:to-pink-800 transition-all duration-300 transform hover:scale-110 shadow-lg">
+                                    <i class="fas fa-plus mr-1"></i>10%
+                                </button>
+                            </form>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-8">
+                            <i class="fas fa-chart-line text-gray-600 text-4xl mb-3"></i>
+                            <h3 class="text-xl font-bold text-gray-400 mb-2">No Skills Tracked</h3>
+                            <p class="text-gray-500">Add skills to your profile to start tracking your progress journey.</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="space-y-8">
+                <!-- Upcoming Sessions -->
+                <div class="card-dark rounded-2xl p-6 hover-lift">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-bold text-white">
+                            <i class="fas fa-calendar-alt text-orange-400 mr-3 text-2xl"></i>
+                            Upcoming
+                        </h2>
+                        <a href="{{ url_for('sessions') }}" class="text-blue-400 text-sm font-medium hover:text-blue-300 transition duration-300">
+                            View All
                         </a>
                     </div>
-                {% endfor %}
+
+                    {% if upcoming_sessions %}
+                    <div class="space-y-4">
+                        {% for session in upcoming_sessions %}
+                        <div class="glass-effect rounded-xl p-4 hover:bg-white/5 transition duration-300 group">
+                            <div class="flex justify-between items-start mb-3">
+                                <h3 class="font-bold text-white text-sm group-hover:text-orange-300 transition duration-300">{{ session.topic }}</h3>
+                                <span class="bg-blue-500/20 text-blue-300 text-xs px-3 py-1 rounded-full font-medium">
+                                    {{ session.scheduled_time.strftime('%b %d') }}
+                                </span>
+                            </div>
+                            <p class="text-sm text-gray-400 mb-2">
+                                {% if session.mentor_id == current_user.id %}
+                                With: <strong class="text-green-400">{{ session.learner.name }}</strong>
+                                {% else %}
+                                With: <strong class="text-blue-400">{{ session.mentor.name }}</strong>
+                                {% endif %}
+                            </p>
+                            <p class="text-xs text-gray-500 mb-3 font-medium">
+                                {{ session.scheduled_time.strftime('%I:%M %p') }} • {{ session.duration_minutes }}min
+                            </p>
+                            {% if session.meet_link %}
+                            <a href="{{ session.meet_link }}" target="_blank" class="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-2 px-3 rounded-lg text-xs font-medium hover:from-orange-600 hover:to-orange-700 transition-all duration-300 text-center block">
+                                <i class="fas fa-video mr-2"></i>Join Meeting
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-6">
+                        <i class="fas fa-calendar-times text-gray-600 text-3xl mb-3"></i>
+                        <p class="text-gray-400 text-sm font-medium">No upcoming sessions</p>
+                        {% if not current_user.is_mentor %}
+                        <a href="{{ url_for('dashboard') }}" class="text-blue-400 text-xs hover:text-blue-300 transition duration-300 inline-block mt-2">
+                            Book your first session
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="card-dark rounded-2xl p-6 hover-lift">
+                    <h2 class="text-xl font-bold text-white mb-6">
+                        <i class="fas fa-chart-bar text-green-400 mr-3 text-2xl"></i>
+                        Quick Stats
+                    </h2>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center p-4 bg-gradient-to-r from-blue-500/10 to-blue-600/10 rounded-xl border border-blue-500/20">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-code text-blue-400"></i>
+                                </div>
+                                <span class="text-gray-400 font-medium">Skills</span>
+                            </div>
+                            <span class="font-bold text-blue-400 text-xl">{{ skill_progress|length }}</span>
+                        </div>
+                        <div class="flex justify-between items-center p-4 bg-gradient-to-r from-green-500/10 to-green-600/10 rounded-xl border border-green-500/20">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-calendar text-green-400"></i>
+                                </div>
+                                <span class="text-gray-400 font-medium">Sessions</span>
+                            </div>
+                            <span class="font-bold text-green-400 text-xl">{{ upcoming_sessions|length }}</span>
+                        </div>
+                        <div class="flex justify-between items-center p-4 bg-gradient-to-r from-purple-500/10 to-purple-600/10 rounded-xl border border-purple-500/20">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-users text-purple-400"></i>
+                                </div>
+                                <span class="text-gray-400 font-medium">
+                                    {% if current_user.is_mentor %}Learners{% else %}Mentors{% endif %}
+                                </span>
+                            </div>
+                            <span class="font-bold text-purple-400 text-xl">{{ matches|length }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="card-dark rounded-2xl p-6 hover-lift">
+                    <h2 class="text-xl font-bold text-white mb-6">
+                        <i class="fas fa-bolt text-yellow-400 mr-3 text-2xl"></i>
+                        Quick Actions
+                    </h2>
+                    <div class="space-y-3">
+                        <a href="{{ url_for('progress') }}" 
+                           class="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 px-4 rounded-xl text-sm font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 shadow-lg block text-center">
+                            <i class="fas fa-chart-line mr-2"></i>View Progress
+                        </a>
+                        <a href="{{ url_for('sessions') }}" 
+                           class="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-3 px-4 rounded-xl text-sm font-medium hover:from-green-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105 shadow-lg block text-center">
+                            <i class="fas fa-calendar-alt mr-2"></i>Manage Sessions
+                        </a>
+                        {% if current_user.is_mentor %}
+                        <a href="{{ url_for('provide_meet_link') }}" 
+                           class="w-full bg-gradient-to-r from-purple-500 to-purple-600 text-white py-3 px-4 rounded-xl text-sm font-medium hover:from-purple-600 hover:to-purple-700 transition-all duration-300 transform hover:scale-105 shadow-lg block text-center">
+                            <i class="fas fa-video mr-2"></i>Share Meet Link
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
-        {% else %}
-            <p class="text-gray-600">No matches found yet. Try updating your skills and goals!</p>
-        {% endif %}
+        </div>
     </div>
-</div>
-{% endblock %}
+
+    <!-- Footer -->
+    <footer class="bg-gray-900/80 border-t border-gray-800/50 mt-16 backdrop-blur-lg">
+        <div class="w-full py-8 px-8">
+            <div class="text-center text-gray-400 text-sm">
+                <p class="text-lg mb-2">🚀 SkillSync - Empowering Global Learning Communities</p>
+                <p>&copy; 2024 SkillSync. All rights reserved. Building the future of education, one connection at a time.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

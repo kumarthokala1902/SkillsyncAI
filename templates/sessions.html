@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Sessions - SkillSync</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        .dark-gradient {
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+        }
+        .card-dark {
+            background: rgba(23, 25, 35, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        .nav-dark {
+            background: rgba(15, 17, 27, 0.98);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .hover-lift:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .status-scheduled { background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.2)); border: 1px solid rgba(59, 130, 246, 0.3); }
+        .status-completed { background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(22, 163, 74, 0.2)); border: 1px solid rgba(34, 197, 94, 0.3); }
+        .status-cancelled { background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.2)); border: 1px solid rgba(239, 68, 68, 0.3); }
+    </style>
+</head>
+<body class="dark-gradient min-h-screen text-gray-200">
+    <!-- Navigation -->
+    <nav class="nav-dark shadow-2xl sticky top-0 z-50">
+        <div class="w-full px-8">
+            <div class="flex justify-between items-center py-5">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl">
+                        <i class="fas fa-sync-alt text-white text-xl"></i>
+                    </div>
+                    <span class="text-2xl font-bold text-white tracking-tight">SkillSync</span>
+                </div>
+                <div class="flex items-center space-x-8">
+                    <a href="{{ url_for('dashboard') }}" class="text-gray-300 hover:text-blue-400 transition-all duration-300 text-lg flex items-center space-x-2 px-4 py-2 rounded-xl hover:bg-white/5">
+                        <i class="fas fa-home"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="{{ url_for('sessions') }}" class="text-blue-400 font-semibold text-lg flex items-center space-x-2 px-4 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span>Sessions</span>
+                    </a>
+                    <a href="{{ url_for('progress') }}" class="text-gray-300 hover:text-blue-400 transition-all duration-300 text-lg flex items-center space-x-2 px-4 py-2 rounded-xl hover:bg-white/5">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Progress</span>
+                    </a>
+                    <div class="flex items-center space-x-4">
+                        <div class="text-right">
+                            <p class="text-white font-medium text-lg">{{ current_user.name }}</p>
+                            <p class="text-gray-400 text-sm">
+                                {% if current_user.is_mentor %}
+                                    <span class="text-blue-400">Mentor</span>
+                                {% else %}
+                                    <span class="text-green-400">Learner</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+                            {{ current_user.name[0] }}
+                        </div>
+                    </div>
+                    <a href="{{ url_for('logout') }}" class="text-gray-300 hover:text-red-400 transition-all duration-300 text-lg flex items-center space-x-2 px-4 py-2 rounded-xl hover:bg-red-500/10">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Background Animation -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute top-0 left-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div class="absolute bottom-0 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style="animation-delay: 2s;"></div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="w-full py-8 px-8 relative z-10">
+        <!-- Header -->
+        <div class="card-dark rounded-2xl p-8 mb-8 hover-lift">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-4xl font-bold text-white mb-3">
+                        <span class="gradient-text">My Sessions</span>
+                        <span class="text-2xl ml-4 text-gray-400">
+                            {% if current_user.is_mentor %}
+                                👨‍🏫 Mentor Portal
+                            {% else %}
+                                🎓 Learning Journey
+                            {% endif %}
+                        </span>
+                    </h1>
+                    <p class="text-xl text-gray-400">
+                        Manage your mentoring sessions and track upcoming meetings with detailed insights
+                    </p>
+                </div>
+                <div class="text-right">
+                    <div class="glass-effect rounded-2xl p-6 text-center">
+                        <p class="text-sm text-gray-400 mb-2">Total Active Sessions</p>
+                        <p class="font-bold text-white text-3xl">
+                            {{ (mentor_sessions if current_user.is_mentor else [])|length + learner_sessions|length }}
+                        </p>
+                        <div class="w-16 h-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mx-auto mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mb-8">
+                    {% for category, message in messages %}
+                        <div class="card-dark rounded-2xl p-6 border-l-4 {% if category == 'error' %}border-red-500 bg-red-500/10{% else %}border-green-500 bg-green-500/10{% endif %}">
+                            <div class="flex items-center space-x-3">
+                                <i class="fas {% if category == 'error' %}fa-exclamation-triangle text-red-400{% else %}fa-check-circle text-green-400{% endif %} text-xl"></i>
+                                <p class="text-white text-lg">{{ message }}</p>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+            <!-- Mentor Sessions Section -->
+            {% if current_user.is_mentor %}
+            <div class="card-dark rounded-2xl p-8 hover-lift">
+                <div class="flex items-center justify-between mb-8">
+                    <h2 class="text-2xl font-bold text-white">
+                        <i class="fas fa-chalkboard-teacher text-blue-400 mr-4 text-3xl"></i>
+                        Sessions I'm Mentoring
+                        <span class="text-blue-400 text-lg ml-2">({{ mentor_sessions|length }})</span>
+                    </h2>
+                    <span class="glass-effect text-blue-300 text-sm font-medium px-4 py-2 rounded-xl">
+                        {{ mentor_sessions|length }} total
+                    </span>
+                </div>
+
+                {% if mentor_sessions %}
+                <div class="space-y-6">
+                    {% for session in mentor_sessions %}
+                    <div class="glass-effect rounded-2xl p-6 hover:bg-white/5 transition-all duration-500 group">
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="flex-1">
+                                <h3 class="font-bold text-white text-xl group-hover:text-blue-300 transition duration-300 mb-2">
+                                    {{ session.topic }}
+                                </h3>
+                                <div class="flex items-center space-x-4 text-sm text-gray-400">
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-8 h-8 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center">
+                                            <i class="fas fa-user text-white text-xs"></i>
+                                        </div>
+                                        <div>
+                                            <p class="text-white font-medium">{{ session.learner.name }}</p>
+                                            <p class="text-gray-500 text-xs">{{ session.learner.email }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <span class="px-4 py-2 text-sm font-medium rounded-xl status-{{ session.status }}">
+                                {{ session.status|title }}
+                            </span>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div class="flex items-center space-x-3 p-3 glass-effect rounded-xl">
+                                <i class="fas fa-clock text-blue-400 text-lg"></i>
+                                <div>
+                                    <p class="text-white font-medium text-sm">{{ session.scheduled_time.strftime('%b %d, %Y') }}</p>
+                                    <p class="text-gray-400 text-xs">{{ session.scheduled_time.strftime('%I:%M %p') }}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-3 p-3 glass-effect rounded-xl">
+                                <i class="fas fa-stopwatch text-green-400 text-lg"></i>
+                                <div>
+                                    <p class="text-white font-medium text-sm">Duration</p>
+                                    <p class="text-gray-400 text-xs">{{ session.duration_minutes }} minutes</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if session.meet_link %}
+                        <div class="mb-4">
+                            <a href="{{ session.meet_link }}" target="_blank" 
+                               class="inline-flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 px-4 rounded-xl text-sm font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-300">
+                                <i class="fas fa-video"></i>
+                                <span>Join Google Meet</span>
+                            </a>
+                        </div>
+                        {% endif %}
+
+                        {% if session.status == 'scheduled' %}
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <form method="POST" action="{{ url_for('update_session_status', session_id=session.id) }}">
+                                <input type="hidden" name="status" value="completed">
+                                <button type="submit" 
+                                        class="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-3 px-4 rounded-xl text-sm font-medium hover:from-green-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105">
+                                    <i class="fas fa-check mr-2"></i>Mark Complete
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ url_for('update_session_status', session_id=session.id) }}">
+                                <input type="hidden" name="status" value="cancelled">
+                                <button type="submit" 
+                                        class="w-full bg-gradient-to-r from-red-500 to-red-600 text-white py-3 px-4 rounded-xl text-sm font-medium hover:from-red-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105">
+                                    <i class="fas fa-times mr-2"></i>Cancel
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <!-- Add Meet Link Form -->
+                        <form method="POST" action="{{ url_for('update_session_status', session_id=session.id) }}" class="mt-4">
+                            <div class="flex space-x-3">
+                                <input type="text" name="meet_link" 
+                                       placeholder="Paste Google Meet link here..."
+                                       class="flex-1 glass-effect border border-gray-600 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <button type="submit" 
+                                        class="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-3 px-6 rounded-xl text-sm font-medium hover:from-purple-600 hover:to-purple-700 transition-all duration-300 transform hover:scale-105">
+                                    <i class="fas fa-link mr-2"></i>Add Link
+                                </button>
+                            </div>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-12">
+                    <i class="fas fa-calendar-times text-gray-600 text-6xl mb-4"></i>
+                    <h3 class="text-2xl font-bold text-gray-400 mb-2">No Mentoring Sessions</h3>
+                    <p class="text-gray-500 text-lg">You don't have any scheduled mentoring sessions yet.</p>
+                    <p class="text-gray-400 text-sm mt-2">Learners will be able to book sessions with you once you're available.</p>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Learner Sessions Section -->
+            <div class="card-dark rounded-2xl p-8 hover-lift">
+                <div class="flex items-center justify-between mb-8">
+                    <h2 class="text-2xl font-bold text-white">
+                        <i class="fas fa-user-graduate text-green-400 mr-4 text-3xl"></i>
+                        Sessions I'm Attending
+                        <span class="text-green-400 text-lg ml-2">({{ learner_sessions|length }})</span>
+                    </h2>
+                    <span class="glass-effect text-green-300 text-sm font-medium px-4 py-2 rounded-xl">
+                        {{ learner_sessions|length }} total
+                    </span>
+                </div>
+
+                {% if learner_sessions %}
+                <div class="space-y-6">
+                    {% for session in learner_sessions %}
+                    <div class="glass-effect rounded-2xl p-6 hover:bg-white/5 transition-all duration-500 group">
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="flex-1">
+                                <h3 class="font-bold text-white text-xl group-hover:text-green-300 transition duration-300 mb-2">
+                                    {{ session.topic }}
+                                </h3>
+                                <div class="flex items-center space-x-4 text-sm text-gray-400">
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                                            <i class="fas fa-chalkboard-teacher text-white text-xs"></i>
+                                        </div>
+                                        <div>
+                                            <p class="text-white font-medium">{{ session.mentor.name }}</p>
+                                            <p class="text-gray-500 text-xs">{{ session.mentor.email }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <span class="px-4 py-2 text-sm font-medium rounded-xl status-{{ session.status }}">
+                                {{ session.status|title }}
+                            </span>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div class="flex items-center space-x-3 p-3 glass-effect rounded-xl">
+                                <i class="fas fa-clock text-blue-400 text-lg"></i>
+                                <div>
+                                    <p class="text-white font-medium text-sm">{{ session.scheduled_time.strftime('%b %d, %Y') }}</p>
+                                    <p class="text-gray-400 text-xs">{{ session.scheduled_time.strftime('%I:%M %p') }}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-3 p-3 glass-effect rounded-xl">
+                                <i class="fas fa-stopwatch text-green-400 text-lg"></i>
+                                <div>
+                                    <p class="text-white font-medium text-sm">Duration</p>
+                                    <p class="text-gray-400 text-xs">{{ session.duration_minutes }} minutes</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if session.meet_link %}
+                        <div class="mb-4">
+                            <a href="{{ session.meet_link }}" target="_blank" 
+                               class="inline-flex items-center space-x-2 bg-gradient-to-r from-green-500 to-green-600 text-white py-3 px-4 rounded-xl text-sm font-medium hover:from-green-600 hover:to-green-700 transition-all duration-300">
+                                <i class="fas fa-video"></i>
+                                <span>Join Google Meet</span>
+                            </a>
+                        </div>
+                        {% endif %}
+
+                        {% if session.status == 'scheduled' %}
+                        <div class="flex space-x-3">
+                            <form method="POST" action="{{ url_for('update_session_status', session_id=session.id) }}" class="flex-1">
+                                <input type="hidden" name="status" value="cancelled">
+                                <button type="submit" 
+                                        class="w-full bg-gradient-to-r from-red-500 to-red-600 text-white py-3 px-4 rounded-xl text-sm font-medium hover:from-red-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105">
+                                    <i class="fas fa-times mr-2"></i>Cancel Session
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
+
+                        {% if session.status == 'completed' %}
+                        <div class="mt-4 p-4 bg-gradient-to-r from-green-500/10 to-green-600/10 rounded-xl border border-green-500/20">
+                            <div class="flex items-center space-x-2 text-green-400">
+                                <i class="fas fa-check-circle"></i>
+                                <span class="text-sm font-medium">Session completed successfully!</span>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-12">
+                    <i class="fas fa-calendar-times text-gray-600 text-6xl mb-4"></i>
+                    <h3 class="text-2xl font-bold text-gray-400 mb-2">No Learning Sessions</h3>
+                    <p class="text-gray-500 text-lg">You don't have any scheduled learning sessions yet.</p>
+                    {% if not current_user.is_mentor %}
+                    <a href="{{ url_for('dashboard') }}" 
+                       class="inline-block mt-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 px-6 rounded-xl text-sm font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:scale-105">
+                        <i class="fas fa-search mr-2"></i>Find a Mentor
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12">
+            <div class="card-dark rounded-2xl p-6 text-center hover-lift">
+                <div class="w-16 h-16 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-clock text-white text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-bold text-white mb-2">Scheduled</h3>
+                <p class="text-3xl font-bold text-blue-400">
+                    {{ (mentor_sessions if current_user.is_mentor else [])|selectattr('status', 'equalto', 'scheduled')|list|length + 
+                       learner_sessions|selectattr('status', 'equalto', 'scheduled')|list|length }}
+                </p>
+            </div>
+            <div class="card-dark rounded-2xl p-6 text-center hover-lift">
+                <div class="w-16 h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-check-circle text-white text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-bold text-white mb-2">Completed</h3>
+                <p class="text-3xl font-bold text-green-400">
+                    {{ (mentor_sessions if current_user.is_mentor else [])|selectattr('status', 'equalto', 'completed')|list|length + 
+                       learner_sessions|selectattr('status', 'equalto', 'completed')|list|length }}
+                </p>
+            </div>
+            <div class="card-dark rounded-2xl p-6 text-center hover-lift">
+                <div class="w-16 h-16 bg-gradient-to-r from-red-500 to-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-times-circle text-white text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-bold text-white mb-2">Cancelled</h3>
+                <p class="text-3xl font-bold text-red-400">
+                    {{ (mentor_sessions if current_user.is_mentor else [])|selectattr('status', 'equalto', 'cancelled')|list|length + 
+                       learner_sessions|selectattr('status', 'equalto', 'cancelled')|list|length }}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900/80 border-t border-gray-800/50 mt-16 backdrop-blur-lg">
+        <div class="w-full py-8 px-8">
+            <div class="text-center text-gray-400 text-sm">
+                <p class="text-lg mb-2">🚀 SkillSync - Empowering Global Learning Communities</p>
+                <p>&copy; 2024 SkillSync. All rights reserved. Building the future of education, one connection at a time.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
