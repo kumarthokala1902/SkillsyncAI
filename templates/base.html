@@ -1,69 +1,119 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}SkillSync{% endblock %}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        .gradient-card {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        }
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            transition: transform 0.2s;
-        }
-        .btn-primary:hover {
-            transform: translateY(-2px);
-        }
-        .card {
-            animation: fadeIn 0.5s ease-in;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}SkillSync{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Beautiful Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #7f5af0 0%, #2cb67d 100%);
+      min-height: 100vh;
+      color: #1a1a1a;
+    }
+
+    /* Navbar */
+    nav {
+      backdrop-filter: blur(10px);
+      background: rgba(255, 255, 255, 0.8);
+    }
+
+    /* Smooth Buttons */
+    .btn-primary {
+      background: linear-gradient(135deg, #7f5af0 0%, #2cb67d 100%);
+      color: white;
+      padding: 0.5rem 1.5rem;
+      border-radius: 9999px;
+      font-weight: 600;
+      transition: all 0.25s ease-in-out;
+      box-shadow: 0 4px 10px rgba(127, 90, 240, 0.3);
+    }
+    .btn-primary:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 20px rgba(127, 90, 240, 0.4);
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      color: white;
+      padding: 0.5rem 1.5rem;
+      border-radius: 9999px;
+      font-weight: 600;
+      transition: all 0.25s ease-in-out;
+      box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);
+    }
+    .btn-danger:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
+    }
+
+    /* Cards / Containers */
+    .gradient-card {
+      background: linear-gradient(135deg, #f9fafb 0%, #e0e7ff 100%);
+      border-radius: 1rem;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+      transition: transform 0.3s ease;
+    }
+    .gradient-card:hover {
+      transform: translateY(-5px);
+    }
+
+    /* Animations */
+    .card {
+      animation: fadeIn 0.6s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
 </head>
 <body>
-    <nav class="bg-white shadow-lg">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center">
-                    <a href="{{ url_for('index') }}" class="text-2xl font-bold text-purple-600">SkillSync</a>
-                </div>
-                <div class="flex items-center space-x-4">
-                    {% if current_user.is_authenticated %}
-                        <a href="{{ url_for('dashboard') }}" class="text-gray-700 hover:text-purple-600">Dashboard</a>
-                        <a href="{{ url_for('progress') }}" class="text-gray-700 hover:text-purple-600">Progress</a>
-                        <span class="text-gray-700">Hey, {{ current_user.name }}!</span>
-                        <a href="{{ url_for('logout') }}" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600">Logout</a>
-                    {% else %}
-                        <a href="{{ url_for('login') }}" class="text-gray-700 hover:text-purple-600">Login</a>
-                        <a href="{{ url_for('register') }}" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">Get Started</a>
-                    {% endif %}
-                </div>
-            </div>
+  <!-- Navbar -->
+  <nav class="shadow-lg sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between h-16 items-center">
+        <a href="{{ url_for('index') }}" class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-green-400">
+          SkillSync
+        </a>
+
+        <div class="flex items-center space-x-6">
+          {% if current_user.is_authenticated %}
+            <a href="{{ url_for('dashboard') }}" class="text-gray-800 hover:text-purple-600 font-medium">Dashboard</a>
+            <a href="{{ url_for('progress') }}" class="text-gray-800 hover:text-purple-600 font-medium">Progress</a>
+            <a href="{{ url_for('peer_learning') }}" class="text-gray-800 hover:text-purple-600 font-medium">Peer Learning</a>
+            <a href="{{ url_for('provide_meet_link') }}" class="text-gray-800 hover:text-purple-600 font-medium">Meet</a>
+            <span class="text-gray-800 font-medium">👋 Hey, {{ current_user.name }}!</span>
+            <a href="{{ url_for('logout') }}" class="btn-danger">Logout</a>
+          {% else %}
+            <a href="{{ url_for('login') }}" class="text-gray-800 hover:text-purple-600 font-medium">Login</a>
+            <a href="{{ url_for('register') }}" class="btn-primary">Get Started</a>
+          {% endif %}
         </div>
-    </nav>
-
-    <div class="container mx-auto px-4 py-8">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="mb-4 p-4 rounded-lg {% if category == 'error' %}bg-red-100 text-red-700{% elif category == 'success' %}bg-green-100 text-green-700{% else %}bg-blue-100 text-blue-700{% endif %}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        {% block content %}{% endblock %}
+      </div>
     </div>
+  </nav>
+
+  <!-- Flash messages -->
+  <div class="container mx-auto px-4 py-8">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="mb-4 p-4 rounded-lg 
+              {% if category == 'error' %}bg-red-100 text-red-700{% elif category == 'success' %}bg-green-100 text-green-700{% else %}bg-blue-100 text-blue-700{% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </div>
 </body>
 </html>

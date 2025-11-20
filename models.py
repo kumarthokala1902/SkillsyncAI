@@ -17,8 +17,20 @@ class User(UserMixin, db.Model):
     availability = db.Column(db.String(200), default='')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    skill_progress = db.relationship('SkillProgress', backref='user', lazy=True)
-    mentor_sessions = db.relationship('MentorSession', foreign_keys='MentorSession.learner_id', backref='learner', lazy=True)
+    # Relationships
+    skill_progress = db.relationship('SkillProgress', backref='user', lazy=True, cascade='all, delete-orphan')
+    
+    # Sessions where user is a mentor
+    sessions_mentoring = db.relationship('MentorSession', 
+                                       foreign_keys='MentorSession.mentor_id', 
+                                       backref='mentor', 
+                                       lazy=True)
+    
+    # Sessions where user is a learner
+    sessions_learning = db.relationship('MentorSession', 
+                                      foreign_keys='MentorSession.learner_id', 
+                                      backref='learner', 
+                                      lazy=True)
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -31,6 +43,9 @@ class User(UserMixin, db.Model):
     
     def get_goals_list(self):
         return [g.strip() for g in self.goals.split(',') if g.strip()]
+    
+    def __repr__(self):
+        return f'<User {self.name} ({self.email})>'
 
 class SkillProgress(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -42,6 +57,9 @@ class SkillProgress(db.Model):
     def update_progress(self, increment=0.1):
         self.level = min(1.0, self.level + increment)
         self.last_updated = datetime.utcnow()
+    
+    def __repr__(self):
+        return f'<SkillProgress {self.skill_name}: {self.level}>'
 
 class MentorSession(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -50,7 +68,12 @@ class MentorSession(db.Model):
     scheduled_time = db.Column(db.DateTime, nullable=False)
     duration_minutes = db.Column(db.Integer, default=30)
     topic = db.Column(db.String(200), nullable=False)
-    status = db.Column(db.String(20), default='scheduled')
+    status = db.Column(db.String(20), default='scheduled')  # scheduled, completed, cancelled
+    meet_link = db.Column(db.String(500))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    notes = db.Column(db.Text, default='')
+    feedback = db.Column(db.Text, default='')
     
-    mentor = db.relationship('User', foreign_keys=[mentor_id], backref='sessions_as_mentor')
+    def __repr__(self):
+        return f'<MentorSession {self.topic} ({self.status})>'

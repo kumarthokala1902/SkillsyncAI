@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LearnHub - Peer Learning Platform</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3a0ca3;
+            --accent: #4cc9f0;
+            --success: #4bb543;
+            --danger: #e63946;
+            --warning: #ff9e00;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --gray: #6c757d;
+            --light-gray: #e9ecef;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: var(--dark);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: white;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+            padding: 15px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        
+        .logo i {
+            font-size: 1.8rem;
+        }
+        
+        nav ul {
+            display: flex;
+            list-style: none;
+            gap: 25px;
+        }
+        
+        nav a {
+            text-decoration: none;
+            color: var(--dark);
+            font-weight: 500;
+            transition: all 0.3s;
+            padding: 8px 15px;
+            border-radius: 8px;
+        }
+        
+        nav a:hover, nav a.active {
+            color: var(--primary);
+            background: rgba(67, 97, 238, 0.1);
+        }
+        
+        .hero {
+            text-align: center;
+            padding: 80px 20px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            margin: 40px 0;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+        }
+        
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: var(--primary);
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .hero p {
+            font-size: 1.3rem;
+            color: var(--gray);
+            max-width: 800px;
+            margin: 0 auto 40px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 14px 30px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
+        }
+        
+        .btn:hover {
+            background: var(--secondary);
+            transform: translateY(-3px);
+            box-shadow: 0 7px 20px rgba(67, 97, 238, 0.4);
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(67, 97, 238, 0.1);
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin: 60px 0;
+        }
+        
+        .feature-card {
+            background: white;
+            padding: 40px 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+            text-align: center;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.12);
+        }
+        
+        .feature-icon {
+            font-size: 3rem;
+            color: var(--primary);
+            margin-bottom: 25px;
+        }
+        
+        .feature-card h3 {
+            margin-bottom: 15px;
+            color: var(--dark);
+            font-size: 1.5rem;
+        }
+        
+        .form-container {
+            background: white;
+            padding: 50px 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            max-width: 700px;
+            margin: 40px auto;
+            position: relative;
+        }
+        
+        .form-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            border-radius: 20px 20px 0 0;
+        }
+        
+        .form-container h2 {
+            text-align: center;
+            margin-bottom: 40px;
+            color: var(--primary);
+            font-size: 2rem;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid var(--light-gray);
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+        
+        .chatbot-container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 420px;
+            height: 600px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            overflow: hidden;
+            transform: translateY(100%);
+            opacity: 0;
+            transition: all 0.4s;
+        }
+        
+        .chatbot-container.active {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        
+        .chatbot-header {
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .chatbot-header h3 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.3rem;
+        }
+        
+        .close-chatbot {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+        
+        .close-chatbot:hover {
+            transform: scale(1.2);
+        }
+        
+        .chatbot-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .message {
+            max-width: 85%;
+            padding: 15px 20px;
+            border-radius: 18px;
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+        
+        .bot-message {
+            align-self: flex-start;
+            background: var(--light-gray);
+            border-bottom-left-radius: 5px;
+        }
+        
+        .user-message {
+            align-self: flex-end;
+            background: var(--primary);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .chatbot-input {
+            display: flex;
+            padding: 20px;
+            border-top: 1px solid var(--light-gray);
+            background: #f9f9f9;
+        }
+        
+        .chatbot-input input {
+            flex: 1;
+            border: 2px solid var(--light-gray);
+            border-radius: 25px;
+            padding: 15px 20px;
+            margin-right: 10px;
+            background: white;
+        }
+        
+        .send-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 10px rgba(67, 97, 238, 0.3);
+        }
+        
+        .send-btn:hover {
+            background: var(--secondary);
+            transform: scale(1.05);
+        }
+        
+        .send-btn:disabled {
+            background: var(--gray);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .chatbot-toggle {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            box-shadow: 0 8px 25px rgba(67, 97, 238, 0.4);
+            cursor: pointer;
+            z-index: 999;
+            transition: all 0.3s;
+        }
+        
+        .chatbot-toggle:hover {
+            transform: scale(1.1);
+            box-shadow: 0 12px 30px rgba(67, 97, 238, 0.5);
+        }
+        
+        .section-title {
+            text-align: center;
+            margin: 60px 0 30px;
+            color: var(--primary);
+            font-size: 2.2rem;
+        }
+        
+        footer {
+            background: var(--dark);
+            color: white;
+            padding: 60px 0 30px;
+            margin-top: auto;
+        }
+        
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+        }
+        
+        .footer-section h3 {
+            margin-bottom: 25px;
+            font-size: 1.4rem;
+            color: white;
+        }
+        
+        .footer-section p {
+            color: #bbb;
+            line-height: 1.7;
+        }
+        
+        .footer-section ul {
+            list-style: none;
+        }
+        
+        .footer-section ul li {
+            margin-bottom: 12px;
+        }
+        
+        .footer-section a {
+            color: #bbb;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        
+        .footer-section a:hover {
+            color: white;
+        }
+        
+        .footer-contact li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .copyright {
+            text-align: center;
+            margin-top: 50px;
+            padding-top: 25px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            color: #999;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            padding: 20px 30px;
+            background: var(--success);
+            color: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            z-index: 1001;
+            transform: translateX(150%);
+            transition: transform 0.4s;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+        
+        .notification.error {
+            background: var(--danger);
+        }
+        
+        .notification i {
+            font-size: 1.5rem;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 22px;
+            height: 22px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 18px;
+            background: var(--light-gray);
+            border-radius: 18px;
+            align-self: flex-start;
+            max-width: 80px;
+            margin-bottom: 5px;
+        }
+        
+        .typing-dot {
+            width: 10px;
+            height: 10px;
+            background: var(--gray);
+            border-radius: 50%;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+        
+        .typing-dot:nth-child(1) { animation-delay: 0s; }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-7px); }
+        }
+        
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 20px;
+            }
+            
+            nav ul {
+                gap: 15px;
+            }
+            
+            .hero h1 {
+                font-size: 2.2rem;
+            }
+            
+            .hero p {
+                font-size: 1.1rem;
+            }
+            
+            .chatbot-container {
+                width: 100%;
+                height: 100%;
+                bottom: 0;
+                right: 0;
+                border-radius: 0;
+            }
+            
+            .features {
+                grid-template-columns: 1fr;
+            }
+            
+            .form-container {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-graduation-cap"></i>
+                    <span>LearnHub</span>
+                </div>
+                <nav>
+                    <ul>
+                        <li><a href="#" class="active">Home</a></li>
+                        <li><a href="#">Courses</a></li>
+                        <li><a href="#">Mentors</a></li>
+                        <li><a href="#">Resources</a></li>
+                        <li><a href="#">About</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <section class="hero">
+            <h1>Transform Your Learning Experience</h1>
+            <p>Connect with expert mentors, schedule personalized sessions, and get AI-powered assistance for all your educational needs.</p>
+            <a href="#meet-form" class="btn">Schedule a Session</a>
+            <a href="#chatbot" class="btn btn-secondary">Ask AI Assistant</a>
+        </section>
+
+        <section class="features">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-video"></i>
+                </div>
+                <h3>Virtual Sessions</h3>
+                <p>Connect with mentors through Google Meet for personalized learning experiences tailored to your needs.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <h3>AI Study Assistant</h3>
+                <p>Get instant help with your studies using our advanced AI assistant powered by cutting-edge technology.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <h3>Peer Collaboration</h3>
+                <p>Join study groups, share knowledge, and learn together in our collaborative educational environment.</p>
+            </div>
+        </section>
+
+        <h2 class="section-title" id="meet-form">Schedule Your Learning Session</h2>
+        <div class="form-container">
+            <h2>Connect with a Mentor</h2>
+            <form id="meetLinkForm" method="POST">
+                <div class="form-group">
+                    <label for="mentor_name">Your Name</label>
+                    <input type="text" id="mentor_name" name="mentor_name" placeholder="Enter your full name" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Participant Email</label>
+                    <input type="email" id="email" name="email" placeholder="Enter participant's email address" required>
+                </div>
+                <div class="form-group">
+                    <label for="student_level">Student Level</label>
+                    <select id="student_level" name="student_level" required>
+                        <option value="">Select Education Level</option>
+                        <option value="high_school">High School</option>
+                        <option value="undergraduate">Undergraduate</option>
+                        <option value="graduate">Graduate</option>
+                        <option value="professional">Professional</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="meet_link">Google Meet Link</label>
+                    <input type="url" id="meet_link" name="meet_link" placeholder="Paste your Google Meet link here" required>
+                </div>
+                <div class="form-group">
+                    <label for="session_topic">Session Topic</label>
+                    <input type="text" id="session_topic" name="session_topic" placeholder="What subject will you be teaching?" required>
+                </div>
+                <div class="form-group">
+                    <label for="session_date">Session Date & Time</label>
+                    <input type="datetime-local" id="session_date" name="session_date" required>
+                </div>
+                <button class="btn" type="submit" id="submit-btn" style="width: 100%;">
+                    <span id="btn-text">Schedule Session & Send Invitation</span>
+                    <span id="btn-loading" class="loading" style="display: none;"></span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="chatbot-container" id="chatbot">
+        <div class="chatbot-header">
+            <h3><i class="fas fa-robot"></i> LearnHub AI Assistant</h3>
+            <button class="close-chatbot">&times;</button>
+        </div>
+        <div class="chatbot-messages" id="chatbot-messages">
+            <div class="message bot-message">
+                Hello! I'm your AI learning assistant. I can help explain concepts, provide study tips, answer questions, and assist with various academic subjects. What would you like to learn about today?
+            </div>
+        </div>
+        <div class="chatbot-input">
+            <input type="text" id="user-input" placeholder="Ask me anything about your studies...">
+            <button class="send-btn" id="send-btn">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="chatbot-toggle" id="chatbot-toggle">
+        <i class="fas fa-robot"></i>
+    </div>
+
+    <div class="notification" id="notification">
+        <i class="fas fa-check-circle"></i>
+        <span id="notification-text">Meeting invitation sent successfully!</span>
+    </div>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>LearnHub</h3>
+                    <p>Empowering students worldwide through innovative learning technologies, personalized mentorship, and AI-powered educational assistance.</p>
+                </div>
+                <div class="footer-section">
+                    <h3>Quick Links</h3>
+                    <ul>
+                        <li><a href="#">Home</a></li>
+                        <li><a href="#">Courses</a></li>
+                        <li><a href="#">Mentors</a></li>
+                        <li><a href="#">Resources</a></li>
+                        <li><a href="#">Contact Us</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>Contact Us</h3>
+                    <ul class="footer-contact">
+                        <li><i class="fas fa-envelope"></i> support@learnhub.com</li>
+                        <li><i class="fas fa-phone"></i> +1 (555) 123-4567</li>
+                        <li><i class="fas fa-map-marker-alt"></i> 123 Education Blvd, LearnCity</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="copyright">
+                &copy; 2023 LearnHub. All rights reserved.
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Chatbot functionality with Hugging Face integration
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatbotToggle = document.getElementById('chatbot-toggle');
+            const chatbotContainer = document.getElementById('chatbot');
+            const closeChatbot = document.querySelector('.close-chatbot');
+            const sendBtn = document.getElementById('send-btn');
+            const userInput = document.getElementById('user-input');
+            const chatbotMessages = document.getElementById('chatbot-messages');
+            const notification = document.getElementById('notification');
+            const notificationText = document.getElementById('notification-text');
+            
+            // Chat history for context
+            let chatHistory = [
+                { role: 'system', content: 'You are a helpful and knowledgeable AI learning assistant. Provide detailed, educational responses to help students with their studies. Be encouraging and supportive.' }
+            ];
+            
+            // Toggle chatbot visibility
+            chatbotToggle.addEventListener('click', function() {
+                chatbotContainer.classList.toggle('active');
+                if (chatbotContainer.classList.contains('active')) {
+                    userInput.focus();
+                }
+            });
+            
+            closeChatbot.addEventListener('click', function() {
+                chatbotContainer.classList.remove('active');
+            });
+            
+            // Send message function
+            async function sendMessage() {
+                const message = userInput.value.trim();
+                if (message === '') return;
+                
+                // Add user message to chat
+                addMessage(message, 'user');
+                userInput.value = '';
+                sendBtn.disabled = true;
+                
+                // Show typing indicator
+                const typingIndicator = showTypingIndicator();
+                
+                try {
+                    // Call Hugging Face API
+                    const response = await queryHuggingFace(message);
+                    
+                    // Remove typing indicator
+                    typingIndicator.remove();
+                    
+                    // Add bot response
+                    addMessage(response, 'bot');
+                    
+                    // Update chat history
+                    chatHistory.push({ role: 'user', content: message });
+                    chatHistory.push({ role: 'assistant', content: response });
+                    
+                    // Keep only last 8 messages for context (plus system message)
+                    if (chatHistory.length > 9) {
+                        chatHistory = [chatHistory[0], ...chatHistory.slice(-8)];
+                    }
+                } catch (error) {
+                    console.error('Error calling Hugging Face API:', error);
+                    
+                    // Remove typing indicator
+                    typingIndicator.remove();
+                    
+                    // Fallback response if API fails
+                    addMessage("I'm having trouble connecting to my knowledge base right now. Please try again in a moment, or try rephrasing your question.", 'bot');
+                } finally {
+                    sendBtn.disabled = false;
+                    userInput.focus();
+                }
+            }
+            
+            // Query Hugging Face API
+            async function queryHuggingFace(message) {
+                // In a real implementation, you would call your backend API
+                // which would then call Hugging Face with your API key
+                
+                // For demo purposes, we'll simulate API response with a timeout
+                // and some intelligent responses based on the message content
+                
+                return new Promise((resolve) => {
+                    setTimeout(() => {
+                        // This is a simulated response - in reality you'd get this from the API
+                        const lowerMessage = message.toLowerCase();
+                        
+                        // Contextual responses based on message content
+                        let response;
+                        
+                        if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
+                            response = "Hello! I'm your AI learning assistant. I can help explain concepts, provide study tips, answer questions, and assist with various academic subjects. What would you like to learn about today?";
+                        } else if (lowerMessage.includes('math') || lowerMessage.includes('calculus') || lowerMessage.includes('algebra')) {
+                            const mathType = lowerMessage.includes('calculus') ? "calculus" : 
+                                           lowerMessage.includes('algebra') ? "algebra" : "math";
+                            response = `For ${mathType}, I recommend focusing on understanding the fundamental concepts first. `;
+                            
+                            if (mathType === 'calculus') {
+                                response += "Calculus deals with rates of change (derivatives) and accumulation (integrals). Start with limits and continuity before moving to derivatives. Practice with real-world applications to build intuition.";
+                            } else if (mathType === 'algebra') {
+                                response += "Algebra is about relationships between variables. Master solving equations, working with functions, and understanding graphs. Practice problems regularly to build confidence.";
+                            } else {
+                                response += "Mathematics develops logical thinking and problem-solving skills. Break complex problems into smaller steps, and don't hesitate to revisit basic concepts when needed.";
+                            }
+                            
+                            response += " Would you like me to explain a specific concept or help with a particular problem?";
+                        } else if (lowerMessage.includes('science') || lowerMessage.includes('physics') || lowerMessage.includes('chemistry') || lowerMessage.includes('biology')) {
+                            const scienceType = lowerMessage.includes('physics') ? "physics" : 
+                                              lowerMessage.includes('chemistry') ? "chemistry" : 
+                                              lowerMessage.includes('biology') ? "biology" : "science";
+                            response = `${scienceType.charAt(0).toUpperCase() + scienceType.slice(1)} helps us understand the natural world. `;
+                            
+                            if (scienceType === 'physics') {
+                                response += "Physics explores matter, energy, and their interactions. Focus on understanding fundamental principles like Newton's laws and conservation laws before tackling more complex topics.";
+                            } else if (scienceType === 'chemistry') {
+                                response += "Chemistry studies matter and its transformations. Start with atomic structure and periodic trends, then move to bonding and reactions. Practice balancing equations and understanding reaction mechanisms.";
+                            } else if (scienceType === 'biology') {
+                                response += "Biology is the study of life. Begin with cell structure and function, then explore genetics, evolution, and ecology. Use diagrams and models to visualize complex biological processes.";
+                            } else {
+                                response += "The scientific method involves observation, hypothesis formation, experimentation, and conclusion. Always question, test, and verify your understanding.";
+                            }
+                            
+                            response += " What specific concept in " + scienceType + " are you studying?";
+                        } else if (lowerMessage.includes('programming') || lowerMessage.includes('coding') || lowerMessage.includes('computer science')) {
+                            response = "Programming is a valuable skill that develops computational thinking. Start with basic concepts like variables, data types, and control structures. ";
+                            
+                            if (lowerMessage.includes('python')) {
+                                response += "Python is great for beginners with its readable syntax. Focus on understanding lists, dictionaries, functions, and basic algorithms before moving to more advanced topics.";
+                            } else if (lowerMessage.includes('javascript')) {
+                                response += "JavaScript is essential for web development. Learn about variables, functions, DOM manipulation, and asynchronous programming. Practice building small projects to reinforce your learning.";
+                            } else if (lowerMessage.includes('java')) {
+                                response += "Java teaches object-oriented programming principles. Understand classes, objects, inheritance, and polymorphism. Pay attention to data structures and algorithms as you progress.";
+                            } else {
+                                response += "Choose a language that aligns with your goals (Python for data science, JavaScript for web development, etc.). Practice regularly and build projects to apply your knowledge.";
+                            }
+                            
+                            response += " What programming language or concept are you working on?";
+                        } else if (lowerMessage.includes('study tip') || lowerMessage.includes('how to study') || lowerMessage.includes('learning technique')) {
+                            response = "Effective learning strategies can dramatically improve your results:\n\n";
+                            response += "• **Active Recall**: Test yourself instead of passively rereading material\n";
+                            response += "• **Spaced Repetition**: Review information at increasing intervals\n";
+                            response += "• **Interleaving**: Mix different subjects or topics during study sessions\n";
+                            response += "• **Elaboration**: Explain concepts in your own words and connect them to what you already know\n";
+                            response += "• **Concrete Examples**: Use specific examples to understand abstract concepts\n";
+                            response += "• **Dual Coding**: Combine verbal and visual representations of information\n\n";
+                            response += "Which technique would you like to explore further, or do you have a specific study challenge?";
+                        } else if (lowerMessage.includes('ai') || lowerMessage.includes('machine learning') || lowerMessage.includes('artificial intelligence')) {
+                            response = "Artificial Intelligence is a fascinating field! Here's a brief overview:\n\n";
+                            response += "• **Machine Learning**: Algorithms that learn patterns from data without explicit programming\n";
+                            response += "• **Neural Networks**: Inspired by the human brain, used for complex pattern recognition\n";
+                            response += "• **Natural Language Processing**: How computers understand and generate human language\n";
+                            response += "• **Computer Vision**: Enabling machines to interpret visual information\n\n";
+                            response += "AI has applications in healthcare, education, transportation, and many other fields. Would you like to know more about a specific AI concept or application?";
+                        } else if (lowerMessage.includes('thank')) {
+                            response = "You're welcome! I'm here to help with all your learning questions. Remember that consistent practice and curiosity are key to mastering any subject. Is there anything else you'd like to know?";
+                        } else {
+                            response = "That's an interesting question! As your learning assistant, I can help with:\n\n";
+                            response += "• Explaining complex concepts in simpler terms\n";
+                            response += "• Providing study strategies and learning techniques\n";
+                            response += "• Answering specific questions about various subjects\n";
+                            response += "• Helping with problem-solving approaches\n\n";
+                            response += "Could you provide more details about what you're studying or what specific help you need?";
+                        }
+                        
+                        resolve(response);
+                    }, 2000);
+                });
+                
+                // Real implementation would look like this:
+                /*
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        history: chatHistory
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('API request failed');
+                }
+                
+                const data = await response.json();
+                return data.reply;
+                */
+            }
+            
+            // Show typing indicator
+            function showTypingIndicator() {
+                const typingElement = document.createElement('div');
+                typingElement.classList.add('typing-indicator');
+                typingElement.innerHTML = `
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                `;
+                chatbotMessages.appendChild(typingElement);
+                chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
+                return typingElement;
+            }
+            
+            // Send message on button click
+            sendBtn.addEventListener('click', sendMessage);
+            
+            // Send message on Enter key
+            userInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+            
+            // Add message to chat
+            function addMessage(text, sender) {
+                const messageElement = document.createElement('div');
+                messageElement.classList.add('message');
+                messageElement.classList.add(sender === 'user' ? 'user-message' : 'bot-message');
+                messageElement.textContent = text;
+                chatbotMessages.appendChild(messageElement);
+                chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
+                return messageElement;
+            }
+            
+            // Form submission handling
+            const meetLinkForm = document.getElementById('meetLinkForm');
+            const submitBtn = document.getElementById('submit-btn');
+            const btnText = document.getElementById('btn-text');
+            const btnLoading = document.getElementById('btn-loading');
+            
+            meetLinkForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                // Get form values
+                const mentorName = document.getElementById('mentor_name').value;
+                const email = document.getElementById('email').value;
+                const studentLevel = document.getElementById('student_level').value;
+                const meetLink = document.getElementById('meet_link').value;
+                const sessionTopic = document.getElementById('session_topic').value;
+                const sessionDate = document.getElementById('session_date').value;
+                
+                // Validate email
+                if (!isValidEmail(email)) {
+                    showNotification('Please enter a valid email address', 'error');
+                    return;
+                }
+                
+                // Validate Google Meet link
+                if (!isValidMeetLink(meetLink)) {
+                    showNotification('Please enter a valid Google Meet link', 'error');
+                    return;
+                }
+                
+                // Show loading state
+                btnText.style.display = 'none';
+                btnLoading.style.display = 'inline-block';
+                submitBtn.disabled = true;
+                
+                try {
+                    // Send meeting invitation via email
+                    await sendMeetingInvitation(email, mentorName, sessionTopic, sessionDate, meetLink, studentLevel);
+                    
+                    // Show success notification
+                    showNotification(`Meeting invitation sent successfully to ${email}! The participant should receive the details shortly.`);
+                    
+                    // Reset form
+                    meetLinkForm.reset();
+                } catch (error) {
+                    console.error('Error sending invitation:', error);
+                    showNotification('Failed to send invitation. Please check your connection and try again.', 'error');
+                } finally {
+                    // Reset button state
+                    btnText.style.display = 'inline-block';
+                    btnLoading.style.display = 'none';
+                    submitBtn.disabled = false;
+                }
+            });
+            
+            // Email validation
+            function isValidEmail(email) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return emailRegex.test(email);
+            }
+            
+            // Google Meet link validation
+            function isValidMeetLink(link) {
+                return link.includes('meet.google.com') || link.startsWith('https://');
+            }
+            
+            // Send meeting invitation via email
+            async function sendMeetingInvitation(email, mentorName, topic, date, link, level) {
+                // In a real implementation, you would call your backend API
+                // which would then send the email using a service like SendGrid, Mailgun, etc.
+                
+                return new Promise((resolve, reject) => {
+                    setTimeout(() => {
+                        // Simulate API call with 90% success rate
+                        if (Math.random() > 0.1) {
+                            console.log(`Meeting invitation sent to: ${email}`);
+                            console.log(`Mentor: ${mentorName}`);
+                            console.log(`Topic: ${topic}`);
+                            console.log(`Date: ${new Date(date).toLocaleString()}`);
+                            console.log(`Level: ${level}`);
+                            console.log(`Link: ${link}`);
+                            
+                            // Simulate email content
+                            const emailContent = `
+                                Dear Student,
+                                
+                                You have been invited to a learning session through LearnHub!
+                                
+                                Mentor: ${mentorName}
+                                Topic: ${topic}
+                                Date: ${new Date(date).toLocaleString()}
+                                Level: ${level}
+                                
+                                Join the session using this link: ${link}
+                                
+                                Please make sure to:
+                                - Test your audio/video before the session
+                                - Have any necessary materials ready
+                                - Join 5 minutes early if possible
+                                
+                                We hope you have a productive learning session!
+                                
+                                Best regards,
+                                The LearnHub Team
+                            `;
+                            
+                            console.log("Email content:", emailContent);
+                            resolve();
+                        } else {
+                            reject(new Error('Email service temporarily unavailable'));
+                        }
+                    }, 2500);
+                });
+            }
+            
+            // Show notification
+            function showNotification(message, type = 'success') {
+                notificationText.textContent = message;
+                if (type === 'error') {
+                    notification.classList.add('error');
+                    notification.querySelector('i').className = 'fas fa-exclamation-circle';
+                } else {
+                    notification.classList.remove('error');
+                    notification.querySelector('i').className = 'fas fa-check-circle';
+                }
+                notification.classList.add('show');
+                
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                }, 5000);
+            }
+        });
+    </script>
+</body>
+</html>
