@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: skill-pod-final
+  labels:
+    app: skill-app
+spec:
+  containers:
+    - name: skill-sync-container
+      image: kumarreddy1902/skill-sync-image:latest
+      ports:
+        - containerPort: 5005
+

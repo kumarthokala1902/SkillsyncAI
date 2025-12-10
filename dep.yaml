@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: deployment
+metadata:
+  name: skill-deployment
+  labels:
+    app: skill-dep
+spec:
+  replicas: 2
+  selector:
+    matchLables:
+      app: skill-dep
+  template:
+    metadata:
+      labels:
+        app: skill-dep
+    spec:
+      containers:
+      - name: skill-deployment
+        image: kumarreddy1902/skill-sync-image
+      ports:
+      - containerPort: 80
