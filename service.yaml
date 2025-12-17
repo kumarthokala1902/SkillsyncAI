@@ -3,13 +3,12 @@ kind: Service
 metadata:
   name: skillsync-service
   labels:
-    app: skillsync
+    app: skill-pod-final 
 spec:
-  type: NodePort 
+  type: ClusterIP 
   selector:
-    app: skill-app
+    app: skill-pod-final
   ports:
     - port: 80
       targetPort: 5000
-      protocol: TCP
-  
+      protocol: TCP 
