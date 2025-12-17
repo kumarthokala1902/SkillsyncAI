@@ -1,13 +1,20 @@
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: skill-pod-final
-  labels:
-    app: skill-app
 spec:
-  containers:
-    - name: skill-sync-container
-      image: kumarreddy1902/skill-sync-image:latest
-      ports:
-        - containerPort: 5005
+  replicas: 3
+  selector:
+    matchLabels:
+      app: skill-pod-final
+  template:
+    metadata:
+      labels:
+        app: skill-pod-final
+    spec:
+      containers:
+        - name: skillsync-container
+          image: kumarreddy1902/skill-sync-image:latest
+          ports:
+            - containerPort: 5000
 
