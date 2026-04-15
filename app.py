@@ -2047,6 +2047,27 @@ def admin_users():
     all_users = User.query.order_by(User.created_at.desc()).all()
     return render_template('admin_users.html', all_users=all_users)
 
+@app.route('/admin/user/<int:user_id>/profile')
+@login_required
+@admin_required
+def admin_user_profile(user_id):
+    """Detailed profile view for administrators."""
+    user = User.query.get_or_404(user_id)
+    
+    # Aggregate Engagement Stats
+    stats = {
+        'total_posts': Post.query.filter_by(user_id=user.id).count(),
+        'total_sessions': MentorSession.query.filter(
+            (MentorSession.mentor_id == user.id) | (MentorSession.learner_id == user.id)
+        ).count(),
+        'peer_connections': PeerConnection.query.filter(
+            (PeerConnection.sender_id == user.id) | (PeerConnection.receiver_id == user.id)
+        ).count(),
+        'notifications': Notification.query.filter_by(user_id=user.id).count()
+    }
+    
+    return render_template('admin_user_profile.html', user=user, stats=stats)
+
 @app.route('/admin/posts')
 @login_required
 @admin_required

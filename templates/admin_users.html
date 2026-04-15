@@ -37,7 +37,14 @@
                                 {{ user.name[0] }}
                             </div>
                             <div>
-                                <p class="text-sm font-bold text-white">{{ user.name }}</p>
+                                <p class="text-sm font-bold text-white flex items-center gap-1">
+                                    <a href="{{ url_for('admin_user_profile', user_id=user.id) }}" class="hover:text-indigo-400 transition-colors">
+                                        {{ user.name }}
+                                    </a>
+                                    {% if user.is_verified %}
+                                    <i class="fas fa-check-circle text-blue-500 text-xs" title="Verified"></i>
+                                    {% endif %}
+                                </p>
                                 <p class="text-[10px] text-slate-500">{{ user.email }}</p>
                             </div>
                         </div>

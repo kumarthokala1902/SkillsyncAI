@@ -25,14 +25,18 @@
     <div class="flex h-screen overflow-hidden">
         <!-- Sidebar -->
         <aside class="sidebar w-64 flex-shrink-0 flex flex-col z-50">
-            <div class="p-8">
+            <!-- Brand Area (Fixed) -->
+            <div class="p-8 pb-0">
                 <div class="flex items-center gap-3 mb-10">
                     <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/30">
                         <i class="fas fa-shield-halved text-white text-xl"></i>
                     </div>
                     <span class="text-xl font-black tracking-tight">SKILL<span class="text-indigo-400">SYNC</span></span>
                 </div>
+            </div>
 
+            <!-- Scrollable Nav Area -->
+            <div class="flex-1 overflow-y-auto custom-scrollbar px-6 py-4">
                 <nav class="space-y-1">
                     <p class="text-[10px] uppercase tracking-widest font-black text-slate-500 mb-4 ml-2">Main Controls</p>
                     
@@ -50,6 +54,10 @@
 
                     <a href="{{ url_for('admin_peer') }}" class="nav-link flex items-center gap-4 px-4 py-3 rounded-xl text-slate-400 font-bold text-sm {% if request.endpoint == 'admin_peer' %}active text-white{% endif %}">
                         <i class="fas fa-user-friends text-lg"></i> Peer Learning
+                    </a>
+
+                    <a href="{{ url_for('admin_verification') }}" class="nav-link flex items-center gap-4 px-4 py-3 rounded-xl text-slate-400 font-bold text-sm {% if request.endpoint == 'admin_verification' %}active text-white{% endif %}">
+                        <i class="fas fa-check-double text-lg"></i> Verifications
                     </a>
 
                     <a href="{{ url_for('admin_recordings') }}" class="nav-link flex items-center gap-4 px-4 py-3 rounded-xl text-slate-400 font-bold text-sm {% if request.endpoint == 'admin_recordings' %}active text-white{% endif %}">
