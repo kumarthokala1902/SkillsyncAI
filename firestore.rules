@@ -1,0 +1,99 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper functions ──────────────────────────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function currentUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && currentUserRole() == 'admin';
+    }
+
+    function isMentor() {
+      return isAuthenticated() && currentUserRole() in ['admin', 'mentor'];
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ── Users collection ─────────────────────────────────────────────────
+    // • Any authenticated user can read their own doc
+    // • Admin can read/write/delete all user docs
+    // • User can update their own (but not change role or isBlocked)
+    // • Only admin can delete user docs
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+
+      allow create: if isOwner(userId)
+                    && request.resource.data.role in ['student', 'mentor'];
+
+      allow update: if isAdmin()
+                    || (isOwner(userId)
+                        && !("role" in request.resource.data.diff(resource.data).affectedKeys())
+                        && !("isBlocked" in request.resource.data.diff(resource.data).affectedKeys()));
+
+      allow delete: if isAdmin();
+    }
+
+    // ── Groups collection ─────────────────────────────────────────────────
+    // • Members can read; admin and mentors can create/update their own groups
+    // • Only admin can delete
+    match /groups/{groupId} {
+      allow read: if isAuthenticated()
+                  && (request.auth.uid in resource.data.members || isMentor());
+
+      allow create: if isMentor();
+
+      allow update: if isAdmin()
+                    || (isMentor()
+                        && resource.data.createdBy == request.auth.uid);
+
+      allow delete: if isAdmin();
+    }
+
+    // ── Messages collection ───────────────────────────────────────────────
+    // • Any authenticated user can read messages
+    // • Sender can create their own messages
+    // • Only admin can delete (content moderation)
+    match /messages/{messageId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isAuthenticated()
+                    && request.resource.data.senderId == request.auth.uid;
+
+      allow update: if isAdmin()
+                    || (isAuthenticated()
+                        && resource.data.senderId == request.auth.uid);
+
+      allow delete: if isAdmin();
+    }
+
+    // ── Events collection ─────────────────────────────────────────────────
+    // • Any authenticated user can read events
+    // • Host (mentor/admin) can create and update their own events
+    // • Only admin can delete
+    match /events/{eventId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isMentor();
+
+      allow update: if isAdmin()
+                    || (isMentor()
+                        && resource.data.hostId == request.auth.uid);
+
+      allow delete: if isAdmin();
+    }
+
+    // ── Default: deny everything else ────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

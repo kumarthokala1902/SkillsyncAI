@@ -1,0 +1,120 @@
+{% extends 'admin_base.html' %}
+{% block title %}Peer Learning Monitor – SkillSync Admin{% endblock %}
+
+{% block header_title %}Session Oversight{% endblock %}
+
+{% block admin_content %}
+<div class="glass-card rounded-[2.5rem] overflow-hidden">
+    <div class="p-8 border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h3 class="font-black text-white tracking-tight">Peer Connections</h3>
+            <p class="text-xs text-slate-500 mt-1">Monitor active, pending and completed learning sessions</p>
+        </div>
+        <div class="relative">
+            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-sm"></i>
+            <input type="text" oninput="filterTable('peer-table', this.value)" placeholder="Search by topic or user..." 
+                class="bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 w-full md:w-64 transition-all">
+        </div>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-left" id="peer-table">
+            <thead>
+                <tr class="text-[10px] uppercase font-black tracking-widest text-slate-500 border-b border-white/5">
+                    <th class="px-8 py-4">Participants</th>
+                    <th class="px-8 py-4">Topic</th>
+                    <th class="px-8 py-4">Status</th>
+                    <th class="px-8 py-4">Scheduled For</th>
+                    <th class="px-8 py-4 text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-white/5">
+                {% for session in all_sessions %}
+                <tr class="hover:bg-white/[0.02] transition-colors group" id="row-peer-{{ session.id }}">
+                    <td class="px-8 py-5">
+                        <div class="flex items-center gap-3">
+                            <div class="flex -space-x-3">
+                                <div class="w-8 h-8 rounded-lg bg-indigo-500/20 border-2 border-[#0b0f19] flex items-center justify-center text-indigo-400 font-black text-[10px]" title="Sender: {{ session.sender.name }}">
+                                    {{ session.sender.name[0] }}
+                                </div>
+                                <div class="w-8 h-8 rounded-lg bg-purple-500/20 border-2 border-[#0b0f19] flex items-center justify-center text-purple-400 font-black text-[10px]" title="Receiver: {{ session.receiver.name }}">
+                                    {{ session.receiver.name[0] }}
+                                </div>
+                            </div>
+                            <div class="text-[10px] text-slate-500 font-bold">
+                                <span class="text-white">{{ session.sender.name }}</span> & <span class="text-white">{{ session.receiver.name }}</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-8 py-5">
+                        <p class="text-sm font-bold text-slate-200">{{ session.topic }}</p>
+                    </td>
+                    <td class="px-8 py-5">
+                        <span class="text-[10px] font-black px-2 py-1 rounded-lg border 
+                            {% if session.status == 'Accepted' %}bg-green-500/10 border-green-500/20 text-green-400
+                            {% elif session.status == 'Pending' %}bg-yellow-500/10 border-yellow-500/20 text-yellow-400
+                            {% elif session.status == 'Completed' %}bg-blue-500/10 border-blue-500/20 text-blue-400
+                            {% else %}bg-red-500/10 border-red-500/20 text-red-400{% endif %} uppercase tracking-widest">
+                            {{ session.status }}
+                        </span>
+                    </td>
+                    <td class="px-8 py-5">
+                        <p class="text-[10px] text-slate-500 font-bold">{{ session.scheduled_at.strftime('%d %b, %H:%M') if session.scheduled_at else 'TBD' }}</p>
+                    </td>
+                    <td class="px-8 py-5">
+                        <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {% if session.status in ['Pending', 'Accepted'] %}
+                            <button onclick="cancelSession({{ session.id }})" 
+                                class="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all">
+                                Cancel
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="toast" class="fixed bottom-10 right-10 z-[100] transform translate-y-20 opacity-0 transition-all duration-500">
+    <div class="glass-card px-6 py-4 rounded-2xl flex items-center gap-4 shadow-2xl">
+        <div id="toast-icon" class="w-8 h-8 rounded-full flex items-center justify-center"></div>
+        <p id="toast-msg" class="text-sm font-bold text-white"></p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showToast(msg, ok=true) {
+    const t = document.getElementById('toast');
+    const m = document.getElementById('toast-msg');
+    const i = document.getElementById('toast-icon');
+    m.textContent = msg;
+    i.className = `w-8 h-8 rounded-full flex items-center justify-center ${ok ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`;
+    i.innerHTML = `<i class="fas ${ok ? 'fa-check' : 'fa-times'}"></i>`;
+    t.classList.remove('translate-y-20', 'opacity-0');
+    setTimeout(() => { t.classList.add('translate-y-20', 'opacity-0'); }, 3000);
+}
+
+async function cancelSession(id) {
+    if(!confirm('Force cancel this learning session?')) return;
+    const res = await fetch(`/admin/peer/cancel/${id}`, { method: 'POST' });
+    const data = await res.json();
+    if(data.success) {
+        showToast(data.message);
+        setTimeout(() => location.reload(), 1000);
+    }
+}
+
+function filterTable(tableId, query) {
+    const rows = document.querySelectorAll(`#${tableId} tbody tr`);
+    const q = query.toLowerCase();
+    rows.forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

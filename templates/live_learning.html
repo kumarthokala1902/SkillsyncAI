@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+
+{% block title %}Live Learning – SkillSync{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Skeleton loader ────────────────────────────────────── */
+.skeleton { background: linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.08) 50%,rgba(255,255,255,.04) 75%); background-size:200% 100%; animation:skel 1.5s infinite; border-radius:.75rem; }
+@keyframes skel{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* ── Meeting Card ───────────────────────────────────────── */
+.meet-card { background:rgba(23,25,35,.97); border:1px solid rgba(255,255,255,.07); border-radius:1.25rem; padding:1.5rem; transition:transform .25s,box-shadow .25s,border-color .25s; }
+.meet-card:hover { transform:translateY(-3px); box-shadow:0 12px 40px rgba(0,0,0,.35); }
+.meet-card.is-live { border-color:rgba(239,68,68,.35); box-shadow:0 0 0 1px rgba(239,68,68,.12),0 8px 32px rgba(0,0,0,.3); }
+.meet-card.is-upcoming { border-color:rgba(99,102,241,.2); }
+.meet-card.is-completed { opacity:.65; }
+
+/* ── Status Badges ──────────────────────────────────────── */
+.badge { display:inline-flex; align-items:center; gap:.3rem; padding:.3rem .75rem; border-radius:9999px; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
+.badge-live { background:rgba(239,68,68,.15); color:#fca5a5; border:1px solid rgba(239,68,68,.3); }
+.badge-upcoming { background:rgba(99,102,241,.12); color:#a5b4fc; border:1px solid rgba(99,102,241,.25); }
+.badge-completed { background:rgba(34,197,94,.08); color:#86efac; border:1px solid rgba(34,197,94,.2); }
+.badge-cancelled { background:rgba(107,114,128,.1); color:#9ca3af; border:1px solid rgba(107,114,128,.2); }
+
+/* ── Pulse (live indicator) ─────────────────────────────── */
+@keyframes pulse-ring { 0%{box-shadow:0 0 0 0 rgba(239,68,68,.5)} 70%{box-shadow:0 0 0 8px rgba(239,68,68,0)} 100%{box-shadow:0 0 0 0 rgba(239,68,68,0)} }
+.live-dot { width:10px; height:10px; border-radius:50%; background:#ef4444; animation:pulse-ring 1.5s infinite; }
+
+/* ── Join Button ────────────────────────────────────────── */
+.join-btn { width:100%; padding:.7rem 1rem; border-radius:.85rem; font-weight:700; font-size:.9rem; text-align:center; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:.5rem; cursor:pointer; border:none; }
+.join-btn.live { background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; box-shadow:0 4px 20px rgba(239,68,68,.35); }
+.join-btn.live:hover { transform:scale(1.03); box-shadow:0 6px 28px rgba(239,68,68,.45); }
+.join-btn.upcoming { background:rgba(99,102,241,.1); color:#818cf8; border:1px solid rgba(99,102,241,.25); cursor:not-allowed; }
+.join-btn.remind { background:rgba(251,191,36,.08); color:#fbbf24; border:1px solid rgba(251,191,36,.2); }
+.join-btn.remind:hover { background:rgba(251,191,36,.14); }
+.join-btn.completed { background:rgba(255,255,255,.05); color:#6b7280; cursor:default; }
+
+/* ── Filter Bar ─────────────────────────────────────────── */
+.filter-pill { padding:.5rem 1.1rem; border-radius:999px; font-size:.82rem; font-weight:600; cursor:pointer; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.03); color:#94a3b8; transition:all .2s; }
+.filter-pill:hover,.filter-pill.active { background:rgba(99,102,241,.15); color:#818cf8; border-color:rgba(99,102,241,.3); }
+
+/* ── Section separator ──────────────────────────────────── */
+.section-sep { display:flex; align-items:center; gap:1rem; margin:2rem 0 1.25rem; }
+.section-sep::before,.section-sep::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.06); }
+.section-sep span { font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#475569; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="flex items-center justify-between mb-6 flex-wrap gap-4">
+    <div>
+        <h1 class="text-3xl font-bold text-white flex items-center gap-3">
+            <span class="w-10 h-10 bg-gradient-to-r from-red-500 to-orange-500 rounded-xl flex items-center justify-center">
+                <i class="fas fa-broadcast-tower text-white text-lg"></i>
+            </span>
+            Live Learning
+        </h1>
+        <p class="text-gray-400 mt-1 text-sm">Join real-time sessions hosted by your mentors</p>
+    </div>
+    <div class="flex items-center gap-2 text-sm text-gray-500">
+        <div class="live-dot"></div>
+        <span id="live-count-label">Loading…</span>
+    </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="flex flex-wrap gap-2 mb-6" id="filter-bar">
+    <button class="filter-pill active" onclick="setFilter('all', this)">All Sessions</button>
+    <button class="filter-pill" onclick="setFilter('live', this)"><span class="w-2 h-2 bg-red-400 rounded-full inline-block mr-1"></span>Live Now</button>
+    <button class="filter-pill" onclick="setFilter('upcoming', this)">Upcoming</button>
+    <button class="filter-pill" onclick="setFilter('completed', this)">Completed</button>
+    <div class="ml-auto flex gap-2">
+        <select id="skill-filter" onchange="renderCards(allMeetings)" class="bg-white/5 border border-white/10 text-gray-300 text-sm rounded-xl px-3 py-2 outline-none">
+            <option value="">All Skills</option>
+            <option>Python</option><option>JavaScript</option><option>DSA</option>
+            <option>Machine Learning</option><option>DevOps</option><option>React</option>
+            <option>Java</option><option>Cloud</option><option>General</option>
+        </select>
+        <select id="lang-filter" onchange="renderCards(allMeetings)" class="bg-white/5 border border-white/10 text-gray-300 text-sm rounded-xl px-3 py-2 outline-none">
+            <option value="">All Languages</option>
+            <option>English</option><option>Tamil</option><option>Hindi</option>
+            <option>Telugu</option><option>Kannada</option><option>Malayalam</option>
+        </select>
+    </div>
+</div>
+
+<!-- Meetings Container -->
+<div id="meetings-container">
+    <!-- Skeleton while loading -->
+    <div id="skeleton-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        {% for _ in range(6) %}
+        <div class="meet-card">
+            <div class="skeleton h-4 w-20 mb-3 rounded-full"></div>
+            <div class="skeleton h-6 w-3/4 mb-2"></div>
+            <div class="skeleton h-4 w-full mb-1"></div>
+            <div class="skeleton h-4 w-5/6 mb-5"></div>
+            <div class="skeleton h-10 w-full rounded-xl"></div>
+        </div>
+        {% endfor %}
+    </div>
+    <div id="live-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 hidden"></div>
+    <div id="empty-state" class="hidden text-center py-20">
+        <div class="w-20 h-20 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-5">
+            <i class="fas fa-broadcast-tower text-indigo-400 text-3xl"></i>
+        </div>
+        <h3 class="text-xl font-bold text-gray-300 mb-2">No sessions found</h3>
+        <p class="text-gray-500 text-sm">Try adjusting your filters or check back later.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allMeetings = [];
+let activeFilter = 'all';
+let pollingInterval = null;
+
+// ── Fetch Meetings ─────────────────────────────────────────
+async function fetchMeetings() {
+    try {
+        const res = await fetch('/api/meetings');
+        const data = await res.json();
+        if (data.success) {
+            allMeetings = data.meetings;
+            renderCards(allMeetings);
+            updateLiveCount(allMeetings);
+        }
+    } catch (err) {
+        console.error('Failed to fetch meetings:', err);
+    }
+}
+
+// ── Real-time Status Updates ───────────────────────────────
+async function pollLiveStatus() {
+    try {
+        const res = await fetch('/api/meetings/live-status');
+        const data = await res.json();
+        if (!data.meetings) return;
+        data.meetings.forEach(update => {
+            const meeting = allMeetings.find(m => m.id === update.id);
+            if (meeting) {
+                meeting.status = update.status;
+                meeting.participant_count = update.participant_count;
+                meeting.is_full = update.is_full;
+            }
+            // Update participant count badge
+            const countEl = document.getElementById(`pcount-${update.id}`);
+            if (countEl) countEl.textContent = update.participant_count;
+            // Activate join button if live
+            const joinBtn = document.getElementById(`join-btn-${update.id}`);
+            if (joinBtn && update.status === 'live') {
+                joinBtn.className = 'join-btn live';
+                joinBtn.innerHTML = '<i class="fas fa-video"></i> Join Now';
+                joinBtn.disabled = update.is_full;
+                if (update.is_full) {
+                    joinBtn.innerHTML = '<i class="fas fa-lock"></i> Full';
+                    joinBtn.style.opacity = '.5';
+                }
+            }
+        });
+        updateLiveCount(allMeetings);
+    } catch (err) { /* silent */ }
+}
+
+function updateLiveCount(meetings) {
+    const live = meetings.filter(m => m.status === 'live').length;
+    document.getElementById('live-count-label').textContent =
+        live > 0 ? `${live} session${live > 1 ? 's' : ''} live now` : 'No live sessions right now';
+}
+
+// ── Filter ─────────────────────────────────────────────────
+function setFilter(f, el) {
+    activeFilter = f;
+    document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    renderCards(allMeetings);
+}
+
+// ── Render Cards ───────────────────────────────────────────
+function renderCards(meetings) {
+    const skill = document.getElementById('skill-filter').value;
+    const lang = document.getElementById('lang-filter').value;
+
+    let filtered = meetings.filter(m => {
+        if (activeFilter !== 'all' && m.status !== activeFilter) return false;
+        if (skill && m.skill_category !== skill) return false;
+        if (lang && m.language !== lang) return false;
+        return true;
+    });
+
+    document.getElementById('skeleton-grid').classList.add('hidden');
+    const grid = document.getElementById('live-grid');
+    const empty = document.getElementById('empty-state');
+
+    if (filtered.length === 0) {
+        grid.classList.add('hidden');
+        empty.classList.remove('hidden');
+        return;
+    }
+    empty.classList.add('hidden');
+    grid.classList.remove('hidden');
+
+    // Sort: live first, then upcoming by date, then completed
+    const order = { live: 0, upcoming: 1, completed: 2, cancelled: 3 };
+    filtered.sort((a, b) => {
+        const diff = (order[a.status] ?? 9) - (order[b.status] ?? 9);
+        if (diff !== 0) return diff;
+        return new Date(a.scheduled_at) - new Date(b.scheduled_at);
+    });
+
+    grid.innerHTML = filtered.map(m => meetingCard(m)).join('');
+}
+
+function meetingCard(m) {
+    const isLive = m.status === 'live';
+    const isUpcoming = m.status === 'upcoming';
+    const isCompleted = m.status === 'completed';
+
+    const statusBadge = {
+        live: `<span class="badge badge-live"><span class="live-dot" style="width:7px;height:7px;"></span>LIVE</span>`,
+        upcoming: `<span class="badge badge-upcoming"><i class="fas fa-clock"></i> Upcoming</span>`,
+        completed: `<span class="badge badge-completed"><i class="fas fa-check"></i> Completed</span>`,
+        cancelled: `<span class="badge badge-cancelled"><i class="fas fa-ban"></i> Cancelled</span>`,
+    }[m.status] || '';
+
+    let btnHTML = '';
+    if (isLive) {
+        btnHTML = `<button id="join-btn-${m.id}" onclick="joinMeeting(${m.id})" class="join-btn live" ${m.is_full ? 'disabled' : ''}>
+            ${m.is_full ? '<i class="fas fa-lock"></i> Session Full' : '<i class="fas fa-video"></i> Join Now'}
+        </button>`;
+    } else if (isUpcoming) {
+        btnHTML = `<button id="join-btn-${m.id}" onclick="setReminder(${m.id})" class="join-btn remind">
+            <i class="fas fa-bell"></i> Set Reminder
+        </button>`;
+    } else {
+        btnHTML = `<button class="join-btn completed" disabled><i class="fas fa-lock mr-1"></i>Session Ended</button>`;
+    }
+
+    return `
+    <div class="meet-card ${isLive ? 'is-live' : isUpcoming ? 'is-upcoming' : 'is-completed'}">
+        <div class="flex items-start justify-between mb-3 gap-2">
+            ${statusBadge}
+            <div class="flex items-center gap-1 text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full flex-shrink-0">
+                <i class="fas fa-users text-green-400 text-[10px]"></i>
+                <span id="pcount-${m.id}">${m.participant_count}</span>/${m.max_participants}
+            </div>
+        </div>
+
+        <h3 class="text-white font-bold text-base mb-1 line-clamp-2">${escHtml(m.title)}</h3>
+        ${m.description ? `<p class="text-gray-400 text-sm mb-3 line-clamp-2">${escHtml(m.description)}</p>` : ''}
+
+        <div class="flex flex-wrap gap-x-4 gap-y-1 mb-4 text-xs text-gray-500">
+            <span><i class="fas fa-calendar mr-1 text-indigo-400"></i>${m.scheduled_at_display || 'TBD'}</span>
+            <span><i class="fas fa-clock mr-1 text-blue-400"></i>${m.duration_minutes} min</span>
+        </div>
+
+        <div class="flex gap-2 mb-4 flex-wrap">
+            <span class="text-xs bg-white/5 border border-white/8 text-gray-400 px-2.5 py-1 rounded-full">
+                <i class="fas fa-code text-blue-400 mr-1"></i>${escHtml(m.skill_category)}
+            </span>
+            <span class="text-xs bg-white/5 border border-white/8 text-gray-400 px-2.5 py-1 rounded-full">
+                <i class="fas fa-globe text-green-400 mr-1"></i>${escHtml(m.language)}
+            </span>
+            <span class="text-xs bg-white/5 border border-white/8 text-gray-400 px-2.5 py-1 rounded-full">
+                <i class="fas fa-user text-purple-400 mr-1"></i>${escHtml(m.creator_name)}
+            </span>
+        </div>
+
+        ${btnHTML}
+    </div>`;
+}
+
+// ── Join Meeting ───────────────────────────────────────────
+async function joinMeeting(meetingId) {
+    const btn = document.getElementById(`join-btn-${meetingId}`);
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Joining...'; }
+    try {
+        const res = await fetch(`/api/meetings/${meetingId}/join`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success && data.meeting_link) {
+            showGlobalToast('Opening meeting…', true);
+            window.open(data.meeting_link, '_blank');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-video"></i> Join Now';
+            }
+        } else {
+            showGlobalToast(data.error || 'Could not join meeting', false);
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-video"></i> Join Now'; }
+        }
+    } catch (err) {
+        showGlobalToast('Network error', false);
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-video"></i> Join Now'; }
+    }
+}
+
+function setReminder(meetingId) {
+    showGlobalToast('Reminder set! We\'ll notify you when the session goes live.', true);
+}
+
+function escHtml(s) {
+    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Init ───────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    fetchMeetings();
+    // Poll every 15 seconds for real-time updates
+    pollingInterval = setInterval(pollLiveStatus, 15000);
+});
+</script>
+{% endblock %}

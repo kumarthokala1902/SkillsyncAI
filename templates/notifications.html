@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}Notifications - SkillSync{% endblock %}
+
+{% block extra_css %}
+<style>
+    .notification-card { transition: all 0.3s ease; border: 1px solid rgba(255, 255, 255, 0.05); }
+    .notification-card:hover { background: rgba(255, 255, 255, 0.05); transform: translateX(5px); }
+    .notification-card.unread { border-left: 4px solid #6366f1; background: rgba(99, 102, 241, 0.05); }
+    
+    .icon-connection { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+    .icon-like { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+    .icon-comment { background: rgba(59, 130, 146, 0.1); color: #3b82f6; }
+    .icon-system { background: rgba(107, 114, 128, 0.1); color: #6b7280; }
+    .icon-peer_request { background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.2); }
+    .icon-peer_accepted { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-8 px-4">
+    <div class="flex items-center justify-between mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-white mb-2">Notifications</h1>
+            <p class="text-gray-400">Stay updated with your latest interactions and updates</p>
+        </div>
+        <button onclick="markAllRead()" class="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-gray-400 hover:text-white hover:bg-white/10 transition">
+            Mark all as read
+        </button>
+    </div>
+
+    <div class="space-y-4">
+        {% if notifications %}
+            {% for notif in notifications %}
+                <div class="notification-card glass-effect rounded-2xl p-6 flex items-start space-x-4 {% if not notif.is_read %}unread{% endif %}" id="notif-{{ notif.id }}">
+                    <div class="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 icon-{{ notif.type }}">
+                        {% if notif.type == 'connection' %}
+                            <i class="fas fa-video"></i>
+                        {% elif notif.type == 'like' %}
+                            <i class="fas fa-heart"></i>
+                        {% elif notif.type == 'comment' %}
+                            <i class="fas fa-comment"></i>
+                        {% else %}
+                            <i class="fas fa-bell"></i>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between mb-1">
+                            <h3 class="text-white font-bold truncate">{{ notif.title }}</h3>
+                            <span class="text-xs text-gray-500">{{ notif.created_at.strftime('%b %d, %H:%M') }}</span>
+                        </div>
+                        <p class="text-gray-400 text-sm mb-3">{{ notif.message }}</p>
+                        
+                        <div class="flex items-center space-x-4">
+                            {% if notif.type == 'peer_request' and not notif.is_read %}
+                                {% set conn_id = notif.link.split('=')[-1] %}
+                                <div class="flex gap-2" id="actions-{{ notif.id }}">
+                                    <button onclick="respondToPeerRequest('{{ conn_id }}', 'accept', {{ notif.id }})" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition">Accept Request</button>
+                                    <button onclick="respondToPeerRequest('{{ conn_id }}', 'reject', {{ notif.id }})" class="px-4 py-1.5 bg-white/5 border border-white/10 text-gray-400 hover:text-white text-xs font-bold rounded-lg transition">Decline</button>
+                                </div>
+                            {% elif notif.link %}
+                                <a href="{{ notif.link }}" onclick="markRead({{ notif.id }})" class="text-indigo-400 text-sm font-semibold hover:underline">
+                                    View Details <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                                </a>
+                            {% endif %}
+                            
+                            {% if not notif.is_read and notif.type != 'peer_request' %}
+                                <button onclick="markRead({{ notif.id }})" class="text-xs text-gray-500 hover:text-white transition">
+                                    Mark as read
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="text-center py-20 glass-effect rounded-3xl border border-white/5">
+                <div class="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <i class="fas fa-bell-slash text-gray-500 text-3xl"></i>
+                </div>
+                <h3 class="text-white text-xl font-bold mb-2">No notifications yet</h3>
+                <p class="text-gray-500">When you receive updates, they'll show up here.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    function markRead(id) {
+        fetch(`/api/notifications/mark-read/${id}`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const card = document.getElementById(`notif-${id}`);
+                    card.classList.remove('unread');
+                    // Find and remove the "Mark as read" button if it exists
+                    const btn = card.querySelector('button');
+                    if (btn) btn.remove();
+                    updateBadge();
+                }
+            });
+    }
+
+    function respondToPeerRequest(connId, response, notifId) {
+        const actionsDiv = document.getElementById(`actions-${notifId}`);
+        actionsDiv.innerHTML = '<i class="fas fa-spinner animate-spin text-gray-500"></i>';
+        
+        fetch('/api/peer/respond', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ conn_id: connId, response: response })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                markRead(notifId);
+                const card = document.getElementById(`notif-${notifId}`);
+                const msg = card.querySelector('p');
+                msg.innerHTML += `<br><span class="text-xs font-bold ${response === 'accept' ? 'text-green-400' : 'text-red-400'} uppercase mt-2 block">Decision: ${response}ed</span>`;
+                actionsDiv.remove();
+            } else {
+                alert(data.error || 'Failed to process request');
+                actionsDiv.innerHTML = `
+                    <button onclick="respondToPeerRequest('${connId}', 'accept', ${notifId})" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition">Accept Request</button>
+                    <button onclick="respondToPeerRequest('${connId}', 'reject', ${notifId})" class="px-4 py-1.5 bg-white/5 border border-white/10 text-gray-400 hover:text-white text-xs font-bold rounded-lg transition">Decline</button>
+                `;
+            }
+        });
+    }
+
+    function markAllRead() {
+        fetch('/api/notifications/mark-all-read', { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    document.querySelectorAll('.notification-card.unread').forEach(card => {
+                        card.classList.remove('unread');
+                        const btn = card.querySelector('button');
+                        if (btn) btn.remove();
+                    });
+                    updateBadge();
+                }
+            });
+    }
+
+    function updateBadge() {
+        fetch('/api/notifications/unread-count')
+            .then(res => res.json())
+            .then(data => {
+                const badge = document.getElementById('notif-badge');
+                if (badge) {
+                    if (data.count > 0) {
+                        badge.textContent = data.count > 9 ? '9+' : data.count;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                }
+            });
+    }
+</script>
+{% endblock %}

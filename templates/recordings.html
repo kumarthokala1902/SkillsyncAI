@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Roadmap Courses - SkillSync{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto py-12 px-4">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row items-end justify-between mb-12 gap-6">
+        <div class="space-y-4">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold uppercase tracking-wider">
+                <i class="fas fa-graduation-cap"></i> YouTube Roadmap Catalog
+            </div>
+            <h1 class="text-5xl font-extrabold text-white leading-tight">Your Path to <span class="gradient-text">Mastery</span></h1>
+            <p class="text-gray-400 max-w-2xl text-lg">Access the best curated tech roadmaps from YouTube, organized for professional growth. Track your progress as you master each skill.</p>
+        </div>
+        <div class="flex gap-4">
+            <div class="relative">
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"></i>
+                <input type="text" placeholder="Search roadmap..." class="bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-sm focus:outline-none focus:border-indigo-500/50 transition w-72 backdrop-blur-sm">
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Tabs/Filters -->
+    <div class="flex flex-wrap gap-3 mb-12">
+        <button onclick="filterCategory('all')" class="category-btn px-6 py-3 rounded-2xl font-bold text-sm bg-indigo-600 text-white shadow-xl shadow-indigo-500/20 transition-all border border-indigo-500/50">All Tracks</button>
+        {% for category in categories %}
+        <button onclick="filterCategory('{{ category.name|slugify }}')" class="category-btn px-6 py-3 rounded-2xl font-bold text-sm bg-white/5 text-gray-400 border border-white/5 hover:bg-white/10 hover:text-white transition-all">
+            {{ category.name }}
+        </button>
+        {% endfor %}
+    </div>
+
+    <!-- Catalog Sections -->
+    {% for category in categories %}
+    <div class="category-section mb-16" data-id="{{ category.name|slugify }}">
+        <div class="flex items-center gap-4 mb-8">
+            <div class="h-8 w-1.5 bg-indigo-500 rounded-full"></div>
+            <h2 class="text-2xl font-bold text-white">{{ category.name }}</h2>
+            <span class="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] text-gray-500 font-bold uppercase">{{ category.courses|length }} Courses</span>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            {% for course in category.courses %}
+            {% set pid = course.playlist_id %}
+            {% set completed = progress_map.get(pid, []) %}
+            <div class="group relative bg-[#1e293b]/40 rounded-[2.5rem] p-4 border border-white/5 hover:border-indigo-500/30 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl hover:shadow-indigo-500/10 overflow-hidden flex flex-col h-full">
+                <!-- Course Background Glow -->
+                <div class="absolute -top-24 -right-24 w-48 h-48 bg-indigo-500/10 blur-[80px] group-hover:bg-indigo-500/20 transition-all duration-700"></div>
+                
+                <!-- Thumbnail -->
+                <div class="relative aspect-video rounded-3xl overflow-hidden mb-5 border border-white/5">
+                    <img src="{{ course.thumbnail }}" alt="Course" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity"></div>
+                    
+                    <!-- Progress Overlay -->
+                    {% if completed|length > 0 %}
+                    <div class="absolute top-4 right-4 px-3 py-1.5 bg-green-500 text-white text-[10px] font-bold rounded-xl shadow-lg flex items-center gap-1.5">
+                        <i class="fas fa-check-circle"></i> {{ completed|length }} Completed
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Play Button Overlay -->
+                    <div class="absolute inset-0 flex items-center justify-center translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
+                        <div class="w-14 h-14 bg-white text-black rounded-full flex items-center justify-center text-xl shadow-2xl pl-1">
+                            <i class="fas fa-play"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Course Info -->
+                <div class="px-3 flex-1 flex flex-col">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="text-[9px] font-bold uppercase tracking-widest text-indigo-400 px-2 py-0.5 rounded bg-indigo-500/10">{{ course.instructor }}</span>
+                        {% if 'list=' in course.playlist_link %}
+                        <span class="text-[9px] font-bold uppercase tracking-widest text-purple-400 px-2 py-0.5 rounded bg-purple-500/10">Playlist</span>
+                        {% else %}
+                        <span class="text-[9px] font-bold uppercase tracking-widest text-blue-400 px-2 py-0.5 rounded bg-blue-500/10">Full Course</span>
+                        {% endif %}
+                    </div>
+                    <h3 class="text-white font-bold text-lg mb-2 group-hover:text-indigo-300 transition-colors line-clamp-2 leading-snug">{{ course.title }}</h3>
+                    
+                    <!-- Progress Bar (Internal) -->
+                    {% if completed|length > 0 %}
+                    <div class="mt-auto pt-4">
+                        <div class="w-full h-1.5 bg-white/5 rounded-full overflow-hidden mb-1">
+                            {% set total_vids = course.get_videos()|length or 1 %}
+                            {% set percent = (completed|length / total_vids * 100)|round|int %}
+                            <div class="h-full bg-indigo-500" style="width: {{ percent }}%"></div>
+                        </div>
+                        <span class="text-[10px] text-gray-500 font-bold uppercase">Resume ({{ percent }}%)</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Action Button -->
+                <div class="mt-6">
+                    <a href="{{ url_for('course_player', playlist_id=pid) }}" class="block w-full text-center py-4 rounded-2xl bg-white/5 border border-white/10 text-white font-bold text-sm hover:bg-indigo-600 hover:border-indigo-500 transition-all duration-300 shadow-xl group-hover:shadow-indigo-500/20">
+                        {{ 'Continue Learning' if completed|length > 0 else 'Start Course' }}
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+    function filterCategory(catId) {
+        const sections = document.querySelectorAll('.category-section');
+        const btns = document.querySelectorAll('.category-btn');
+        
+        btns.forEach(b => {
+            b.classList.remove('bg-indigo-600', 'text-white', 'shadow-xl', 'shadow-indigo-500/20', 'border-indigo-500/50');
+            b.classList.add('bg-white/5', 'text-gray-400', 'border-white/5');
+        });
+        
+        event.currentTarget.classList.add('bg-indigo-600', 'text-white', 'shadow-xl', 'shadow-indigo-500/20', 'border-indigo-500/50');
+        event.currentTarget.classList.remove('bg-white/5', 'text-gray-400', 'border-white/5');
+
+        if (catId === 'all') {
+            sections.forEach(s => s.classList.remove('hidden'));
+        } else {
+            sections.forEach(s => {
+                if (s.getAttribute('data-id') === catId) {
+                    s.classList.remove('hidden');
+                } else {
+                    s.classList.add('hidden');
+                }
+            });
+        }
+    }
+</script>
+{% endblock %}

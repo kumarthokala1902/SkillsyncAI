@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}Meetups - SkillSync{% endblock %}
+
+{% block extra_css %}
+<style>
+    .meetup-card { background: rgba(23, 25, 35, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 1rem; padding: 1.5rem; transition: transform 0.3s ease, box-shadow 0.3s ease; }
+    .meetup-card:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4); border-color: rgba(99, 102, 241, 0.4); }
+    .meetup-date { background: rgba(99, 102, 241, 0.15); color: #818cf8; padding: 0.5rem 1rem; border-radius: 0.75rem; font-weight: 600; text-align: center; border: 1px solid rgba(99, 102, 241, 0.2); }
+    .btn-join { background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); color: white; padding: 0.5rem 1.5rem; border-radius: 9999px; font-weight: 600; transition: all 0.3s; width: 100%; text-align: center; border: none; cursor: pointer; }
+    .btn-join:hover { opacity: 0.9; transform: scale(1.02); }
+    .btn-join-outline { background: transparent; color: white; border: 1px solid rgba(255,255,255,0.2); padding: 0.5rem 1.5rem; border-radius: 9999px; font-weight: 500; transition: all 0.3s; cursor: pointer; text-align: center; }
+    .btn-join-outline:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.4); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="flex items-center justify-between mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-white tracking-tight mb-2">Community Meetups</h1>
+            <p class="text-gray-400">Join discussions, workshops, and networking events.</p>
+        </div>
+        <button onclick="document.getElementById('hostMeetupModal').classList.remove('hidden')" class="bg-white/10 hover:bg-white/20 text-white px-5 py-2.5 rounded-xl font-medium transition flex items-center gap-2 border border-white/10">
+            <i class="fas fa-plus"></i> Host Meetup
+        </button>
+    </div>
+
+    <!-- Upcoming Meetups Section -->
+    <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+        <i class="fas fa-calendar-alt text-indigo-400"></i> Upcoming Meetups
+    </h2>
+    
+    {% if upcoming_meetups %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+        {% for meetup in upcoming_meetups %}
+        <div class="meetup-card flex flex-col h-full">
+            <div class="flex justify-between items-start mb-4">
+                <div class="meetup-date flex-shrink-0 mr-4">
+                    <div class="text-sm uppercase tracking-wider">{{ meetup.date_time.strftime('%b') }}</div>
+                    <div class="text-2xl">{{ meetup.date_time.strftime('%d') }}</div>
+                </div>
+                <div class="flex-1">
+                    <h3 class="text-xl font-bold text-white mb-1 line-clamp-2">{{ meetup.title }}</h3>
+                    <p class="text-gray-400 text-sm flex items-center gap-2 mb-2">
+                        <i class="fas fa-clock"></i> {{ meetup.date_time.strftime('%I:%M %p') }}
+                        <span class="mx-1">•</span>
+                        <i class="fas fa-map-marker-alt"></i> {{ meetup.location }}
+                    </p>
+                </div>
+            </div>
+            
+            <p class="text-gray-300 text-sm mb-6 flex-grow line-clamp-3">{{ meetup.description }}</p>
+            
+            <div class="flex items-center justify-between mt-auto pt-4 border-t border-white/5">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
+                        {{ meetup.organizer.name[0] }}
+                    </div>
+                    <span class="text-sm text-gray-400 font-medium whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px]">By {{ meetup.organizer.name }}</span>
+                </div>
+                <button class="btn-join inline-block flex-shrink-0" style="max-width: 100px;">RSVP</button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white/5 border border-white/10 rounded-xl p-8 text-center mb-12 text-gray-400">
+        <i class="fas fa-calendar-times text-4xl mb-3 text-gray-600"></i>
+        <p>No upcoming meetups scheduled yet.</p>
+    </div>
+    {% endif %}
+
+    <!-- Recent/Ongoing Meetups Section -->
+    <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+        <i class="fas fa-history text-gray-400"></i> Recent & Ongoing
+    </h2>
+    
+    {% if recent_meetups %}
+    <div class="space-y-4">
+        {% for meetup in recent_meetups %}
+        <div class="bg-white/5 border border-white/10 rounded-xl p-5 hover:bg-white/10 transition-colors flex flex-col md:flex-row md:items-center justify-between group gap-4">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-lg bg-gray-800 border border-white/10 flex flex-col items-center justify-center text-gray-400 flex-shrink-0">
+                    <span class="text-xs font-semibold">{{ meetup.date_time.strftime('%b') }}</span>
+                    <span class="text-lg font-bold">{{ meetup.date_time.strftime('%d') }}</span>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-200 group-hover:text-white transition-colors">{{ meetup.title }}</h3>
+                    <div class="text-gray-400 text-sm flex flex-wrap gap-x-4 mt-1">
+                        <span><i class="fas fa-user mr-1"></i> {{ meetup.organizer.name }}</span>
+                        <span><i class="fas fa-map-marker-alt mr-1"></i> {{ meetup.location }}</span>
+                    </div>
+                </div>
+            </div>
+            <button class="btn-join-outline flex-shrink-0">View Details</button>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white/5 border border-white/10 rounded-xl p-8 text-center text-gray-400">
+        <p>No recent meetups available.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block modals %}
+    <!-- Host Meetup Modal -->
+    <div id="hostMeetupModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4" style="z-index: 9999;">
+        <div class="bg-[#0f172a] border border-white/5 rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
+            <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-indigo-600/5">
+                <h3 class="text-xl font-bold text-white tracking-tight">Host New Meetup</h3>
+                <button onclick="document.getElementById('hostMeetupModal').classList.add('hidden')" class="text-gray-400 hover:text-white transition-colors">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form action="{{ url_for('add_meetup_user') }}" method="POST" class="p-8 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Meetup Title</label>
+                            <input type="text" name="title" required class="w-full transition" placeholder="e.g. AI Ethics Workshop">
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Description</label>
+                            <textarea name="description" required rows="3" class="w-full transition resize-none" placeholder="What is this meetup about?"></textarea>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="space-y-2">
+                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Date</label>
+                                <input type="date" name="date" required class="w-full transition">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Time</label>
+                                <input type="time" name="time" required class="w-full transition">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="space-y-2">
+                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Location / Online Link</label>
+                                <input type="text" name="location" required class="w-full transition" placeholder="Room 402 or Zoom Link">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Max Participants</label>
+                                <input type="number" name="max_participants" value="50" class="w-full transition">
+                            </div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Banner Image URL</label>
+                            <input type="url" name="banner_url" class="w-full transition" placeholder="https://images.unsplash.com/...">
+                        </div>
+
+                        <div class="pt-4">
+                            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-[1.5rem] transition shadow-xl shadow-indigo-600/20 uppercase tracking-widest text-xs">
+                                Host Meetup Now
+                            </button>
+                        </div>
+                    </form>
+        </div>
+    </div>
+{% endblock %}

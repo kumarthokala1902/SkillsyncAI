@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Careers - SkillSync{% endblock %}
+
+{% block content %}
+<div class="mb-8 flex justify-between items-end">
+    <div>
+        <h1 class="text-3xl font-bold text-white mb-2">Tech Careers</h1>
+        <p class="text-gray-400">Discover your next opportunity to grow your skills.</p>
+    </div>
+    {% if current_user.role in ['admin', 'mentor'] %}
+    <button onclick="document.getElementById('addCareerModal').classList.remove('hidden')" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-semibold transition-colors shadow-lg shadow-blue-500/20 flex items-center gap-2">
+        <i class="fas fa-plus"></i> Post Career
+    </button>
+    {% endif %}
+</div>
+{% block modals %}
+<!-- Add Career Modal -->
+<div id="addCareerModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] hidden flex items-center justify-center p-4">
+    <div class="bg-[#0f172a] border border-white/5 rounded-[2rem] w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
+        <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-blue-600/5">
+            <h3 class="text-xl font-bold text-white tracking-tight">Post New Opportunity</h3>
+            <button onclick="document.getElementById('addCareerModal').classList.add('hidden')" class="text-gray-400 hover:text-white transition-colors">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form action="{{ url_for('add_career') }}" method="POST" class="p-8 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Job Title</label>
+                            <input type="text" name="title" required class="w-full transition" placeholder="e.g. Senior Backend Engineer">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Company</label>
+                            <input type="text" name="company" required class="w-full transition" placeholder="e.g. SkillSync AI">
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Location</label>
+                            <input type="text" name="location" required class="w-full transition" placeholder="e.g. San Francisco or Remote">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Job Type</label>
+                            <div class="relative">
+                                <select name="job_type" class="w-full transition appearance-none cursor-pointer">
+                                    <option value="Full-time">Full-time</option>
+                                    <option value="Internship">Internship</option>
+                                    <option value="Part-time">Part-time</option>
+                                    <option value="Remote">Remote</option>
+                                </select>
+                                <i class="fas fa-chevron-down absolute right-5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Description</label>
+                        <textarea name="description" required rows="4" class="w-full transition resize-none" placeholder="Explain the role and mission..."></textarea>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Requirements</label>
+                        <textarea name="requirements" required rows="4" class="w-full transition resize-none" placeholder="Skills, experience, etc. (One per line)"></textarea>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Salary Range (Optional)</label>
+                        <input type="text" name="salary_range" class="w-full transition" placeholder="e.g. $120k - $150k">
+                    </div>
+
+                    <div class="pt-4">
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-5 rounded-[1.5rem] transition shadow-xl shadow-blue-600/20 uppercase tracking-widest text-xs">
+                            Publish Opportunity
+                        </button>
+                    </div>
+                </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="mb-8 flex justify-between items-end">
+    <div>
+        <h1 class="text-3xl font-bold text-white mb-2">Tech Careers</h1>
+        <p class="text-gray-400">Discover your next opportunity to grow your skills.</p>
+    </div>
+    {% if current_user.role in ['admin', 'mentor'] %}
+    <button onclick="document.getElementById('addCareerModal').classList.remove('hidden')" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-semibold transition-colors shadow-lg shadow-blue-500/20 flex items-center gap-2">
+        <i class="fas fa-plus"></i> Post Career
+    </button>
+    {% endif %}
+</div>
+
+{% if careers %}
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+    {% for career in careers %}
+    <div class="card-dark rounded-2xl p-6 hover-lift flex flex-col h-full border border-white/5 relative overflow-hidden group">
+        <div class="flex justify-between items-start mb-4 relative z-10">
+            <div class="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center border border-blue-500/30 text-blue-400">
+                <i class="fas fa-briefcase text-xl"></i>
+            </div>
+            <div class="flex flex-col items-end gap-2">
+                <span class="text-[10px] font-black px-3 py-1 bg-green-500/10 text-green-400 rounded-full border border-green-500/20 uppercase tracking-widest">
+                    {{ career.job_type or 'Full-time' }}
+                </span>
+                <span class="text-[10px] font-bold px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded border border-blue-500/20 uppercase">
+                    Active
+                </span>
+            </div>
+        </div>
+        
+        <div class="flex-grow relative z-10">
+            <a href="{{ url_for('career_detail', career_id=career.id) }}" class="text-xl font-bold text-white mb-1 group-hover:text-blue-400 transition-colors block">{{ career.title }}</a>
+            <p class="text-indigo-400 font-medium mb-3">{{ career.company }}</p>
+            
+            <div class="flex items-center text-gray-400 text-sm mb-4 space-x-4">
+                <span class="flex items-center"><i class="fas fa-map-marker-alt mr-2"></i>{{ career.location }}</span>
+                {% if career.salary_range %}
+                <span class="flex items-center"><i class="fas fa-dollar-sign mr-1"></i>{{ career.salary_range }}</span>
+                {% endif %}
+            </div>
+            
+            <p class="text-gray-300 text-sm mb-6 line-clamp-3">{{ career.description }}</p>
+            
+            <div class="mb-4">
+                <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Requirements</h4>
+                <p class="text-sm text-gray-300 line-clamp-2">{{ career.requirements }}</p>
+            </div>
+        </div>
+        
+        <div class="mt-6 pt-4 border-t border-white/10 relative z-10 flex justify-between items-center">
+            <div class="flex items-center text-xs text-gray-400">
+                <div class="w-6 h-6 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 flex items-center justify-center text-white mr-2">
+                    {{ career.poster.name[0] }}
+                </div>
+                <span>Posted by {{ career.poster.name.split()[0] }}</span>
+            </div>
+            <a href="{{ url_for('career_detail', career_id=career.id) }}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-lg shadow-blue-500/20">
+                View Details
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card-dark rounded-2xl p-12 text-center border border-white/5">
+    <div class="w-20 h-20 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-blue-500/20">
+        <i class="fas fa-briefcase text-3xl text-blue-400 opacity-50"></i>
+    </div>
+    <h3 class="text-xl font-bold text-white mb-2">No Open Roles</h3>
+    <p class="text-gray-400">Check back later for new career opportunities in the community.</p>
+</div>
+{% endif %}
+{% endblock %}

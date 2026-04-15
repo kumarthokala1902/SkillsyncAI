@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skill Verification - {{ lang }} - SkillSync</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+    <style>
+        body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', sans-serif; overflow: hidden; }
+        .test-container { height: 100vh; display: flex; flex-direction: column; }
+        .header { background: #1e293b; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .main-content { flex: 1; display: flex; overflow: hidden; }
+        .sidebar { width: 320px; background: #0f172a; border-right: 1px solid rgba(255, 255, 255, 0.05); padding: 2rem; overflow-y: auto; }
+        .question-area { flex: 1; padding: 3rem; overflow-y: auto; background: #0b0f1a; }
+        .question-card { background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 2rem; padding: 2.5rem; }
+        .option-btn { width: 100%; text-align: left; padding: 1.25rem; border-radius: 1rem; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); margin-top: 1rem; transition: all 0.2s; color: #94a3b8; }
+        .option-btn:hover { background: rgba(99, 102, 241, 0.1); border-color: rgba(99, 102, 241, 0.3); color: white; }
+        .option-btn.selected { background: rgba(99, 102, 241, 0.2); border-color: #6366f1; color: white; box-shadow: 0 0 20px rgba(99, 102, 241, 0.1); }
+        #code-editor { border-radius: 1.5rem; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 16px; margin-top: 2rem; }
+        .timer-critical { color: #f87171; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .nav-btn { width: 44px; height: 44px; border-radius: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border: 1px solid rgba(255, 255, 255, 0.05); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                    <i class="fas fa-shield-alt text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-white font-bold text-lg">Skill Verification: {{ lang }}</h1>
+                    <p class="text-[10px] text-gray-500 uppercase tracking-widest font-black">Official SkillSync Assessment</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-8">
+                <div class="flex flex-col items-end">
+                    <span class="text-[9px] text-gray-500 uppercase font-black tracking-tighter">Time Remaining</span>
+                    <div id="test-timer" class="text-2xl font-mono font-black text-white">30:00</div>
+                </div>
+                <button onclick="confirmSubmitTest()" class="px-8 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition shadow-lg shadow-green-500/25 flex items-center gap-2">
+                    Submit Assessment <i class="fas fa-paper-plane text-xs opacity-70"></i>
+                </button>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <!-- Sidebar Navigation -->
+            <aside class="sidebar custom-scrollbar">
+                <div class="mb-8">
+                    <p class="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-4">MCQ Questions</p>
+                    <div id="mcq-nav" class="grid grid-cols-5 gap-2">
+                        <!-- Injected via JS -->
+                    </div>
+                </div>
+                
+                <div class="mb-12">
+                    <p class="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-4">Coding Challenges</p>
+                    <div id="coding-nav" class="space-y-2">
+                        <!-- Injected via JS -->
+                    </div>
+                </div>
+
+                <div class="mt-auto p-6 bg-white/5 rounded-2xl border border-white/5">
+                    <h4 class="text-xs font-bold text-white mb-2 ml-1">Test Rules</h4>
+                    <ul class="text-[10px] text-gray-500 space-y-2 list-disc pl-4">
+                        <li>Do not refresh the page.</li>
+                        <li>Submit before timer ends.</li>
+                        <li>Automated anti-cheat enabled.</li>
+                    </ul>
+                </div>
+            </aside>
+
+            <!-- Question Area -->
+            <section class="question-area custom-scrollbar">
+                <div id="question-container" class="max-w-4xl mx-auto opacity-0 transform translate-y-4 transition-all duration-500">
+                    <!-- Questions injected here -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Alert Toast -->
+    <div id="alert-toast" class="fixed bottom-10 left-1/2 transform -translate-x-1/2 z-50 hidden">
+        <div class="bg-indigo-600 text-white px-6 py-3 rounded-2xl shadow-2xl font-bold flex items-center gap-3">
+            <i class="fas fa-info-circle"></i>
+            <span id="alert-msg"></span>
+        </div>
+    </div>
+
+    <script>
+        const selectedLang = "{{ lang }}";
+        let testQuestions = [];
+        let currentQuestionIndex = 0;
+        let mcqAnswers = {};
+        let codingAnswers = {};
+        let timerInterval;
+        let timeLeft = 1800;
+        let editor;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await fetchQuestions();
+            startTimer();
+            
+            // Prevent leaving
+            window.onbeforeunload = (e) => {
+                const msg = "Warning: Leaving this page will result in progress loss.";
+                e.returnValue = msg;
+                return msg;
+            };
+        });
+
+        async function fetchQuestions() {
+            try {
+                const res = await fetch(`/api/verification/questions/${selectedLang.toLowerCase()}`);
+                const data = await res.json();
+                if (data.success) {
+                    testQuestions = data.questions;
+                    renderNavigation();
+                    showQuestion(0);
+                }
+            } catch (e) {
+                showAlert('Critical Error: Failed to load questions.', 'error');
+            }
+        }
+
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                const mins = Math.floor(timeLeft / 60);
+                const secs = timeLeft % 60;
+                const timerEl = document.getElementById('test-timer');
+                timerEl.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                
+                if (timeLeft < 300) timerEl.classList.add('timer-critical');
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    submitTest();
+                }
+            }, 1000);
+        }
+
+        function renderNavigation() {
+            const mcqNav = document.getElementById('mcq-nav');
+            const codingNav = document.getElementById('coding-nav');
+            
+            testQuestions.forEach((q, i) => {
+                const btn = document.createElement('button');
+                btn.id = `nav-btn-${i}`;
+                btn.onclick = () => showQuestion(i);
+                
+                if (q.type === 'mcq') {
+                    btn.className = "nav-btn bg-white/5 text-gray-500 hover:border-white/20";
+                    btn.textContent = i + 1;
+                    mcqNav.appendChild(btn);
+                } else {
+                    btn.className = "w-full p-4 rounded-xl text-left bg-white/5 border border-white/5 text-xs font-bold text-gray-500 hover:border-white/20 flex justify-between items-center";
+                    btn.innerHTML = `<span>Challenge ${i - 4}</span> <i class="fas fa-code opacity-50"></i>`;
+                    codingNav.appendChild(btn);
+                }
+            });
+        }
+
+        function showQuestion(index) {
+            // Save work
+            if (testQuestions[currentQuestionIndex]?.type === 'coding' && editor) {
+                codingAnswers[testQuestions[currentQuestionIndex].id] = editor.getValue();
+            }
+
+            currentQuestionIndex = index;
+            const q = testQuestions[index];
+            const container = document.getElementById('question-container');
+            
+            // Reset Animation
+            container.classList.remove('opacity-100', 'translate-y-0');
+            container.classList.add('opacity-0', 'translate-y-4');
+
+            setTimeout(() => {
+                // Update Nav States
+                testQuestions.forEach((tq, i) => {
+                    const btn = document.getElementById(`nav-btn-${i}`);
+                    const isAnswered = tq.type === 'mcq' ? mcqAnswers[tq.id] : (codingAnswers[tq.id] && codingAnswers[tq.id].length > 20);
+                    
+                    if (tq.type === 'mcq') {
+                        btn.className = `nav-btn transition-all ${i === index ? 'bg-indigo-600 text-white border-indigo-500 scale-110' : (isAnswered ? 'bg-green-600/20 text-green-400 border-green-500/30' : 'bg-white/5 text-gray-500 border-white/5')}`;
+                    } else {
+                        btn.className = `w-full p-4 rounded-xl text-left transition-all flex justify-between items-center border ${i === index ? 'bg-indigo-600/10 text-indigo-400 border-indigo-500/50' : (isAnswered ? 'bg-green-600/10 text-green-400 border-green-500/30' : 'bg-white/5 text-gray-500 border-white/5')}`;
+                    }
+                });
+
+                if (q.type === 'mcq') {
+                    container.innerHTML = `
+                        <div class="question-card">
+                            <div class="flex items-center gap-3 mb-8">
+                                <span class="px-3 py-1 bg-indigo-500/20 text-indigo-400 text-[9px] font-black uppercase tracking-widest rounded-full">Question ${index + 1}</span>
+                                <span class="text-xs text-gray-600">• Multiple Choice Question</span>
+                            </div>
+                            <h2 class="text-2xl font-bold text-white mb-10 leading-snug">${q.text}</h2>
+                            <div class="grid grid-cols-1 gap-2">
+                                ${q.options.map((opt, i) => `
+                                    <button onclick="selectMCQOption(${q.id}, '${opt}')" 
+                                        class="option-btn ${mcqAnswers[q.id] === opt ? 'selected' : ''}">
+                                        <div class="flex items-center gap-4">
+                                            <span class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center font-black text-xs">${String.fromCharCode(65 + i)}</span>
+                                            <span class="font-medium">${opt}</span>
+                                        </div>
+                                    </button>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = `
+                        <div class="space-y-6">
+                            <div class="question-card">
+                                <div class="flex items-center gap-3 mb-6">
+                                    <span class="px-3 py-1 bg-green-500/20 text-green-400 text-[9px] font-black uppercase tracking-widest rounded-full">Coding Mission</span>
+                                    <span class="text-xs text-gray-600">• Hands-on implementation</span>
+                                </div>
+                                <h2 class="text-2xl font-bold text-white mb-6 leading-snug">${q.text}</h2>
+                            </div>
+                            <div id="code-editor" style="height: 500px; width: 100%;"></div>
+                        </div>
+                    `;
+                    
+                    setTimeout(() => {
+                        editor = ace.edit("code-editor");
+                        editor.setTheme("ace/theme/tomorrow_night_eighties");
+                        const mode = selectedLang.toLowerCase() === 'cpp' ? 'c_cpp' : selectedLang.toLowerCase();
+                        editor.session.setMode(`ace/mode/${mode}`);
+                        editor.setValue(codingAnswers[q.id] || q.base_code || "// Start coding here...", -1);
+                        editor.setOptions({
+                            fontSize: "15px",
+                            showPrintMargin: false,
+                            enableBasicAutocompletion: true,
+                            enableLiveAutocompletion: true,
+                            fontFamily: "Source Code Pro, monospace"
+                        });
+                    }, 50);
+                }
+
+                container.classList.remove('opacity-0', 'translate-y-4');
+                container.classList.add('opacity-100', 'translate-y-0');
+            }, 100);
+        }
+
+        function selectMCQOption(qId, option) {
+            mcqAnswers[qId] = option;
+            showQuestion(currentQuestionIndex);
+        }
+
+        function showAlert(msg) {
+            const toast = document.getElementById('alert-toast');
+            document.getElementById('alert-msg').textContent = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        function confirmSubmitTest() {
+            if (confirm("FINAL SUBMISSION: Are you sure? You cannot modify your answers after this.")) {
+                submitTest();
+            }
+        }
+
+        async function submitTest() {
+            if (testQuestions[currentQuestionIndex]?.type === 'coding' && editor) {
+                codingAnswers[testQuestions[currentQuestionIndex].id] = editor.getValue();
+            }
+
+            clearInterval(timerInterval);
+            showAlert('Uploading your assessment...');
+            
+            try {
+                const res = await fetch('/api/verification/submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        language: selectedLang,
+                        mcq_answers: mcqAnswers,
+                        coding_answers: codingAnswers
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    window.onbeforeunload = null;
+                    alert('Assignment Submitted Successfully!');
+                    window.location.href = "/settings";
+                }
+            } catch (e) {
+                alert('Error: Submission failed. Connection lost?');
+            }
+        }
+    </script>
+</body>
+</html>

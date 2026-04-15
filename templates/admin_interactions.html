@@ -1,0 +1,98 @@
+{% extends 'admin_base.html' %}
+{% block title %}Manage Interactions – SkillSync Admin{% endblock %}
+{% block header_title %}Platform Engagement{% endblock %}
+
+{% block admin_content %}
+<div class="grid grid-cols-1 gap-10">
+    <!-- Career Applications -->
+    <div class="glass-card rounded-[2.5rem] overflow-hidden">
+        <div class="p-8 border-b border-white/5 bg-green-500/5">
+            <h3 class="font-black text-white tracking-tight flex items-center gap-3">
+                <i class="fas fa-handshake text-green-400"></i> Career Applications
+            </h3>
+        </div>
+        <div class="p-4 overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="text-[10px] uppercase font-black tracking-widest text-slate-500">
+                        <th class="px-6 py-4">Applicant</th>
+                        <th class="px-6 py-4">Role</th>
+                        <th class="px-6 py-4">Status</th>
+                        <th class="px-6 py-4 text-right">Applied At</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5">
+                    {% for app in applications %}
+                    <tr class="hover:bg-white/[0.02] transition-colors">
+                        <td class="px-6 py-5">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center text-green-400 font-bold text-xs">
+                                    {{ app.user.name[0] }}
+                                </div>
+                                <div>
+                                    <p class="text-sm font-bold text-white">{{ app.user.name }}</p>
+                                    <p class="text-[10px] text-slate-500">{{ app.user.email }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-5">
+                            <p class="text-xs font-bold text-indigo-400">{{ app.career.title }}</p>
+                            <p class="text-[10px] text-slate-500">{{ app.career.company }}</p>
+                        </td>
+                        <td class="px-6 py-5">
+                            <span class="text-[9px] font-black px-2 py-1 rounded bg-white/5 text-slate-400 uppercase tracking-widest">{{ app.status }}</span>
+                        </td>
+                        <td class="px-6 py-5 text-right text-xs text-slate-500">{{ app.applied_at.strftime('%b %d, %H:%M') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Startup Connections -->
+    <div class="glass-card rounded-[2.5rem] overflow-hidden">
+        <div class="p-8 border-b border-white/5 bg-purple-500/5">
+            <h3 class="font-black text-white tracking-tight flex items-center gap-3">
+                <i class="fas fa-link text-purple-400"></i> Startup Connections
+            </h3>
+        </div>
+        <div class="p-4 overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="text-[10px] uppercase font-black tracking-widest text-slate-500">
+                        <th class="px-6 py-4">Requester</th>
+                        <th class="px-6 py-4">Startup</th>
+                        <th class="px-6 py-4">Message</th>
+                        <th class="px-6 py-4 text-right">Requested At</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5">
+                    {% for conn in connections %}
+                    <tr class="hover:bg-white/[0.02] transition-colors">
+                        <td class="px-6 py-5">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400 font-bold text-xs">
+                                    {{ conn.user.name[0] }}
+                                </div>
+                                <div>
+                                    <p class="text-sm font-bold text-white">{{ conn.user.name }}</p>
+                                    <p class="text-[10px] text-slate-500">{{ conn.user.email }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-5">
+                            <p class="text-xs font-bold text-white">{{ conn.startup.name }}</p>
+                        </td>
+                        <td class="px-6 py-5">
+                            <p class="text-xs text-slate-300 italic line-clamp-1">"{{ conn.message }}"</p>
+                        </td>
+                        <td class="px-6 py-5 text-right text-xs text-slate-500">{{ conn.created_at.strftime('%b %d, %H:%M') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

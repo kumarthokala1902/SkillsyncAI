@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}403 – Access Denied | SkillSync{% endblock %}
+
+{% block content %}
+<div class="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+  <div class="w-24 h-24 rounded-full bg-red-500/10 border-2 border-red-500/30 flex items-center justify-center mb-6">
+    <i class="fas fa-ban text-red-400 text-4xl"></i>
+  </div>
+  <h1 class="text-6xl font-black text-red-400 mb-2">403</h1>
+  <h2 class="text-2xl font-bold text-white mb-4">Access Denied</h2>
+  <p class="text-slate-400 max-w-sm mb-8">
+    You don't have the required permissions to view this page.
+    Contact your administrator if you think this is a mistake.
+  </p>
+  <div class="flex gap-4">
+    <a href="{{ url_for('dashboard') }}"
+      class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition shadow-lg shadow-indigo-500/20">
+      <i class="fas fa-home mr-2"></i>Go to Dashboard
+    </a>
+    <a href="{{ url_for('logout') }}"
+      class="px-6 py-3 border border-white/10 text-slate-400 hover:text-white hover:border-white/20 font-semibold rounded-xl transition">
+      <i class="fas fa-sign-out-alt mr-2"></i>Sign Out
+    </a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,591 @@
+{% extends "base.html" %}
+
+{% block title %}Home - SkillSync{% endblock %}
+
+{% block extra_css %}
+<style>
+    .post-card { background: rgba(23, 25, 35, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 1rem; padding: 1.5rem; margin-bottom: 1rem; }
+    .post-input { background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 0.75rem; color: white; width: 100%; padding: 1rem; resize: none; outline: none; transition: border-color 0.3s; }
+    .post-input:focus { border-color: #6366f1; }
+    .btn-publish { background: #6366f1; color: white; padding: 0.5rem 1.5rem; border-radius: 9999px; font-weight: 600; transition: all 0.3s; }
+    .btn-publish:hover { background: #4f46e5; transform: translateY(-2px); }
+    .poll-option { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 0.5rem; padding: 0.75rem; margin-top: 0.5rem; cursor: pointer; transition: background 0.3s; position: relative; overflow: hidden; }
+    .poll-option:hover { background: rgba(255, 255, 255, 0.1); }
+    .sidebar-card { background: rgba(23, 25, 35, 0.75); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 1.25rem; padding: 1.25rem; }
+    .session-type-badge { font-size: 0.6rem; font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 9999px; letter-spacing: 0.05em; text-transform: uppercase; }
+    .badge-live { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+    .badge-peer { background: rgba(99,102,241,0.15); color: #818cf8; border: 1px solid rgba(99,102,241,0.3); }
+    .badge-recording { background: rgba(234,179,8,0.15); color: #fbbf24; border: 1px solid rgba(234,179,8,0.3); }
+    .connect-btn { font-size: 0.7rem; font-weight: 700; padding: 0.3rem 0.8rem; border-radius: 9999px; background: rgba(99,102,241,0.15); color: #818cf8; border: 1px solid rgba(99,102,241,0.3); transition: all 0.2s; }
+    .connect-btn:hover { background: #6366f1; color: white; border-color: #6366f1; }
+    .join-btn { font-size: 0.7rem; font-weight: 700; padding: 0.3rem 0.9rem; border-radius: 9999px; background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.3); transition: all 0.2s; }
+    .join-btn:hover { background: #10b981; color: white; border-color: #10b981; }
+    /* Home page flex layout */
+    .home-layout { display: flex; gap: 1.5rem; align-items: flex-start; width: 100%; }
+    .home-feed { flex: 1 1 0%; min-width: 0; }
+    .home-sidebar { flex: 0 0 320px; width: 320px; position: sticky; top: 1.5rem; max-height: calc(100vh - 3rem); overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; }
+    @media (max-width: 900px) { .home-sidebar { display: none; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="home-layout">
+    <!-- Left Sidebar -->
+    <div class="home-sidebar">
+
+            <!-- Section 1: Upcoming Sessions -->
+            <div class="sidebar-card">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <span class="text-xl">📅</span> Upcoming Sessions
+                    </h2>
+                    <a href="{{ url_for('live_learning') }}" class="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 uppercase tracking-widest transition">See All</a>
+                </div>
+
+                <div class="space-y-3">
+                    {% if upcoming_sessions %}
+                        {% for session in upcoming_sessions %}
+                        <div class="flex items-center justify-between bg-white/5 hover:bg-white/8 p-3 rounded-xl border border-white/5 transition group">
+                            <div class="flex-1 min-w-0 mr-3">
+                                <p class="text-white text-sm font-semibold truncate group-hover:text-indigo-300 transition">{{ session.title }}</p>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="text-gray-500 text-xs">{{ session.time }}</span>
+                                    {% set stype = session.type | lower %}
+                                    {% if stype == 'live' %}
+                                        <span class="session-type-badge badge-live">Live</span>
+                                    {% elif stype == 'peer' %}
+                                        <span class="session-type-badge badge-peer">Peer</span>
+                                    {% else %}
+                                        <span class="session-type-badge badge-recording">Recording</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <a href="{{ session.join_url }}" class="join-btn flex-shrink-0" target="_blank">
+                                Join →
+                            </a>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="py-8 text-center">
+                            <span class="text-3xl block mb-2">🗓️</span>
+                            <p class="text-gray-500 text-xs">No upcoming sessions.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Section 2: Suggested Peers -->
+            <div class="sidebar-card">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <span class="text-xl">👥</span> Suggested Peers
+                    </h2>
+                    <a href="{{ url_for('people') }}" class="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 uppercase tracking-widest transition">See All</a>
+                </div>
+
+                <div class="space-y-3">
+                    {% if suggested_peers %}
+                        {% for peer in suggested_peers %}
+                        <div class="flex items-center gap-3 bg-white/5 hover:bg-white/8 p-3 rounded-xl border border-white/5 transition group">
+                            <!-- Avatar -->
+                            <div class="w-9 h-9 flex-shrink-0 rounded-full flex items-center justify-center font-bold text-sm text-white
+                                {% if peer.role == 'mentor' %}
+                                    bg-gradient-to-br from-amber-500 to-orange-500
+                                {% else %}
+                                    bg-gradient-to-br from-indigo-500 to-purple-600
+                                {% endif %}
+                            ">
+                                {{ peer.initial }}
+                            </div>
+
+                            <!-- Info -->
+                            <div class="flex-1 min-w-0">
+                                <p class="text-white text-sm font-semibold truncate group-hover:text-indigo-300 transition">{{ peer.name }}</p>
+                                <p class="text-gray-500 text-[11px] truncate">{{ peer.skill }}</p>
+                            </div>
+
+                            <!-- Connect Button -->
+                            {% if peer.role == 'mentor' %}
+                                <a href="{{ url_for('mentor_profile', mentor_id=peer.user_id) }}" class="connect-btn flex-shrink-0">View</a>
+                            {% else %}
+                                <a href="{{ url_for('learner_profile', learner_id=peer.user_id) }}" class="connect-btn flex-shrink-0">Connect</a>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="py-8 text-center">
+                            <span class="text-3xl block mb-2">🔍</span>
+                            <p class="text-gray-500 text-xs">No peers found right now.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Section 3: Trending Topics (compact) -->
+            <div class="sidebar-card">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <i class="fas fa-bolt text-yellow-500 text-sm"></i> Trending
+                    </h2>
+                    <a href="{{ url_for('trending') }}" class="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 uppercase tracking-widest transition">See All</a>
+                </div>
+
+                <div class="space-y-2">
+                    {% for item in trending_tags %}
+                    <a href="{{ url_for('post_home', tag=item.tag) }}" class="flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 hover:bg-indigo-500/10 border border-white/5 hover:border-indigo-500/30 transition group">
+                        <span class="text-indigo-400 text-sm font-semibold group-hover:text-indigo-300">#{{ item.tag }}</span>
+                        <span class="text-[10px] text-gray-500">{{ item.count }} posts</span>
+                    </a>
+                    {% endfor %}
+                    {% if not trending_tags %}
+                    <p class="text-center text-gray-600 text-xs py-4">No trending topics yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+    <!-- Main Feed -->
+    <div class="home-feed">
+        {% if current_tag %}
+        <div class="mb-6 flex items-center justify-between p-4 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl">
+            <p class="text-indigo-400 font-bold">Showing posts for <span class="bg-indigo-500 text-white px-2 py-0.5 rounded-lg ml-1">{{ current_tag }}</span></p>
+            <a href="{{ url_for('post_home') }}" class="text-xs text-gray-500 hover:text-white transition uppercase font-bold tracking-widest"><i class="fas fa-times-circle mr-1"></i> Clear Filter</a>
+        </div>
+        {% endif %}
+
+        <!-- Create Post Card -->
+        <div class="post-card">
+            <form action="{{ url_for('create_post') }}" method="POST">
+                <div class="flex space-x-4">
+                    <div class="flex-shrink-0">
+                        <div class="w-12 h-12 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+                            {{ current_user.name[0] }}
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <textarea name="content" class="post-input mb-3" placeholder="What's on your mind? Use #hashtags to join conversations!" rows="3" required></textarea>
+                        
+                        <div id="poll-container" class="hidden mb-3 p-3 bg-white/5 rounded-lg border border-white/10">
+                            <input type="text" name="poll_question" class="post-input mb-2 text-sm p-2" placeholder="Poll Question">
+                            <input type="text" name="poll_options" class="post-input text-sm p-2" placeholder="Option 1; Option 2; (semicolon separated)">
+                        </div>
+
+                        <div id="link-container" class="hidden mb-3">
+                            <input type="text" name="link" class="post-input text-sm p-2" placeholder="Include a link (URL)">
+                        </div>
+
+                        <div class="flex items-center justify-between">
+                            <div class="flex space-x-4 text-gray-400">
+                                <button type="button" onclick="toggleElement('poll-container')" class="hover:text-indigo-400 transition" title="Add Poll"><i class="fas fa-poll-h"></i></button>
+                                <button type="button" onclick="toggleElement('link-container')" class="hover:text-indigo-400 transition" title="Add Link"><i class="fas fa-link"></i></button>
+                            </div>
+                            <button type="submit" class="btn-publish shadow-lg">Publish</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+    <!-- Posts Feed -->
+    <div class="space-y-4 mt-8">
+        {% for post in posts %}
+        <div class="post-card hover:bg-white/[0.02] transition-colors duration-300">
+            <div class="flex space-x-4">
+                <div class="flex-shrink-0">
+                    <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                        {{ post.author.name[0] }}
+                    </div>
+                </div>
+                <div class="flex-1">
+                    <div class="flex items-center space-x-2 mb-1">
+                        <span class="font-bold text-white">{{ post.author.name }}</span>
+                        {% if post.author.is_verified %}
+                        <i class="fas fa-check-circle text-blue-400 text-xs" title="Verified {{ post.author.verified_skill }}"></i>
+                        <span class="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest ml-1">
+                            {{ 'Skilled Mentor' if post.author.is_mentor else 'Verified Student' }}
+                        </span>
+                        {% elif post.author.is_mentor %}
+                        <i class="fas fa-check-circle text-blue-400/50 text-xs"></i>
+                        {% endif %}
+                        <span class="text-gray-500 text-sm">@{{ post.author.name.lower().replace(' ', '') }} · {{ post.created_at.strftime('%Hh ago') }}</span>
+                    </div>
+                    <p class="text-gray-200 mb-3 whitespace-pre-wrap">{{ post.content }}</p>
+
+                    {% if post.link %}
+                    <a href="{{ post.link }}" target="_blank" class="block p-3 mb-3 bg-white/5 border border-white/10 rounded-xl text-blue-400 hover:bg-white/10 transition truncate">
+                        <i class="fas fa-external-link-alt mr-2"></i>{{ post.link }}
+                    </a>
+                    {% endif %}
+
+                    {% if post.poll %}
+                    <div class="mb-4 space-y-2 p-4 bg-white/5 rounded-xl border border-white/10">
+                        <p class="text-white font-medium mb-3">{{ post.poll.question }}</p>
+                        {% set options = post.poll.get_options_list() %}
+                        {% set votes = post.poll.get_votes_list() %}
+                        {% set total_votes = votes|sum %}
+                        
+                        {% for i in range(options|length) %}
+                        <div class="relative">
+                            <button onclick="vote('{{ post.poll.id }}', '{{ i }}')" class="poll-option w-full text-left flex justify-between items-center z-10">
+                                <span class="relative z-10">{{ options[i] }}</span>
+                                <span class="relative z-10 text-xs text-gray-400">
+                                    {% if total_votes > 0 %}
+                                        {{ ((votes[i]/total_votes)*100)|round|int }}%
+                                    {% else %}
+                                        0%
+                                    {% endif %}
+                                </span>
+                            </button>
+                            <div class="absolute top-0 left-0 h-full bg-indigo-500/20 rounded-lg transition-all duration-1000" style="width: {% if total_votes > 0 %}{{ (votes[i]/total_votes)*100 }}{% else %}0{% endif %}%"></div>
+                        </div>
+                        {% endfor %}
+                        <p class="text-xs text-gray-500 mt-2">{{ total_votes }} votes</p>
+                    </div>
+                    {% endif %}
+
+                    <div class="flex justify-between items-center text-gray-500 text-sm mt-4 pt-4 border-t border-white/5 post-actions" data-post-id="{{ post.id }}">
+                        {% set has_liked = post.likes|selectattr("user_id", "equalto", current_user.id)|list|length > 0 %}
+                        <button onclick="toggleLike({{ post.id }}, this)" class="transition flex items-center {% if has_liked %}text-pink-500{% else %}hover:text-pink-500{% endif %}">
+                            <i class="{% if has_liked %}fas{% else %}far{% endif %} fa-heart mr-2"></i> 
+                            <span>Like</span> <span class="ml-1 count">{% if post.likes %}({{ post.likes|length }}){% endif %}</span>
+                        </button>
+
+                        <button onclick="toggleComments({{ post.id }})" class="hover:text-blue-400 transition flex items-center">
+                            <i class="far fa-comment mr-2"></i> Comment <span class="ml-1">{% if post.comments %}({{ post.comments|length }}){% endif %}</span>
+                        </button>
+                        
+                        <button onclick="sharePost({{ post.id }}, this)" class="hover:text-green-500 transition flex items-center">
+                            <i class="fas fa-share mr-2"></i> Share <span class="ml-1 count">{% if post.share_count > 0 %}({{ post.share_count }}){% endif %}</span>
+                        </button>
+                        
+                        {% set has_saved = post.saves|selectattr("user_id", "equalto", current_user.id)|list|length > 0 %}
+                        <button onclick="toggleSave({{ post.id }}, this)" class="transition flex items-center {% if has_saved %}text-yellow-500{% else %}hover:text-yellow-500{% endif %}">
+                            <i class="{% if has_saved %}fas{% else %}far{% endif %} fa-bookmark mr-2"></i> Save
+                        </button>
+                    </div>
+
+                    <!-- Comments Section (Hidden by default) -->
+                    <div id="comments-{{ post.id }}" class="hidden mt-4 pt-4 border-t border-white/5">
+                        <div class="comments-list space-y-3 mb-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                            {% for comment in post.comments %}
+                            <div class="flex space-x-3 bg-white/5 p-3 rounded-xl border border-white/5">
+                                <div class="flex-shrink-0 mt-1">
+                                    <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                                        {{ comment.author.name[0] }}
+                                    </div>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="flex items-center space-x-2 mb-1">
+                                        <span class="font-bold text-white text-sm">{{ comment.author.name }}</span>
+                                        <span class="text-[10px] text-gray-500">{{ comment.created_at.strftime('%H:%M') }}</span>
+                                    </div>
+                                    <p class="text-sm text-gray-300 leading-relaxed">{{ comment.content }}</p>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="flex space-x-2">
+                            <input type="text" id="comment-input-{{ post.id }}" class="post-input py-2 px-3 text-sm flex-1" placeholder="Write a comment..." onkeypress="if(event.key === 'Enter') submitComment({{ post.id }})">
+                            <button onclick="submitComment({{ post.id }})" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition">Post</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+        {% if not posts %}
+        <div class="py-20 text-center">
+            <div class="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/10">
+                <i class="fas fa-search text-gray-600"></i>
+            </div>
+            <p class="text-gray-500">No posts found matching your current filter.</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+
+<!-- Post Detail Modal -->
+<div id="postDetailModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 md:p-10">
+    <div class="absolute inset-0 bg-[#0f172a]/80 backdrop-blur-md" onclick="closePostDetail()"></div>
+    <div class="relative w-full max-w-4xl max-h-full bg-[#1e293b] rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in fade-in zoom-in duration-300">
+        <!-- Close Button -->
+        <button onclick="closePostDetail()" class="absolute top-6 right-6 z-20 w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition">
+            <i class="fas fa-times"></i>
+        </button>
+
+        <!-- Left: Content Wrapper -->
+        <div class="w-full md:w-3/5 p-8 md:p-12 overflow-y-auto custom-scrollbar border-b md:border-b-0 md:border-r border-white/5">
+            <div id="modal-author-info" class="flex items-center gap-4 mb-8">
+                <!-- Authorship populated via JS -->
+            </div>
+
+            <div id="modal-content" class="text-white text-lg leading-relaxed whitespace-pre-wrap mb-8">
+                <!-- Content populated via JS -->
+            </div>
+
+            <div id="modal-link-container" class="mb-8"></div>
+            <div id="modal-poll-container" class="mb-8"></div>
+            
+            <div class="flex items-center gap-6 text-gray-400 text-sm py-6 border-t border-white/5">
+                <div class="flex items-center gap-2"><i class="far fa-heart"></i> <span id="modal-likes-count">0</span> Likes</div>
+                <div class="flex items-center gap-2"><i class="far fa-eye"></i> <span id="modal-views-count">0</span> Views</div>
+                <div class="flex items-center gap-2"><i class="far fa-comment"></i> <span id="modal-comments-count">0</span> Comments</div>
+            </div>
+        </div>
+
+        <!-- Right: Comments Section -->
+        <div class="w-full md:w-2/5 flex flex-col bg-[#1e293b]/50">
+            <div class="p-6 border-b border-white/5">
+                <h3 class="text-white font-bold">Comments</h3>
+            </div>
+            
+            <div id="modal-comments-list" class="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+                <!-- Comments populated via JS -->
+            </div>
+
+            <div class="p-6 bg-[#1e293b]">
+                <div class="flex gap-2">
+                    <input type="text" id="modal-comment-input" class="post-input py-3 px-4 text-sm flex-1 bg-white/5 rounded-2xl border border-white/10" placeholder="Join the discussion...">
+                    <button id="modal-comment-submit" class="bg-indigo-600 hover:bg-indigo-700 text-white w-12 h-12 rounded-2xl flex items-center justify-center transition shadow-lg shadow-indigo-600/20">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Initialize Intersection Observer for auto-view tracking
+    document.addEventListener('DOMContentLoaded', () => {
+        const observerOptions = {
+            root: null,
+            rootMargin: '0px',
+            threshold: 0.5 // Track view when 50% of the post action bar is visible
+        };
+
+        const viewObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const postId = entry.target.dataset.postId;
+                    trackView(postId);
+                    observer.unobserve(entry.target); // Track only once per page load
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.post-actions').forEach(el => {
+            viewObserver.observe(el);
+        });
+    });
+
+    async function trackView(postId) {
+        try {
+            const response = await fetch(`/api/post/view/${postId}`, { method: 'POST' });
+            const data = await response.json();
+            // Optional: update UI if we had a visible view counter
+        } catch (error) {
+            console.error('View tracking failed:', error);
+        }
+    }
+
+    function toggleElement(id) {
+        const el = document.getElementById(id);
+        el.classList.toggle('hidden');
+    }
+
+    function toggleComments(postId) {
+        toggleElement(`comments-${postId}`);
+    }
+
+    function closePostDetail() {
+        document.getElementById('postDetailModal').classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    }
+
+    function openPostDetail(postId) {
+        const modal = document.getElementById('postDetailModal');
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+
+        fetch(`/api/post/${postId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const post = data.post;
+                    document.getElementById('modal-author-info').innerHTML = `
+                        <div class="w-14 h-14 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-xl">
+                            ${post.author.initial}
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-white text-lg">${post.author.name}</span>
+                                ${post.author.is_verified ? '<i class="fas fa-check-circle text-blue-400 text-sm"></i> <span class="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full font-bold uppercase">' + (post.author.is_mentor ? 'Skilled Mentor' : 'Verified Student') + '</span>' : (post.author.is_mentor ? '<i class="fas fa-check-circle text-blue-400/50 text-xs"></i>' : '')}
+                            </div>
+                            <span class="text-gray-500 text-sm">${post.created_at}</span>
+                        </div>
+                    `;
+                    document.getElementById('modal-content').textContent = post.content;
+                    document.getElementById('modal-likes-count').textContent = post.likes_count;
+                    document.getElementById('modal-comments-count').textContent = post.comments_count;
+
+                    const list = document.getElementById('modal-comments-list');
+                    list.innerHTML = post.comments.map(c => `
+                        <div class="flex gap-3 bg-white/5 p-4 rounded-2xl border border-white/5">
+                            <div class="w-8 h-8 rounded-xl bg-gradient-to-r from-indigo-500 to-blue-500 flex items-center justify-center text-white text-xs font-bold">${c.author_initial}</div>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-white font-bold text-xs">${c.author_name}</span>
+                                    <span class="text-[10px] text-gray-500">${c.created_at}</span>
+                                </div>
+                                <p class="text-gray-300 text-xs leading-relaxed">${c.content}</p>
+                            </div>
+                        </div>
+                    `).join('') || '<p class="text-gray-500 text-center py-10 text-sm">No comments yet.</p>';
+
+                    const linkBox = document.getElementById('modal-link-container');
+                    linkBox.innerHTML = post.link ? `
+                        <a href="${post.link}" target="_blank" class="block p-4 bg-white/5 border border-white/10 rounded-2xl text-blue-400 hover:bg-white/10 transition truncate">
+                            <i class="fas fa-external-link-alt mr-2"></i> ${post.link}
+                        </a>
+                    ` : '';
+
+                    const submitBtn = document.getElementById('modal-comment-submit');
+                    const input = document.getElementById('modal-comment-input');
+                    submitBtn.onclick = () => {
+                        const content = input.value.trim();
+                        if (!content) return;
+                        const formData = new FormData();
+                        formData.append('content', content);
+                        fetch(`/comment/${postId}`, { method: 'POST', body: formData })
+                            .then(res => res.json())
+                            .then(cData => { if (cData.success) { input.value = ''; openPostDetail(postId); }});
+                    };
+                }
+            });
+    }
+
+    async function vote(pollId, index) {
+        try {
+            const response = await fetch(`/vote/${pollId}/${index}`, { method: 'POST' });
+            if (response.ok) {
+                location.reload();
+            }
+        } catch (error) {
+            console.error('Voting failed:', error);
+        }
+    }
+
+    async function toggleLike(postId, btn) {
+        btn.classList.add('pulse-tap');
+        setTimeout(() => btn.classList.remove('pulse-tap'), 300);
+        
+        try {
+            const response = await fetch(`/like/${postId}`, { method: 'POST' });
+            const data = await response.json();
+            if (data.success) {
+                const icon = btn.querySelector('i');
+                const countSpan = btn.querySelector('.count');
+                if (data.liked) {
+                    btn.classList.add('text-pink-500');
+                    btn.classList.remove('hover:text-pink-500');
+                    icon.classList.replace('far', 'fas');
+                } else {
+                    btn.classList.remove('text-pink-500');
+                    btn.classList.add('hover:text-pink-500');
+                    icon.classList.replace('fas', 'far');
+                }
+                countSpan.textContent = data.likes_count > 0 ? `(${data.likes_count})` : '';
+            }
+        } catch (error) { console.error('Error:', error); }
+    }
+
+    async function toggleSave(postId, btn) {
+        btn.classList.add('pulse-tap');
+        setTimeout(() => btn.classList.remove('pulse-tap'), 300);
+
+        try {
+            const response = await fetch(`/save/${postId}`, { method: 'POST' });
+            const data = await response.json();
+            if (data.success) {
+                const icon = btn.querySelector('i');
+                if (data.saved) {
+                    btn.classList.add('text-yellow-500');
+                    btn.classList.remove('hover:text-yellow-500');
+                    icon.classList.replace('far', 'fas');
+                } else {
+                    btn.classList.remove('text-yellow-500');
+                    btn.classList.add('hover:text-yellow-500');
+                    icon.classList.replace('fas', 'far');
+                }
+            }
+        } catch (error) { console.error('Error:', error); }
+    }
+
+    async function sharePost(postId, btn) {
+        btn.classList.add('pulse-tap');
+        setTimeout(() => btn.classList.remove('pulse-tap'), 300);
+
+        try {
+            const response = await fetch(`/share/${postId}`, { method: 'POST' });
+            const data = await response.json();
+            if (data.success) {
+                const countSpan = btn.querySelector('.count');
+                countSpan.textContent = data.share_count > 0 ? `(${data.share_count})` : '';
+                
+                if (navigator.clipboard) {
+                    await navigator.clipboard.writeText(data.share_url);
+                    alert('Link copied to clipboard!');
+                }
+            }
+        } catch (error) { console.error('Error:', error); }
+    }
+
+    async function submitComment(postId) {
+        const input = document.getElementById(`comment-input-${postId}`);
+        const content = input.value.trim();
+        if (!content) return;
+
+        try {
+            const formData = new FormData();
+            formData.append('content', content);
+            
+            const response = await fetch(`/comment/${postId}`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            if (data.success) {
+                const commentsList = document.querySelector(`#comments-${postId} .comments-list`);
+                const newCommentHtml = `
+                    <div class="flex space-x-3 bg-white/5 p-3 rounded-xl border border-white/5">
+                        <div class="flex-shrink-0 mt-1">
+                            <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                                ${data.comment.author_initial}
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="font-bold text-white text-sm">${data.comment.author_name}</span>
+                                <span class="text-xs text-gray-500">${data.comment.created_at}</span>
+                            </div>
+                            <p class="text-sm text-gray-300">${data.comment.content}</p>
+                        </div>
+                    </div>
+                `;
+                commentsList.insertAdjacentHTML('beforeend', newCommentHtml);
+                input.value = '';
+                
+                const commentBtnSpan = document.querySelector(`#comments-${postId}`).previousElementSibling.querySelector('button:nth-child(2) span');
+                if (commentBtnSpan) commentBtnSpan.textContent = `(${data.comments_count})`;
+            }
+        } catch (error) { console.error('Error:', error); }
+    }
+</script>
+{% endblock %}

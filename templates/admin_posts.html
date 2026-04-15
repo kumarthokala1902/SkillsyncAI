@@ -1,0 +1,123 @@
+{% extends 'admin_base.html' %}
+{% block title %}Manage Posts – SkillSync Admin{% endblock %}
+
+{% block header_title %}Post Moderation{% endblock %}
+
+{% block admin_content %}
+<div class="glass-card rounded-[2.5rem] overflow-hidden">
+    <div class="p-8 border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h3 class="font-black text-white tracking-tight">Content Ecosystem</h3>
+            <p class="text-xs text-slate-500 mt-1">Moderate posts, track engagement, and manage community standards</p>
+        </div>
+        <div class="relative">
+            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-sm"></i>
+            <input type="text" oninput="filterTable('posts-table', this.value)" placeholder="Search by content or author..." 
+                class="bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 w-full md:w-64 transition-all">
+        </div>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-left" id="posts-table">
+            <thead>
+                <tr class="text-[10px] uppercase font-black tracking-widest text-slate-500 border-b border-white/5">
+                    <th class="px-8 py-4">Author</th>
+                    <th class="px-8 py-4">Content Preview</th>
+                    <th class="px-8 py-4">Metrics</th>
+                    <th class="px-8 py-4">Posted</th>
+                    <th class="px-8 py-4 text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-white/5">
+                {% for post in all_posts %}
+                <tr class="hover:bg-white/[0.02] transition-colors group" id="row-post-{{ post.id }}">
+                    <td class="px-8 py-5">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400 font-black text-[10px]">
+                                {{ post.author.name[0] }}
+                            </div>
+                            <span class="text-xs font-bold text-white">{{ post.author.name }}</span>
+                        </div>
+                    </td>
+                    <td class="px-8 py-5">
+                        <div class="max-w-xs md:max-w-md">
+                            <p class="text-sm text-slate-300 truncate">{{ post.content }}</p>
+                            {% if post.link %}
+                            <a href="{{ post.link }}" target="_blank" class="text-[10px] text-indigo-400 hover:underline flex items-center gap-1 mt-1">
+                                <i class="fas fa-link"></i> Linked Resource
+                            </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="px-8 py-5">
+                        <div class="flex items-center gap-4 text-[10px] font-bold text-slate-500 uppercase">
+                            <span title="Likes"><i class="far fa-heart mr-1"></i> {{ post.likes|length }}</span>
+                            <span title="Comments"><i class="far fa-comment mr-1"></i> {{ post.comments|length }}</span>
+                            <span title="Views"><i class="far fa-eye mr-1"></i> {{ post.views_count or 0 }}</span>
+                        </div>
+                    </td>
+                    <td class="px-8 py-5">
+                        <p class="text-[10px] text-slate-500 font-bold">{{ post.created_at.strftime('%d %b %Y, %H:%M') }}</p>
+                    </td>
+                    <td class="px-8 py-5">
+                        <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="deletePost({{ post.id }})" 
+                                class="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-all font-bold"
+                                title="Remove Content">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="toast" class="fixed bottom-10 right-10 z-[100] transform translate-y-20 opacity-0 transition-all duration-500">
+    <div class="glass-card px-6 py-4 rounded-2xl flex items-center gap-4 shadow-2xl">
+        <div id="toast-icon" class="w-8 h-8 rounded-full flex items-center justify-center"></div>
+        <p id="toast-msg" class="text-sm font-bold text-white"></p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showToast(msg, ok=true) {
+    const t = document.getElementById('toast');
+    const m = document.getElementById('toast-msg');
+    const i = document.getElementById('toast-icon');
+    
+    m.textContent = msg;
+    i.className = `w-8 h-8 rounded-full flex items-center justify-center ${ok ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`;
+    i.innerHTML = `<i class="fas ${ok ? 'fa-check' : 'fa-times'}"></i>`;
+    
+    t.classList.remove('translate-y-20', 'opacity-0');
+    setTimeout(() => {
+        t.classList.add('translate-y-20', 'opacity-0');
+    }, 3000);
+}
+
+async function deletePost(postId) {
+    if(!confirm("Remove this post permanently? This cannot be undone.")) return;
+    const res = await fetch(`/admin/post/delete/${postId}`, { method: 'POST' });
+    const data = await res.json();
+    if(data.success) {
+        document.getElementById(`row-post-${postId}`).remove();
+        showToast(data.message);
+    } else {
+        showToast(data.error || 'Failed to delete post', false);
+    }
+}
+
+function filterTable(tableId, query) {
+    const rows = document.querySelectorAll(`#${tableId} tbody tr`);
+    const q = query.toLowerCase();
+    rows.forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

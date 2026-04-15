@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Trending - SkillSync{% endblock %}
+
+{% block extra_css %}
+<style>
+    .post-card { background: rgba(23, 25, 35, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 1rem; padding: 1.5rem; margin-bottom: 1rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+            <i class="fas fa-bolt text-yellow-400"></i> Trending This Month
+        </h1>
+        <p class="text-gray-400">Discover the most popular topics and discussions happening right now.</p>
+    </div>
+
+    {% if not top_tags %}
+        <div class="card-dark rounded-2xl p-12 text-center border border-white/5">
+            <div class="w-20 h-20 bg-yellow-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-yellow-500/20">
+                <i class="fas fa-bolt text-3xl text-yellow-400 opacity-50"></i>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">No Trending Topics Yet</h3>
+            <p class="text-gray-400">Be the first to start a trend this month by using hashtags in your posts!</p>
+        </div>
+    {% else %}
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Sidebar: Leaderboard -->
+            <div class="lg:col-span-1 border-r border-white/10 pr-4">
+                <div class="sticky top-24 card-dark rounded-2xl p-6">
+                    <h2 class="text-xl font-bold text-white mb-4 border-b border-white/10 pb-3">Top Hashtags</h2>
+                    <div class="space-y-4">
+                        {% for tag, count in top_tags %}
+                            <div class="flex items-center justify-between group">
+                                <a href="#{{ tag[1:] }}" class="text-indigo-400 font-medium hover:text-indigo-300 transition-colors text-lg">
+                                    {{ tag }}
+                                </a>
+                                <span class="bg-indigo-500/20 text-indigo-300 text-xs font-bold px-2.5 py-1 rounded-full border border-indigo-500/30">
+                                    {{ count }} posts
+                                </span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content: Posts -->
+            <div class="lg:col-span-2 space-y-12">
+                {% for tag, count in top_tags %}
+                    {% set posts = hashtag_to_posts[tag] %}
+                    <div id="{{ tag[1:] }}" class="scroll-mt-24">
+                        <h3 class="text-2xl font-bold text-white mb-4 flex items-center gap-2 border-b border-indigo-500/30 pb-2">
+                            <span class="text-indigo-400">{{ tag }}</span>
+                            <span class="text-sm font-normal text-gray-500 ml-2">{{ count }} trending posts</span>
+                        </h3>
+                        
+                        <div class="space-y-4">
+                            {% for post in posts[:3] %} <!-- Show top 3 posts per tag to save space -->
+                                <div class="post-card hover:bg-white/[0.02] transition-colors duration-300">
+                                    <div class="flex space-x-4">
+                                        <div class="flex-shrink-0">
+                                            <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                                {{ post.author.name[0] }}
+                                            </div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <div class="flex items-center space-x-2 mb-1">
+                                                <span class="font-bold text-white text-sm">{{ post.author.name }}</span>
+                                                <span class="text-gray-500 text-xs">@{{ post.author.name.lower().replace(' ', '') }} · {{ post.created_at.strftime('%b %d') }}</span>
+                                            </div>
+                                            <p class="text-gray-300 text-sm mb-2 whitespace-pre-wrap">{{ post.content }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                            
+                            {% if posts|length > 3 %}
+                                <button class="w-full py-2 bg-white/5 hover:bg-white/10 text-indigo-400 text-sm font-medium rounded-xl transition-colors border border-white/5">
+                                    View {{ posts|length - 3 }} more posts in {{ tag }}
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

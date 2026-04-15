@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - SkillSync{% endblock %}
+
+{% block extra_css %}
+<!-- TomSelect CSS -->
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
+<style>
+    .input-dark { background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); color: #e2e8f0; }
+    .input-dark:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
+    /* Dark Theme overrides for TomSelect */
+    .ts-control { background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); color: #e2e8f0;border-radius: 0.75rem; padding: 0.75rem 1rem; }
+    .ts-control .item { color: #e2e8f0; }
+    .ts-control > input { color: #e2e8f0; }
+    .ts-dropdown { background: #1e293b; border: 1px solid rgba(255, 255, 255, 0.1); color: #e2e8f0; border-radius: 0.5rem; overflow: hidden; }
+    .ts-dropdown .active { background-color: #3b82f6; color: white; }
+
+    /* Verification Test Styles */
+    .test-modal { backdrop-filter: blur(20px); background: rgba(15, 23, 42, 0.95); }
+    .question-card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); }
+    .option-btn { transition: all 0.2s; border: 1px solid rgba(255, 255, 255, 0.05); }
+    .option-btn:hover { background: rgba(99, 102, 241, 0.1); border-color: rgba(99, 102, 241, 0.3); }
+    .option-btn.selected { background: rgba(99, 102, 241, 0.2); border-color: #6366f1; color: white; }
+    #code-editor { border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 14px; }
+    .timer-critical { color: #f87171; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+            <i class="fas fa-cog text-gray-400"></i> Settings & Profile
+        </h1>
+        <p class="text-gray-400">Manage your account, verify your profile, and join live FAANG sessions.</p>
+    </div>
+
+    <!-- Alert Container for Messages -->
+    <div id="alert-container" class="hidden rounded-xl p-4 mb-6 border"></div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Left Column -->
+        <div class="space-y-8">
+            <!-- User Profile Section -->
+            <div class="card-dark rounded-2xl p-6 border border-white/5 relative overflow-hidden">
+                <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 to-purple-600"></div>
+                <h2 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                    <i class="fas fa-id-card text-blue-400"></i> User Profile
+                </h2>
+                <div class="flex items-center gap-6">
+                    <div class="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-3xl font-bold flex-shrink-0 shadow-lg" id="profile-avatar">
+                        {{ current_user.name[0] }}
+                    </div>
+                    <div>
+                        <p class="text-gray-400 text-sm font-medium uppercase tracking-wider mb-1">Username</p>
+                        <p class="text-white text-xl font-bold mb-3" id="profile-username">{{ current_user.name }}</p>
+                        
+                        <div class="flex gap-4">
+                            <div>
+                                <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Email</p>
+                                <p class="text-gray-300 text-sm" id="profile-email">{{ current_user.email }}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Role</p>
+                                <p class="text-blue-400 text-sm font-semibold capitalize" id="profile-role">
+                                    {% if current_user.is_mentor %}Mentor (Admin){% else %}Student (Learner){% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Account Management Section -->
+            <div class="card-dark rounded-2xl p-6 border border-white/5">
+                <h2 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                    <i class="fas fa-user-edit text-purple-400"></i> Account Management
+                </h2>
+                <form id="account-form" class="space-y-4">
+                            <div>
+                                <label class="block text-gray-400 text-sm font-medium mb-2">Update Username</label>
+                                <input type="text" id="input-username" class="w-full transition" placeholder="New Username" value="{{ current_user.name }}">
+                            </div>
+                            <div>
+                                <label class="block text-gray-400 text-sm font-medium mb-2">Update Password</label>
+                                <input type="password" id="input-password" class="w-full transition" placeholder="Leave blank to keep current">
+                            </div>
+                            {% if not current_user.is_mentor %}
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-2">College Name</label>
+                                <select id="college_name_sel" class="w-full transition">
+                                    <option value="">Select College Name...</option>
+                                </select>
+                                <input type="text" id="college_name" name="college_name" class="w-full transition hidden mt-2" placeholder="Enter College Name Manually" value="{{ current_user.college_name or '' }}">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-2">College Code</label>
+                                <select id="college_code_sel" class="w-full transition">
+                                    <option value="">Select College Code...</option>
+                                </select>
+                                <input type="text" id="college_code" name="college_code" class="w-full transition hidden mt-2" placeholder="Enter College Code Manually" value="{{ current_user.college_code or '' }}">
+                            </div>
+                            {% endif %}
+                            <button type="submit" class="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-lg shadow-indigo-500/20">
+                                Save Changes
+                            </button>
+                        </form>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="space-y-8">
+            <!-- Verification System Section -->
+            <div class="card-dark rounded-2xl p-6 border border-white/5 relative">
+                <h2 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                    <i class="fas fa-shield-alt text-green-400"></i> Verification System
+                </h2>
+                
+                <div class="flex items-center justify-between bg-[#1A1C29] p-4 rounded-xl border border-white/5">
+                    <div class="flex items-center gap-4">
+                        <div id="verify-icon" class="w-12 h-12 rounded-full flex items-center justify-center text-xl 
+                            {% if current_user.is_verified %}bg-green-500/20 text-green-400
+                            {% elif current_user.verification_status == 'pending' %}bg-amber-500/20 text-amber-400
+                            {% else %}bg-gray-500/20 text-gray-400{% endif %}">
+                            <i class="fas {% if current_user.is_verified %}fa-check{% elif current_user.verification_status == 'pending' %}fa-clock{% else %}fa-times{% endif %}"></i>
+                        </div>
+                        <div>
+                            <p class="text-white font-bold text-lg">Status</p>
+                            <p id="verify-text" class="{% if current_user.is_verified %}text-green-400{% elif current_user.verification_status == 'pending' %}text-amber-400{% else %}text-gray-400{% endif %} font-medium">
+                                {% if current_user.is_verified %}Verified {{ current_user.verified_role or 'Account' }} 
+                                {% elif current_user.verification_status == 'pending' %}Pending Verification
+                                {% else %}Not Verified{% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <button id="verify-btn" onclick="openLanguageSelection()" 
+                        class="px-6 py-2.5 rounded-xl font-bold transition-all 
+                        {% if current_user.is_verified or current_user.verification_status == 'pending' %}bg-white/5 text-gray-400 cursor-not-allowed border border-white/10
+                        {% else %}bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-500/20{% endif %}" 
+                        {% if current_user.is_verified or current_user.verification_status == 'pending' %}disabled{% endif %}>
+                        {% if current_user.is_verified %}Verified{% elif current_user.verification_status == 'pending' %}Pending{% else %}Verify Skill{% endif %}
+                    </button>
+                </div>
+                <p class="text-sm text-gray-500 mt-4">Verification grants you access to premium features and live sessions.</p>
+            </div>
+
+            <!-- FAANG Live Section -->
+            <div class="card-dark rounded-2xl p-0 border border-white/5 overflow-hidden">
+                <div class="bg-gradient-to-r from-red-600 to-pink-600 p-6 relative">
+                    <div class="absolute top-4 right-4 bg-red-900/40 px-3 py-1 rounded-full border border-red-400/30 flex items-center gap-2">
+                        <div class="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
+                        <span class="text-red-100 text-xs font-bold uppercase tracking-wider">Live Hub</span>
+                    </div>
+                    <h2 class="text-2xl font-bold text-white mb-1 flex items-center gap-2">
+                        <i class="fas fa-broadcast-tower"></i> FAANG Live
+                    </h2>
+                    <p class="text-red-100 font-medium">Exclusive mock interviews and coding sessions.</p>
+                </div>
+                
+                <div class="p-6">
+                    <div id="faang-events-container" class="space-y-4">
+                        <!-- Events will be populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block modals %}
+    <!-- Language Selection Modal -->
+    <div id="lang-modal" class="fixed inset-0 hidden items-center justify-center p-4 bg-black/90 backdrop-blur-md" style="z-index: 9999;">
+        <div class="bg-[#0f172a] border border-white/10 rounded-3xl p-8 max-w-md w-full shadow-2xl">
+            <h3 class="text-2xl font-bold text-white mb-2">Verify Your Expertise</h3>
+            <p class="text-gray-400 text-sm mb-6">Select your primary language to begin the verification test.</p>
+            
+            <div class="space-y-3 mb-8">
+                {% for lang in ['Python', 'Java', 'JavaScript', 'C++', 'DevOps', 'DSA'] %}
+                <button onclick="selectLanguage('{{ lang }}')" class="lang-option w-full p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-indigo-500/50 hover:bg-indigo-500/5 text-left transition-all flex items-center justify-between group">
+                    <span class="text-gray-300 font-bold group-hover:text-white">{{ lang }}</span>
+                    <i class="fas fa-chevron-right text-gray-600 group-hover:text-indigo-400 text-xs"></i>
+                </button>
+                {% endfor %}
+            </div>
+            
+            <button onclick="closeModal('lang-modal')" class="w-full py-4 text-gray-500 font-bold hover:text-white transition">Cancel</button>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+<script>
+    let tsName = null;
+    let tsCode = null;
+    let collegeData = [];
+
+    document.addEventListener("DOMContentLoaded", () => {
+        initLocalStorage();
+        loadFaangEvents();
+        {% if not current_user.is_mentor %}
+        fetchColleges();
+        {% endif %}
+        document.getElementById('account-form').addEventListener('submit', handleAccountUpdate);
+    });
+
+    async function fetchColleges() {
+        try {
+            const res = await fetch('/api/colleges');
+            collegeData = await res.json();
+            const nameOptions = collegeData.map(c => ({value: c.name, text: c.name}));
+            const codeOptions = collegeData.map(c => ({value: c.code, text: c.code}));
+            nameOptions.push({value: 'Other', text: 'Other (Enter Manually)'});
+            codeOptions.push({value: 'Other', text: 'Other (Enter Manually)'});
+            
+            tsName = new TomSelect('#college_name_sel', {
+                options: nameOptions,
+                create: false,
+                onChange: function(val) {
+                    if (val === 'Other') {
+                        document.getElementById('college_name').classList.remove('hidden');
+                        document.getElementById('college_code').classList.remove('hidden');
+                        tsCode.setValue('Other', true);
+                    } else if (val) {
+                        document.getElementById('college_name').classList.add('hidden');
+                        document.getElementById('college_code').classList.add('hidden');
+                        document.getElementById('college_name').value = val;
+                        const match = collegeData.find(c => c.name === val);
+                        if (match) { tsCode.setValue(match.code, true); document.getElementById('college_code').value = match.code; }
+                    }
+                }
+            });
+            tsCode = new TomSelect('#college_code_sel', {
+                options: codeOptions,
+                create: false,
+                onChange: function(val) {
+                    if (val === 'Other') {
+                        document.getElementById('college_name').classList.remove('hidden');
+                        document.getElementById('college_code').classList.remove('hidden');
+                        tsName.setValue('Other', true);
+                    } else if (val) {
+                        document.getElementById('college_name').classList.add('hidden');
+                        document.getElementById('college_code').classList.add('hidden');
+                        document.getElementById('college_code').value = val;
+                        const match = collegeData.find(c => c.code === val);
+                        if (match) { tsName.setValue(match.name, true); document.getElementById('college_name').value = match.name; }
+                    }
+                }
+            });
+        } catch (e) { console.error(e); }
+    }
+
+    function initLocalStorage() {
+        const userDetails = {
+            username: "{{ current_user.name }}",
+            email: "{{ current_user.email }}",
+            role: "{{ 'Mentor' if current_user.is_mentor else 'Student' }}",
+            is_verified: {{ 'true' if current_user.is_verified else 'false' }}
+        };
+        localStorage.setItem('user_details', JSON.stringify(userDetails));
+    }
+
+    function showAlert(message, type) {
+        const container = document.getElementById('alert-container');
+        container.className = `rounded-xl p-4 mb-6 border ${type === 'success' ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-red-500/10 border-red-500/30 text-red-400'}`;
+        container.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} mr-2"></i> ${message}`;
+        container.classList.remove('hidden');
+        setTimeout(() => container.classList.add('hidden'), 5000);
+    }
+
+    async function handleAccountUpdate(e) {
+        e.preventDefault();
+        const username = document.getElementById('input-username').value.trim();
+        const password = document.getElementById('input-password').value.trim();
+        const payload = { username, password };
+        {% if not current_user.is_mentor %}
+        payload.college_name = document.getElementById('college_name').value.trim();
+        payload.college_code = document.getElementById('college_code').value.trim();
+        {% endif %}
+
+        try {
+            const res = await fetch('/api/update-profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                showAlert(data.message, 'success');
+                document.getElementById('profile-username').textContent = username;
+            }
+        } catch (e) { showAlert('Error updating profile.', 'error'); }
+    }
+
+    function openLanguageSelection() {
+        document.getElementById('lang-modal').classList.remove('hidden');
+        document.getElementById('lang-modal').classList.add('flex');
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).classList.add('hidden');
+        document.getElementById(id).classList.remove('flex');
+    }
+
+    async function selectLanguage(lang) {
+        closeModal('lang-modal');
+        showAlert(`Redirecting to ${lang} assessment...`, 'success');
+        setTimeout(() => { window.location.href = `/verification?lang=${lang}`; }, 1000);
+    }
+
+    function loadFaangEvents() {
+        const container = document.getElementById('faang-events-container');
+        const events = JSON.parse(localStorage.getItem('faang_events')) || [
+            { id: 1, title: "DSA Mock Interview: Trees & Graphs", time: "Today, 5:00 PM EST", instructor: "Ex-Google SWE", tags: ["interviews", "dsa"] },
+            { id: 2, title: "System Design Basics: Scalability", time: "Tomorrow, 7:30 PM EST", instructor: "Meta Staff Engineer", tags: ["system design", "architecture"] },
+            { id: 3, title: "Behavioral Interview Prep Masterclass", time: "Friday, 6:00 PM EST", instructor: "Amazon Recruiter", tags: ["behavioral", "amazon"] }
+        ];
+        container.innerHTML = events.map(ev => `
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-white/5 border border-white/10 hover:border-red-500/30 transition-colors group">
+                <div>
+                    <h3 class="font-bold text-white text-lg group-hover:text-red-400 transition-colors">${ev.title}</h3>
+                    <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                        <span><i class="far fa-clock mr-1"></i>${ev.time}</span>
+                        <span><i class="fas fa-chalkboard-teacher mr-1"></i>${ev.instructor}</span>
+                    </div>
+                </div>
+                <button onclick="joinEvent(${ev.id})" class="px-6 py-2 bg-white text-red-600 font-bold rounded-xl hover:bg-red-50 transition">Join</button>
+            </div>
+        `).join('');
+    }
+
+    function joinEvent(id) { showAlert('Joining FAANG Live session...', 'success'); }
+</script>
+{% endblock %}

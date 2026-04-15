@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}Explore People - SkillSync{% endblock %}
+
+{% block extra_css %}
+<style>
+    .people-container {
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+    .person-card {
+        background: rgba(30, 41, 59, 0.4);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 1.5rem;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        margin-bottom: 1rem;
+    }
+    .person-card:hover {
+        transform: scale(1.01);
+        border-color: rgba(99, 102, 241, 0.3);
+        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+    }
+    .avatar-wrapper {
+        position: relative;
+        flex-shrink: 0;
+    }
+    .avatar-ring {
+        position: absolute;
+        inset: -4px;
+        border-radius: 9999px;
+        padding: 2px;
+        background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        mask-composite: exclude;
+    }
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .connection-btn {
+        transition: all 0.3s ease;
+    }
+    .connection-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="people-container py-12 px-4">
+    <!-- Header -->
+    <div class="mb-12 text-center">
+        <h1 class="text-5xl font-extrabold text-white mb-4">Connect with <span class="text-indigo-500">Excellence</span></h1>
+        <p class="text-gray-400 text-lg max-w-2xl mx-auto">Expand your professional circle. Collaborate with mentors and learn from peers who share your ambition.</p>
+    </div>
+
+    <!-- Users List -->
+    <div class="space-y-6">
+        {% for user in users %}
+        <div class="person-card group" id="user-{{ user.id }}">
+            <!-- Left: Avatar -->
+            <div class="avatar-wrapper mr-6">
+                <div class="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xl font-black shadow-xl group-hover:scale-105 transition-transform duration-500">
+                    {{ user.name[0] }}
+                </div>
+                {% if user.is_mentor %}
+                <div class="avatar-ring" style="inset: -2px;"></div>
+                {% endif %}
+            </div>
+
+            <!-- Middle: Info & Bio -->
+            <div class="flex-1 min-w-0 pr-6">
+                <div class="flex items-center gap-3 mb-0.5">
+                    <a href="{{ url_for('mentor_profile' if user.is_mentor else 'learner_profile', mentor_id=user.id if user.is_mentor else None, learner_id=user.id if not user.is_mentor else None) }}" 
+                       class="text-xl font-bold text-white truncate hover:text-indigo-400 transition-colors">
+                        {{ user.name }}
+                    </a>
+                    {% if user.is_mentor %}
+                    <span class="status-badge bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Mentor</span>
+                    {% else %}
+                    <span class="status-badge bg-green-500/10 text-green-400 border border-green-500/20">Learner</span>
+                    {% endif %}
+                </div>
+                
+                <p class="text-xs text-gray-400 line-clamp-1 mb-2">
+                    {{ user.bio or 'Developing the future at SkillSync.' }}
+                </p>
+
+                <div class="flex flex-wrap gap-2">
+                    {% for skill in user.get_skills_list()[:3] %}
+                    <span class="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] text-gray-400 font-bold uppercase tracking-wider">
+                        {{ skill }}
+                    </span>
+                    {% endfor %}
+                    {% if user.get_skills_list()|length > 3 %}
+                    <span class="text-[9px] text-gray-600 font-bold uppercase mt-1">+{{ user.get_skills_list()|length - 3 }}</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Right: Actions -->
+            <div class="flex items-center gap-3">
+                {% set u_status = status_map.get(user.id) %}
+                
+                {% if not u_status %}
+                    <button onclick="connectUser('{{ user.id }}', this)" 
+                        class="connection-btn px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-lg shadow-indigo-600/20 active:scale-95">
+                        <i class="fas fa-user-plus mr-2"></i> Connect
+                    </button>
+                {% elif u_status.status == 'Pending' %}
+                    {% if u_status.is_sender %}
+                        <button class="connection-btn px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-gray-500 font-bold text-xs" disabled>
+                            <i class="fas fa-clock mr-2"></i> Requested
+                        </button>
+                    {% else %}
+                        <button onclick="acceptConnection('{{ u_status.conn_id }}', this)"
+                            class="connection-btn px-4 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-xs shadow-lg shadow-green-600/20 active:scale-95">
+                            <i class="fas fa-check mr-2"></i> Accept
+                        </button>
+                    {% endif %}
+                {% elif u_status.status == 'Accepted' %}
+                    <button class="connection-btn px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-bold text-xs" disabled>
+                        <i class="fas fa-user-friends mr-2"></i> Connected
+                    </button>
+                {% endif %}
+
+                <a href="{{ url_for('mentor_profile' if user.is_mentor else 'learner_profile', mentor_id=user.id if user.is_mentor else None, learner_id=user.id if not user.is_mentor else None) }}" 
+                   class="p-2 rounded-xl bg-white/5 border border-white/10 text-gray-500 hover:text-white hover:bg-white/10 transition" title="View Profile">
+                    <i class="fas fa-expand-alt text-sm"></i>
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if not users %}
+    <div class="text-center py-20 bg-white/5 rounded-[3rem] border border-dashed border-white/10">
+        <i class="fas fa-user-astronaut text-4xl text-gray-600 mb-4"></i>
+        <h3 class="text-xl font-bold text-white mb-2">The star-map is empty</h3>
+        <p class="text-gray-500">Wait for more users to join the mission.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Toast -->
+<div id="toast" class="fixed bottom-10 right-10 z-[100] transform translate-y-20 opacity-0 transition-all duration-500">
+    <div class="glass-card px-6 py-4 rounded-2xl flex items-center gap-4 shadow-2xl bg-[#1e293b]/90 backdrop-blur-xl border border-white/10">
+        <div id="toast-icon" class="w-8 h-8 rounded-full flex items-center justify-center"></div>
+        <p id="toast-msg" class="text-sm font-bold text-white"></p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showToast(msg, ok=true) {
+    const t = document.getElementById('toast');
+    const m = document.getElementById('toast-msg');
+    const i = document.getElementById('toast-icon');
+    
+    m.textContent = msg;
+    i.className = `w-8 h-8 rounded-full flex items-center justify-center ${ok ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`;
+    i.innerHTML = `<i class="fas ${ok ? 'fa-check' : 'fa-times'}"></i>`;
+    
+    t.classList.remove('translate-y-20', 'opacity-0');
+    setTimeout(() => {
+        t.classList.add('translate-y-20', 'opacity-0');
+    }, 3000);
+}
+
+async function connectUser(userId, btn) {
+    const originalContent = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner animate-spin"></i>';
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(`/api/connect/request/${userId}`, { method: 'POST' });
+        const data = await response.json();
+
+        if (data.success) {
+            btn.innerHTML = '<i class="fas fa-clock mr-2"></i> Requested';
+            btn.className = 'connection-btn px-6 py-2.5 rounded-xl bg-white/5 border border-white/10 text-gray-400 font-bold text-sm';
+            showToast('Connection request sent!');
+        } else {
+            btn.innerHTML = originalContent;
+            btn.disabled = false;
+            showToast(data.error || 'Failed to connect', false);
+        }
+    } catch (err) {
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+        showToast('Network error', false);
+    }
+}
+
+async function acceptConnection(connId, btn) {
+    const originalContent = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner animate-spin"></i>';
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(`/api/connect/accept/${connId}`, { method: 'POST' });
+        const data = await response.json();
+
+        if (data.success) {
+            btn.innerHTML = '<i class="fas fa-user-friends mr-2"></i> Connected';
+            btn.className = 'connection-btn px-6 py-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-bold text-sm';
+            showToast('Connection accepted!');
+        } else {
+            btn.innerHTML = originalContent;
+            btn.disabled = false;
+            showToast(data.error || 'Failed to accept', false);
+        }
+    } catch (err) {
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+        showToast('Network error', false);
+    }
+}
+</script>
+{% endblock %}

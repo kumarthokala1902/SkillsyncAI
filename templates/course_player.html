@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+
+{% block title %}{{ course.title }} - SkillSync Course Player{% endblock %}
+
+{% block extra_css %}
+<style>
+    .player-container { height: calc(100vh - 80px); }
+    .video-sidebar::-webkit-scrollbar { width: 6px; }
+    .video-sidebar::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); }
+    .video-sidebar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+    .video-sidebar::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.3); }
+    .active-lesson { background: rgba(99, 102, 241, 0.1); border-left: 4px solid #6366f1; }
+    .completed-icon { color: #10b981; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-[1600px] mx-auto">
+    <div class="flex flex-col lg:flex-row player-container bg-[#0f172a] rounded-3xl overflow-hidden shadow-2xl border border-white/5">
+        
+        <!-- Main Video Area -->
+        <div class="flex-1 flex flex-col min-w-0">
+            <!-- Course Header -->
+            <div class="px-8 py-4 border-b border-white/5 flex items-center justify-between bg-[#1e293b]/50 backdrop-blur-md">
+                <div class="flex items-center gap-4">
+                    <a href="{{ url_for('recordings') }}" class="text-gray-400 hover:text-white transition">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                    <div>
+                        <h1 class="text-white font-bold text-lg truncate max-w-md">{{ course.title }}</h1>
+                        <p class="text-xs text-gray-400">{{ course.instructor }}</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-6">
+                    <div class="hidden sm:flex flex-col items-end">
+                        <span class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Course Progress</span>
+                        <div class="flex items-center gap-3 mt-1">
+                            <div class="w-32 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                <div id="progress-bar-fill" class="h-full bg-indigo-500 transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                            <span id="progress-percent" class="text-xs font-bold text-indigo-400">0%</span>
+                        </div>
+                    </div>
+                    <button onclick="openFeedback()" class="px-4 py-2 bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 rounded-xl text-xs font-bold hover:bg-indigo-500/20 transition">
+                        Give Feedback
+                    </button>
+                </div>
+            </div>
+
+            <!-- YouTube Player -->
+            <div class="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
+                <div id="player" class="w-full h-full"></div>
+                <!-- Loading Overlay -->
+                <div id="player-loading" class="absolute inset-0 bg-[#0f172a] flex flex-col items-center justify-center transition-opacity duration-500">
+                    <div class="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
+                    <p class="text-gray-500 mt-4 text-sm font-medium animate-pulse">Initializing Secure Stream...</p>
+                </div>
+            </div>
+
+            <!-- Video Info & Interactive Tabs -->
+            <div class="px-8 py-6 bg-[#1e293b]/30 flex-1 flex flex-col min-h-0">
+                <div class="flex items-center justify-between mb-4 flex-shrink-0">
+                    <h2 id="current-video-title" class="text-2xl font-bold text-white transition-all truncate">Loading lesson...</h2>
+                    <button id="mark-complete-btn" onclick="toggleCompleteCurrent()" class="px-6 py-2 rounded-xl font-bold text-sm transition-all shadow-lg border flex-shrink-0">
+                        Mark as Complete
+                    </button>
+                </div>
+                
+                <!-- Tab Headers -->
+                <div class="flex gap-8 border-b border-white/5 mb-6 flex-shrink-0">
+                    <button onclick="switchTab('overview')" id="tab-btn-overview" class="tab-btn pb-4 text-sm font-bold border-b-2 border-indigo-500 text-white">Overview</button>
+                    <button onclick="switchTab('notes')" id="tab-btn-notes" class="tab-btn pb-4 text-sm font-bold text-gray-500 hover:text-white transition">Notes</button>
+                    <button onclick="switchTab('resources')" id="tab-btn-resources" class="tab-btn pb-4 text-sm font-bold text-gray-500 hover:text-white transition">Resources</button>
+                    <button onclick="switchTab('qa')" id="tab-btn-qa" class="tab-btn pb-4 text-sm font-bold text-gray-500 hover:text-white transition">Q&A</button>
+                </div>
+
+                <!-- Tab Content Containers -->
+                <div class="overflow-y-auto flex-1 custom-scrollbar">
+                    <!-- Overview Tab -->
+                    <div id="tab-content-overview" class="tab-content">
+                        <div class="flex items-center gap-4 mb-6">
+                            <div class="w-12 h-12 rounded-2xl bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30">
+                                <i class="fas fa-info-circle text-indigo-400"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-white font-bold">About this Lesson</h3>
+                                <p class="text-xs text-gray-500">Updated recently • Premium Course Material</p>
+                            </div>
+                        </div>
+                        <p class="text-gray-400 text-sm leading-relaxed max-w-4xl mb-6">
+                            Welcome to <strong>{{ course.title }}</strong>! In this lesson, we explore core concepts led by <strong>{{ course.instructor }}</strong>. This session is designed to give you practical, hands-on experience with the topic.
+                        </p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
+                                <h4 class="text-xs font-bold text-indigo-400 uppercase mb-2">Learning Objectives</h4>
+                                <ul class="text-xs text-gray-400 space-y-2">
+                                    <li><i class="fas fa-check text-green-500 mr-2"></i> Master the core fundamentals of the topic</li>
+                                    <li><i class="fas fa-check text-green-500 mr-2"></i> Apply best practices in real-world scenarios</li>
+                                    <li><i class="fas fa-check text-green-500 mr-2"></i> Understand industry-standard workflows</li>
+                                </ul>
+                            </div>
+                            <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
+                                <h4 class="text-xs font-bold text-indigo-400 uppercase mb-2">Instructor Info</h4>
+                                <p class="text-xs text-gray-400">{{ course.instructor }} is a leading industry expert with years of experience across multiple technology stacks.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notes Tab -->
+                    <div id="tab-content-notes" class="tab-content hidden">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-white font-bold">My Personal Notes</h3>
+                            <span id="notes-status" class="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Saved locally</span>
+                        </div>
+                        <textarea id="video-notes" 
+                                  oninput="saveNote()"
+                                  placeholder="Type your notes here... They are automatically saved for this specific lesson."
+                                  class="w-full h-48 bg-white/5 border border-white/10 rounded-2xl p-6 text-sm text-gray-300 focus:outline-none focus:border-indigo-500/50 transition resize-none"></textarea>
+                        <div class="mt-4 flex gap-4">
+                            <button class="px-4 py-2 bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 rounded-xl text-xs font-bold hover:bg-indigo-500/20 transition">
+                                <i class="fas fa-download mr-2"></i> Export PDF
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Resources Tab -->
+                    <div id="tab-content-resources" class="tab-content hidden">
+                        <h3 class="text-white font-bold mb-4">Course Resources</h3>
+                        <div class="space-y-3">
+                            <a href="#" class="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-indigo-500/50 transition group">
+                                <div class="flex items-center gap-3">
+                                    <i class="fas fa-file-pdf text-red-400"></i>
+                                    <span class="text-sm text-gray-300">Cheat Sheet & Quick Reference</span>
+                                </div>
+                                <i class="fas fa-external-link-alt text-xs text-gray-600 group-hover:text-indigo-400 transition"></i>
+                            </a>
+                            <a href="#" class="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-indigo-500/50 transition group">
+                                <div class="flex items-center gap-3">
+                                    <i class="fas fa-code text-blue-400"></i>
+                                    <span class="text-sm text-gray-300">Project Source Code (GitHub)</span>
+                                </div>
+                                <i class="fas fa-external-link-alt text-xs text-gray-600 group-hover:text-indigo-400 transition"></i>
+                            </a>
+                            <a href="https://developer.mozilla.org" target="_blank" class="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-indigo-500/50 transition group">
+                                <div class="flex items-center gap-3">
+                                    <i class="fas fa-globe text-green-400"></i>
+                                    <span class="text-sm text-gray-300">Official Documentation</span>
+                                </div>
+                                <i class="fas fa-external-link-alt text-xs text-gray-600 group-hover:text-indigo-400 transition"></i>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Q&A Tab -->
+                    <div id="tab-content-qa" class="tab-content hidden">
+                        <div class="bg-indigo-600/10 border border-indigo-500/20 rounded-2xl p-6 mb-6">
+                            <h3 class="text-white font-bold mb-2">Ask SkillSync AI</h3>
+                            <p class="text-xs text-gray-400 mb-4">Stuck on a concept? Our AI can explain complex topics from this video in real-time.</p>
+                            <div class="relative">
+                                <input type="text" placeholder="Ask about this lesson..." class="w-full bg-white/10 border border-white/10 rounded-xl pl-4 pr-12 py-3 text-sm text-white focus:outline-none focus:border-indigo-500">
+                                <button class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center">
+                                    <i class="fas fa-paper-plane text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Top Questions</h4>
+                        <div class="space-y-4">
+                            <div class="p-4 rounded-xl bg-white/5 border border-white/5">
+                                <p class="text-sm text-white font-bold mb-1">How do I implement the main module?</p>
+                                <p class="text-xs text-gray-500">2 answers • 5 hours ago</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar (Curriculum) -->
+        <div class="w-full lg:w-96 border-l border-white/5 flex flex-col bg-[#0f172a]">
+            <div class="p-6 border-b border-white/5">
+                <h3 class="text-white font-bold flex items-center gap-2">
+                    <i class="fas fa-list-ul text-indigo-500 text-sm"></i>
+                    Course Curriculum
+                </h3>
+                <p class="text-xs text-gray-500 mt-1">{{ videos|length }} Lessons • Approx. 12 hours</p>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto video-sidebar">
+                {% for video in videos %}
+                <div id="lesson-{{ video.id }}" 
+                     onclick="playVideo('{{ video.id }}', '{{ video.title|replace("'","\\'") }}')"
+                     class="lesson-item p-4 border-b border-white/5 cursor-pointer hover:bg-white/5 transition-all group flex gap-4 {{ 'active-lesson' if video.id == last_video_id }}">
+                    <div class="relative w-24 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-white/5 border border-white/10 group-hover:border-indigo-500/30 transition-all">
+                        <img src="{{ video.thumbnail }}" alt="Lesson" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500">
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <i class="fas fa-play text-white text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                        </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h4 class="text-sm font-bold text-gray-300 group-hover:text-white transition-colors truncate">{{ video.title }}</h4>
+                        <div class="flex items-center gap-3 mt-1">
+                            <span class="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Video Leson</span>
+                            {% if video.id in completed_videos %}
+                            <i id="check-{{ video.id }}" class="fas fa-check-circle completed-icon text-[10px]"></i>
+                            {% else %}
+                            <i id="check-{{ video.id }}" class="fas fa-check-circle text-gray-800 text-[10px]"></i>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+    let player;
+    let currentVideoId = '{{ last_video_id }}';
+    let playlistId = '{{ course.playlist_id or course.video_id }}';
+    let completedVideos = {{ completed_videos|tojson }};
+    let allVideos = {{ videos|tojson }};
+    
+    function onYouTubeIframeAPIReady() {
+        player = new YT.Player('player', {
+            height: '100%',
+            width: '100%',
+            videoId: currentVideoId,
+            playerVars: {
+                'playsinline': 1,
+                'modestbranding': 1,
+                'rel': 0,
+                'autoplay': 0
+            },
+            events: {
+                'onReady': onPlayerReady,
+                'onStateChange': onPlayerStateChange
+            }
+        });
+    }
+
+    function onPlayerReady(event) {
+        document.getElementById('player-loading').style.opacity = '0';
+        setTimeout(() => {
+            document.getElementById('player-loading').classList.add('hidden');
+        }, 500);
+        
+        let activeVideo = allVideos.find(v => v.id === currentVideoId);
+        if (activeVideo) {
+            updateUI(activeVideo.id, activeVideo.title);
+        }
+    }
+
+    function onPlayerStateChange(event) {
+        // When video ends (YT.PlayerState.ENDED = 0)
+        if (event.data === 0) {
+            markAsComplete(currentVideoId);
+            playNext();
+        }
+    }
+
+    function playVideo(id, title) {
+        currentVideoId = id;
+        player.loadVideoById(id);
+        updateUI(id, title);
+        
+        // Save progress to server
+        saveProgress(id, false);
+    }
+
+    function updateUI(id, title) {
+        document.getElementById('current-video-title').textContent = title;
+        
+        // Highlight active lesson in sidebar
+        document.querySelectorAll('.lesson-item').forEach(el => {
+            el.classList.remove('active-lesson');
+        });
+        document.getElementById(`lesson-${id}`).classList.add('active-lesson');
+        
+        // Update complete button
+        updateCompleteButton(id);
+        
+        // Scroll sidebar to active lesson
+        document.getElementById(`lesson-${id}`).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+        updateProgressBar();
+        loadNote();
+    }
+
+    // Tab Switching Logic
+    function switchTab(tabId) {
+        // Update Buttons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('border-b-2', 'border-indigo-500', 'text-white');
+            btn.classList.add('text-gray-500');
+        });
+        document.getElementById(`tab-btn-${tabId}`).classList.add('border-b-2', 'border-indigo-500', 'text-white');
+        document.getElementById(`tab-btn-${tabId}`).classList.remove('text-gray-500');
+
+        // Update Content
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.add('hidden');
+        });
+        document.getElementById(`tab-content-${tabId}`).classList.remove('hidden');
+    }
+
+    // Note Taking Logic
+    function saveNote() {
+        const note = document.getElementById('video-notes').value;
+        const key = `note_${playlistId}_${currentVideoId}`;
+        localStorage.setItem(key, note);
+        
+        const status = document.getElementById('notes-status');
+        status.textContent = 'Saving...';
+        setTimeout(() => {
+            status.textContent = 'Saved locally';
+        }, 1000);
+    }
+
+    function loadNote() {
+        const key = `note_${playlistId}_${currentVideoId}`;
+        const savedNote = localStorage.getItem(key);
+        document.getElementById('video-notes').value = savedNote || '';
+    }
+
+    function toggleCompleteCurrent() {
+        if (!completedVideos.includes(currentVideoId)) {
+            markAsComplete(currentVideoId);
+        } else {
+            // Unmark
+            completedVideos = completedVideos.filter(id => id !== currentVideoId);
+            document.getElementById(`check-${currentVideoId}`).classList.add('text-gray-800');
+            document.getElementById(`check-${currentVideoId}`).classList.remove('completed-icon');
+            updateCompleteButton(currentVideoId);
+            updateProgressBar();
+            saveProgress(currentVideoId, false);
+        }
+    }
+
+    function markAsComplete(id) {
+        if (!completedVideos.includes(id)) {
+            completedVideos.push(id);
+            document.getElementById(`check-${id}`).classList.remove('text-gray-800');
+            document.getElementById(`check-${id}`).classList.add('completed-icon');
+            updateCompleteButton(id);
+            updateProgressBar();
+            saveProgress(id, true);
+        }
+    }
+
+    function playNext() {
+        let currentIndex = allVideos.findIndex(v => v.id === currentVideoId);
+        if (currentIndex < allVideos.length - 1) {
+            let nextVideo = allVideos[currentIndex + 1];
+            playVideo(nextVideo.id, nextVideo.title);
+        }
+    }
+
+    function updateProgressBar() {
+        let percent = Math.round((completedVideos.length / allVideos.length) * 100);
+        document.getElementById('progress-bar-fill').style.width = percent + '%';
+        document.getElementById('progress-percent').textContent = percent + '%';
+    }
+
+    function saveProgress(videoId, isCompleted) {
+        fetch('/api/course/progress', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                playlist_id: playlistId,
+                video_id: videoId,
+                completed: isCompleted
+            })
+        });
+    }
+
+    // Modal Logic
+    function openFeedback() {
+        alert("Thanks for your interest! The Feedback system is being integrated. Your learning progress is already being saved.");
+    }
+
+    // Init progress bar on load
+    window.onload = () => {
+        updateProgressBar();
+        loadNote();
+    }
+</script>
+{% endblock %}

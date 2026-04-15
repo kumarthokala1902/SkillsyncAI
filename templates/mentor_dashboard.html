@@ -1,0 +1,884 @@
+{% extends "base.html" %}
+
+{% block title %}Mentor Dashboard – SkillSync{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Layout ──────────────────────────────────────────────── */
+.hub-grid { display: grid; grid-template-columns: 1fr; gap: 2rem; }
+@media (min-width: 1280px) { .hub-grid { grid-template-columns: 1fr 320px; } }
+
+/* ── Stat Cards ─────────────────────────────────────────── */
+.stat-card {
+    background: rgba(23,25,35,0.95);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 1.25rem;
+    padding: 1.5rem;
+    display: flex; align-items: center; gap: 1.25rem;
+    transition: transform .25s, box-shadow .25s;
+    box-shadow: 0 4px 24px rgba(0,0,0,.25);
+}
+.stat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+.stat-icon { width: 52px; height: 52px; border-radius: .9rem; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0; }
+
+/* ── Tabs ────────────────────────────────────────────────── */
+.hub-tabs { display: flex; gap: .5rem; flex-wrap: wrap; border-bottom: 1px solid rgba(255,255,255,.07); padding-bottom: .5rem; margin-bottom: 1.5rem; }
+.hub-tab { padding: .55rem 1.25rem; border-radius: .7rem; font-size: .9rem; font-weight: 600; cursor: pointer; color: #94a3b8; background: transparent; border: 1px solid transparent; transition: all .2s; }
+.hub-tab.active { background: rgba(99,102,241,.15); color: #818cf8; border-color: rgba(99,102,241,.25); }
+.hub-tab:hover:not(.active) { background: rgba(255,255,255,.05); color: #e2e8f0; }
+.hub-panel { display: none; }
+.hub-panel.active { display: block; }
+
+/* ── Meeting Cards ──────────────────────────────────────── */
+.meeting-card {
+    background: rgba(255,255,255,.025);
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 1rem;
+    padding: 1.25rem 1.5rem;
+    transition: background .2s, border-color .2s;
+}
+.meeting-card:hover { background: rgba(255,255,255,.04); border-color: rgba(99,102,241,.2); }
+.badge-upcoming { background: rgba(59,130,246,.15); color: #93c5fd; border: 1px solid rgba(59,130,246,.25); }
+.badge-live { background: rgba(239,68,68,.15); color: #fca5a5; border: 1px solid rgba(239,68,68,.3); animation: pulse-live 2s infinite; }
+.badge-completed { background: rgba(34,197,94,.1); color: #86efac; border: 1px solid rgba(34,197,94,.2); }
+.badge-cancelled { background: rgba(107,114,128,.1); color: #9ca3af; border: 1px solid rgba(107,114,128,.2); }
+@keyframes pulse-live { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)} 50%{box-shadow:0 0 0 6px rgba(239,68,68,0)} }
+
+/* ── Table ────────────────────────────────────────────────── */
+.hub-table { width: 100%; border-collapse: collapse; }
+.hub-table th { padding: .75rem 1rem; text-align: left; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #64748b; border-bottom: 1px solid rgba(255,255,255,.05); }
+.hub-table td { padding: .9rem 1rem; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: middle; }
+.hub-table tr:hover td { background: rgba(255,255,255,.015); }
+
+/* ── Modals ──────────────────────────────────────────────── */
+.modal-overlay { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.65); backdrop-filter: blur(6px); }
+.modal-box { background: #0f172a; border: 1px solid rgba(255,255,255,.1); border-radius: 1.5rem; width: 100%; max-width: 680px; max-height: 85vh; overflow-y: auto; padding: 2rem; box-shadow: 0 24px 64px rgba(0,0,0,.5); }
+.form-input { width: 100%; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); border-radius: .75rem; padding: .75rem 1rem; color: #e2e8f0; font-size: .95rem; outline: none; transition: border-color .2s; }
+.form-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.15); }
+.form-label { display: block; font-size: .8rem; font-weight: 600; color: #94a3b8; margin-bottom: .4rem; text-transform: uppercase; letter-spacing: .06em; }
+.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 640px) { .form-grid-2 { grid-template-columns: 1fr; } }
+
+/* ── Skeleton ─────────────────────────────────────────────── */
+.skeleton { background: linear-gradient(90deg, rgba(255,255,255,.04) 25%, rgba(255,255,255,.08) 50%, rgba(255,255,255,.04) 75%); background-size: 200% 100%; animation: skeleton-wave 1.5s infinite; border-radius: .5rem; }
+@keyframes skeleton-wave { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+/* ── Rating Stars ─────────────────────────────────────────── */
+.star-input { display: flex; gap: .25rem; }
+.star-input label { cursor: pointer; font-size: 1.5rem; color: #374151; transition: color .15s; }
+.star-input input { display: none; }
+.star-input label:hover, .star-input label:hover ~ label, .star-input input:checked ~ label { color: #fbbf24; }
+
+/* ── Toggle switch ────────────────────────────────────────── */
+.toggle { position: relative; width: 44px; height: 24px; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; inset: 0; border-radius: 24px; background: rgba(255,255,255,.1); cursor: pointer; transition: background .3s; }
+.toggle-slider:before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; bottom: 3px; border-radius: 50%; background: #fff; transition: transform .3s; }
+.toggle input:checked + .toggle-slider { background: #6366f1; }
+.toggle input:checked + .toggle-slider:before { transform: translateX(20px); }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- ── Page Header ───────────────────────────────────────── -->
+<div class="flex items-center justify-between mb-8 flex-wrap gap-4">
+    <div>
+        <h1 class="text-3xl font-bold text-white flex items-center gap-3">
+            <span class="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                <i class="fas fa-chalkboard-teacher text-white text-lg"></i>
+            </span>
+            Mentor Dashboard
+        </h1>
+        <p class="text-gray-400 mt-1">Welcome back, <span class="text-blue-400 font-semibold">{{ current_user.name }}</span> · Manage your meetings, students, and tests</p>
+    </div>
+    <button onclick="openCreateModal()"
+        class="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
+        <i class="fas fa-plus"></i> New Live Meeting
+    </button>
+</div>
+
+<!-- ── Stat Cards ─────────────────────────────────────────── -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div class="stat-card">
+        <div class="stat-icon bg-blue-500/15 text-blue-400"><i class="fas fa-video"></i></div>
+        <div>
+            <p class="text-2xl font-bold text-white">{{ total_meetings }}</p>
+            <p class="text-xs text-gray-500 mt-0.5">Total Meetings</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon bg-green-500/15 text-green-400"><i class="fas fa-user-graduate"></i></div>
+        <div>
+            <p class="text-2xl font-bold text-white">{{ students|length }}</p>
+            <p class="text-xs text-gray-500 mt-0.5">Students Mentored</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon bg-yellow-500/15 text-yellow-400"><i class="fas fa-star"></i></div>
+        <div>
+            <p class="text-2xl font-bold text-white">{{ avg_rating if avg_rating else '—' }}</p>
+            <p class="text-xs text-gray-500 mt-0.5">Avg Rating</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon bg-purple-500/15 text-purple-400"><i class="fas fa-check-circle"></i></div>
+        <div>
+            <p class="text-2xl font-bold text-white">{{ completed_sessions }}</p>
+            <p class="text-xs text-gray-500 mt-0.5">Sessions Done</p>
+        </div>
+    </div>
+</div>
+
+<!-- ── Live Alerts ────────────────────────────────────────── -->
+{% if live_meetings %}
+<div class="mb-6 p-4 rounded-xl border border-red-500/30 bg-red-500/5 flex items-center gap-3">
+    <span class="w-3 h-3 bg-red-500 rounded-full animate-pulse flex-shrink-0"></span>
+    <p class="text-red-300 font-semibold text-sm">
+        {{ live_meetings|length }} meeting{{ 's are' if live_meetings|length > 1 else ' is' }} LIVE right now —
+        {% for m in live_meetings %}<span class="text-white">{{ m.title }}</span>{% if not loop.last %}, {% endif %}{% endfor %}
+    </p>
+</div>
+{% endif %}
+
+<!-- ── Main Grid ─────────────────────────────────────────── -->
+<div class="hub-grid">
+    <!-- Left: Main Panel -->
+    <div class="space-y-6">
+
+        <!-- ── Tabs ─────────────────────────────────────── -->
+        <div class="card-dark rounded-2xl p-6">
+            <div class="hub-tabs">
+                <button class="hub-tab active" onclick="switchTab('meetings', this)" id="tab-meetings">
+                    <i class="fas fa-video mr-2"></i>Live Meetings
+                    <span class="ml-2 bg-indigo-500/20 text-indigo-300 text-xs px-2 py-0.5 rounded-full">{{ total_meetings }}</span>
+                </button>
+                <button class="hub-tab" onclick="switchTab('students', this)" id="tab-students">
+                    <i class="fas fa-users mr-2"></i>Students
+                    <span class="ml-2 bg-green-500/20 text-green-300 text-xs px-2 py-0.5 rounded-full">{{ students|length }}</span>
+                </button>
+                <button class="hub-tab" onclick="switchTab('tests', this)" id="tab-tests">
+                    <i class="fas fa-clipboard-list mr-2"></i>Skill Tests
+                    <span class="ml-2 bg-purple-500/20 text-purple-300 text-xs px-2 py-0.5 rounded-full">{{ skill_tests|length }}</span>
+                </button>
+                <button class="hub-tab" onclick="switchTab('feedback', this)" id="tab-feedback">
+                    <i class="fas fa-star mr-2"></i>Feedback
+                    <span class="ml-2 bg-yellow-500/20 text-yellow-300 text-xs px-2 py-0.5 rounded-full">{{ feedback_list|length }}</span>
+                </button>
+            </div>
+
+            <!-- ── Meetings Panel ──────────────────────── -->
+            <div id="panel-meetings" class="hub-panel active" id="meetings">
+                <!-- Filter Bar -->
+                <div class="flex flex-wrap gap-3 mb-5">
+                    <select id="filter-status" onchange="filterMeetings()" class="form-input text-sm" style="width:auto;padding:.55rem 1rem;">
+                        <option value="">All Statuses</option>
+                        <option value="upcoming">Upcoming</option>
+                        <option value="live">Live</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                    <select id="filter-skill" onchange="filterMeetings()" class="form-input text-sm" style="width:auto;padding:.55rem 1rem;">
+                        <option value="">All Skills</option>
+                        <option>Python</option><option>JavaScript</option><option>DSA</option>
+                        <option>Machine Learning</option><option>DevOps</option><option>React</option>
+                        <option>Java</option><option>Cloud</option><option>General</option>
+                    </select>
+                    <input id="filter-search" oninput="filterMeetings()" type="text" placeholder="Search meetings…"
+                        class="form-input text-sm" style="width:auto;min-width:180px;padding:.55rem 1rem;">
+                    <button onclick="openCreateModal()"
+                        class="ml-auto flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition">
+                        <i class="fas fa-plus"></i> Create
+                    </button>
+                </div>
+
+                <!-- Meeting Cards -->
+                <div id="meetings-list" class="space-y-3">
+                    {% if meetings %}
+                        {% for meeting in meetings %}
+                        <div class="meeting-card" data-status="{{ meeting.status }}" data-skill="{{ meeting.skill_category }}" data-title="{{ meeting.title|lower }}">
+                            <div class="flex items-start justify-between gap-4 flex-wrap">
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2 mb-1 flex-wrap">
+                                        <span class="text-xs font-bold px-2.5 py-1 rounded-full badge-{{ meeting.status }}">
+                                            {% if meeting.status == 'live' %}<i class="fas fa-circle text-[7px] mr-1"></i>{% endif %}
+                                            {{ meeting.status|upper }}
+                                        </span>
+                                        <span class="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">{{ meeting.skill_category }}</span>
+                                        <span class="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full"><i class="fas fa-globe mr-1"></i>{{ meeting.language }}</span>
+                                    </div>
+                                    <h3 class="text-white font-bold text-base truncate">{{ meeting.title }}</h3>
+                                    {% if meeting.description %}
+                                    <p class="text-gray-400 text-sm mt-0.5 line-clamp-1">{{ meeting.description }}</p>
+                                    {% endif %}
+                                    <div class="flex items-center gap-4 mt-2 text-xs text-gray-500 flex-wrap">
+                                        <span><i class="fas fa-calendar mr-1 text-indigo-400"></i>{{ meeting.scheduled_at.strftime('%b %d, %Y · %I:%M %p') }}</span>
+                                        <span><i class="fas fa-clock mr-1 text-blue-400"></i>{{ meeting.duration_minutes }} min</span>
+                                        <span><i class="fas fa-users mr-1 text-green-400"></i>{{ meeting.participants|length }}/{{ meeting.max_participants }}</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2 flex-shrink-0">
+                                    {% if meeting.meeting_link %}
+                                    <a href="{{ meeting.meeting_link }}" target="_blank"
+                                        class="text-xs bg-indigo-600/80 hover:bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1">
+                                        <i class="fas fa-external-link-alt"></i> Open
+                                    </a>
+                                    {% endif %}
+                                    {% if meeting.status in ('upcoming', 'live') %}
+                                    <button onclick="openEditModal({{ meeting.to_dict()|tojson }})"
+                                        class="text-xs bg-white/5 hover:bg-white/10 text-gray-300 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </button>
+                                    {% endif %}
+                                    <button onclick="openDeleteModal({{ meeting.id }}, '{{ meeting.title|replace("'","\\'")|e }}')"
+                                        class="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    <button onclick="loadParticipants({{ meeting.id }})"
+                                        class="text-xs bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1"
+                                        title="View Participants">
+                                        <i class="fas fa-users"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="text-center py-16">
+                        <div class="w-20 h-20 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-video text-indigo-400 text-3xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-300 mb-2">No meetings yet</h3>
+                        <p class="text-gray-500 mb-6 text-sm">Create your first live meeting to start connecting with students.</p>
+                        <button onclick="openCreateModal()"
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold transition">
+                            <i class="fas fa-plus mr-2"></i>Create Meeting
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+                <p id="no-filter-results" class="hidden text-center text-gray-500 py-8 text-sm">No meetings match your filters.</p>
+            </div>
+
+            <!-- ── Students Panel ─────────────────────── -->
+            <div id="panel-students" class="hub-panel" id="students">
+                {% if students %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {% for student in students %}
+                    <div class="glass-effect rounded-xl p-4 flex items-center gap-4 hover:bg-white/5 transition">
+                        <div class="w-11 h-11 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0">
+                            {{ student.name[0] }}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-bold text-white truncate">{{ student.name }}</p>
+                            <p class="text-xs text-gray-500 truncate">{{ student.email }}</p>
+                            {% if student.skills %}
+                            <p class="text-xs text-green-400 mt-0.5 truncate">{{ student.skills[:50] }}</p>
+                            {% endif %}
+                        </div>
+                        <a href="{{ url_for('learner_profile', learner_id=student.id) }}"
+                            class="text-xs text-indigo-400 hover:text-indigo-300 flex-shrink-0">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-16">
+                    <i class="fas fa-user-graduate text-gray-700 text-5xl mb-4"></i>
+                    <h3 class="text-xl font-bold text-gray-400 mb-1">No students yet</h3>
+                    <p class="text-gray-500 text-sm">Students who book sessions with you will appear here.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- ── Skill Tests Panel ──────────────────── -->
+            <div id="panel-tests" class="hub-panel" id="tests">
+                <div class="flex justify-end mb-4">
+                    <button onclick="openCreateTestModal()"
+                        class="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition">
+                        <i class="fas fa-plus"></i> New Skill Test
+                    </button>
+                </div>
+                {% if skill_tests %}
+                <div class="space-y-3">
+                    {% for test in skill_tests %}
+                    <div class="meeting-card">
+                        <div class="flex items-center justify-between flex-wrap gap-3">
+                            <div>
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-xs font-bold px-2.5 py-0.5 rounded-full {% if test.is_active %}badge-upcoming{% else %}badge-completed{% endif %}">
+                                        {{ 'ACTIVE' if test.is_active else 'INACTIVE' }}
+                                    </span>
+                                    <span class="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">{{ test.skill_category }}</span>
+                                </div>
+                                <h3 class="text-white font-bold">{{ test.title }}</h3>
+                                <p class="text-xs text-gray-500 mt-0.5">
+                                    <i class="fas fa-question-circle mr-1 text-purple-400"></i>{{ test.get_questions()|length }} questions ·
+                                    <i class="fas fa-clock mr-1 text-blue-400"></i>{{ test.time_limit_minutes }} min ·
+                                    <i class="fas fa-trophy mr-1 text-yellow-400"></i>Pass: {{ test.pass_score }}%
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-gray-500">{{ test.results|length }} results</span>
+                                <button onclick="deleteTest({{ test.id }})"
+                                    class="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg font-bold transition">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-16">
+                    <i class="fas fa-clipboard-list text-gray-700 text-5xl mb-4"></i>
+                    <h3 class="text-xl font-bold text-gray-400 mb-1">No skill tests yet</h3>
+                    <p class="text-gray-500 text-sm">Create tests to assess your students.</p>
+                    <button onclick="openCreateTestModal()" class="mt-5 bg-purple-600 hover:bg-purple-700 text-white px-6 py-2.5 rounded-xl font-bold transition">
+                        <i class="fas fa-plus mr-2"></i>Create Test
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- ── Feedback Panel ──────────────────────── -->
+            <div id="panel-feedback" class="hub-panel" id="feedback">
+                {% if feedback_list %}
+                <div class="space-y-3">
+                    {% for fb in feedback_list %}
+                    <div class="meeting-card">
+                        <div class="flex items-start gap-4">
+                            <div class="w-10 h-10 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0">
+                                {{ fb.student.name[0] }}
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between mb-1">
+                                    <p class="font-bold text-white">{{ fb.student.name }}</p>
+                                    <div class="flex gap-0.5">
+                                        {% for i in range(5) %}
+                                        <i class="fas fa-star text-sm {{ 'text-yellow-400' if i < fb.rating else 'text-gray-700' }}"></i>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% if fb.comment %}
+                                <p class="text-gray-400 text-sm">{{ fb.comment }}</p>
+                                {% endif %}
+                                <p class="text-xs text-gray-600 mt-1">{{ fb.created_at.strftime('%b %d, %Y') }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-16">
+                    <i class="fas fa-star text-gray-700 text-5xl mb-4"></i>
+                    <h3 class="text-xl font-bold text-gray-400 mb-1">No feedback yet</h3>
+                    <p class="text-gray-500 text-sm">Students will leave ratings after sessions.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div><!-- /card-dark -->
+
+    </div><!-- /Left -->
+
+    <!-- ── Right Sidebar ───────────────────────────────── -->
+    <div class="space-y-5">
+
+        <!-- Quick Stats -->
+        <div class="card-dark rounded-2xl p-5">
+            <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4"><i class="fas fa-bolt text-yellow-400 mr-2"></i>Quick Summary</h3>
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-400 text-sm">Live Now</span>
+                    <span class="font-bold {% if live_meetings %}text-red-400{% else %}text-gray-600{% endif %}">{{ live_meetings|length }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-400 text-sm">Upcoming</span>
+                    <span class="font-bold text-blue-400">{{ upcoming_meetings|length }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-400 text-sm">Completed</span>
+                    <span class="font-bold text-green-400">{{ completed_meetings|length }}</span>
+                </div>
+                <div class="flex justify-between items-center border-t border-white/5 pt-3">
+                    <span class="text-gray-400 text-sm">Avg. Rating</span>
+                    <span class="font-bold text-yellow-400">{{ avg_rating if avg_rating else '—' }} / 5</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upcoming Sessions (Booked by students) -->
+        <div class="card-dark rounded-2xl p-5">
+            <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">
+                <i class="fas fa-calendar-check text-orange-400 mr-2"></i>Student Bookings
+            </h3>
+            {% set booked = [] %}
+            {% for student in students %}
+                {% set sessions = student.sessions_learning[:2] %}
+                {% for s in sessions %}
+                    {% if s.mentor_id == current_user.id and s.status == 'scheduled' %}
+                    <div class="glass-effect rounded-xl p-3 mb-2 flex items-center gap-3">
+                        <div class="w-8 h-8 bg-orange-500/20 rounded-lg flex items-center justify-center text-orange-400 font-bold text-sm flex-shrink-0">
+                            {{ s.learner.name[0] }}
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-white font-semibold text-sm truncate">{{ s.topic[:30] }}</p>
+                            <p class="text-gray-500 text-xs">{{ s.learner.name }} · {{ s.scheduled_time.strftime('%b %d') }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+            <a href="{{ url_for('sessions') }}" class="block text-center text-indigo-400 text-xs font-bold hover:text-indigo-300 mt-2 transition">
+                View All Sessions →
+            </a>
+        </div>
+
+        <!-- Profile Link -->
+        <div class="card-dark rounded-2xl p-5 text-center">
+            <div class="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold mx-auto mb-3">
+                {{ current_user.name[0] }}
+            </div>
+            <p class="text-white font-bold mb-0.5">{{ current_user.name }}</p>
+            <p class="text-xs text-blue-400 mb-4">
+                <i class="fas fa-shield-check mr-1"></i>Verified Mentor
+            </p>
+            <a href="{{ url_for('mentor_profile', mentor_id=current_user.id) }}"
+                class="block w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white py-2 rounded-xl text-sm font-bold transition mb-2">
+                <i class="fas fa-user mr-2"></i>Public Profile
+            </a>
+            <a href="{{ url_for('settings') }}"
+                class="block w-full bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 py-2 rounded-xl text-sm transition">
+                <i class="fas fa-cog mr-2"></i>Settings
+            </a>
+        </div>
+
+    </div><!-- /Right Sidebar -->
+</div><!-- /hub-grid -->
+
+
+<!-- ═══════════════════════════════════════ MODALS ═══════════════════════════════════════ -->
+
+<!-- Create / Edit Meeting Modal -->
+<div id="meeting-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+        <div class="flex items-center justify-between mb-6">
+            <h2 id="modal-title" class="text-xl font-bold text-white flex items-center gap-2">
+                <i class="fas fa-video text-indigo-400"></i> Create Live Meeting
+            </h2>
+            <button onclick="closeModal('meeting-modal')" class="text-gray-500 hover:text-white transition text-xl">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <form id="meeting-form" class="space-y-4">
+            <input type="hidden" id="modal-meeting-id">
+
+            <div>
+                <label class="form-label">Meeting Title *</label>
+                <input type="text" id="m-title" class="form-input" placeholder="e.g. Python Basics for Beginners" required>
+            </div>
+            <div>
+                <label class="form-label">Description</label>
+                <textarea id="m-description" class="form-input" rows="2" placeholder="What will students learn?"></textarea>
+            </div>
+            <div class="form-grid-2">
+                <div>
+                    <label class="form-label">Language</label>
+                    <select id="m-language" class="form-input">
+                        <option>English</option><option>Tamil</option><option>Hindi</option>
+                        <option>Telugu</option><option>Kannada</option><option>Malayalam</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Skill Category</label>
+                    <select id="m-skill" class="form-input">
+                        <option>General</option><option>Python</option><option>JavaScript</option>
+                        <option>DSA</option><option>Machine Learning</option><option>DevOps</option>
+                        <option>React</option><option>Java</option><option>Cloud</option>
+                        <option>Flutter</option><option>SQL</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-grid-2">
+                <div>
+                    <label class="form-label">Date & Time *</label>
+                    <input type="datetime-local" id="m-scheduled-at" class="form-input" required>
+                </div>
+                <div>
+                    <label class="form-label">Duration (minutes)</label>
+                    <select id="m-duration" class="form-input">
+                        <option value="30">30 min</option>
+                        <option value="45">45 min</option>
+                        <option value="60" selected>60 min</option>
+                        <option value="90">90 min</option>
+                        <option value="120">2 hours</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="form-label">Meeting Link</label>
+                <div class="flex gap-2">
+                    <input type="url" id="m-link" class="form-input flex-1" placeholder="https://meet.google.com/... (leave blank to auto-generate)">
+                </div>
+                <label class="flex items-center gap-2 mt-2 cursor-pointer">
+                    <input type="checkbox" id="m-autogen" class="w-4 h-4 accent-indigo-500" checked>
+                    <span class="text-xs text-gray-400">Auto-generate Google Meet link</span>
+                </label>
+            </div>
+            <div class="form-grid-2">
+                <div>
+                    <label class="form-label">Max Participants</label>
+                    <input type="number" id="m-max" class="form-input" value="50" min="1" max="500">
+                </div>
+                <div>
+                    <label class="form-label">Status</label>
+                    <select id="m-status" class="form-input">
+                        <option value="upcoming" selected>Upcoming</option>
+                        <option value="live">Live</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="closeModal('meeting-modal')"
+                    class="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition font-semibold text-sm">
+                    Cancel
+                </button>
+                <button type="submit"
+                    class="flex-1 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-500/20 transition">
+                    <i class="fas fa-save mr-2"></i><span id="modal-submit-text">Create Meeting</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" class="modal-overlay hidden">
+    <div class="modal-box" style="max-width:440px;">
+        <div class="text-center">
+            <div class="w-16 h-16 bg-red-500/15 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-trash text-red-400 text-2xl"></i>
+            </div>
+            <h2 class="text-xl font-bold text-white mb-2">Delete Meeting?</h2>
+            <p class="text-gray-400 text-sm mb-1">You are about to permanently delete:</p>
+            <p id="delete-meeting-title" class="text-white font-bold mb-6 text-base"></p>
+            <p class="text-xs text-red-400 mb-8">This action cannot be undone. All participant data will be lost.</p>
+            <div class="flex gap-3">
+                <button onclick="closeModal('delete-modal')"
+                    class="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 hover:text-white transition font-semibold text-sm">
+                    Cancel
+                </button>
+                <button id="confirm-delete-btn" onclick="confirmDelete()"
+                    class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-sm transition">
+                    <i class="fas fa-trash mr-2"></i>Delete
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Participants Modal -->
+<div id="participants-modal" class="modal-overlay hidden">
+    <div class="modal-box" style="max-width:520px;">
+        <div class="flex items-center justify-between mb-5">
+            <h2 class="text-lg font-bold text-white"><i class="fas fa-users text-blue-400 mr-2"></i>Participants</h2>
+            <button onclick="closeModal('participants-modal')" class="text-gray-500 hover:text-white text-xl"><i class="fas fa-times"></i></button>
+        </div>
+        <div id="participants-list" class="space-y-3">
+            <div class="skeleton h-12 rounded-xl"></div>
+            <div class="skeleton h-12 rounded-xl"></div>
+            <div class="skeleton h-12 rounded-xl"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Test Modal -->
+<div id="test-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-xl font-bold text-white"><i class="fas fa-clipboard-list text-purple-400 mr-2"></i>Create Skill Test</h2>
+            <button onclick="closeModal('test-modal')" class="text-gray-500 hover:text-white text-xl"><i class="fas fa-times"></i></button>
+        </div>
+        <form id="test-form" class="space-y-4">
+            <div>
+                <label class="form-label">Test Title *</label>
+                <input type="text" id="t-title" class="form-input" placeholder="e.g. Python Fundamentals Quiz" required>
+            </div>
+            <div class="form-grid-2">
+                <div>
+                    <label class="form-label">Skill Category *</label>
+                    <select id="t-skill" class="form-input">
+                        <option>Python</option><option>JavaScript</option><option>DSA</option>
+                        <option>Machine Learning</option><option>DevOps</option><option>React</option>
+                        <option>Java</option><option>SQL</option><option>General</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Pass Score (%)</label>
+                    <input type="number" id="t-pass" class="form-input" value="60" min="1" max="100">
+                </div>
+            </div>
+            <div>
+                <label class="form-label">Time Limit (minutes)</label>
+                <input type="number" id="t-time" class="form-input" value="30" min="5" max="180">
+            </div>
+            <div>
+                <label class="form-label">Description</label>
+                <textarea id="t-desc" class="form-input" rows="2" placeholder="What is this test about?"></textarea>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="closeModal('test-modal')"
+                    class="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 hover:text-white transition font-semibold text-sm">Cancel</button>
+                <button type="submit"
+                    class="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-sm transition">
+                    <i class="fas fa-save mr-2"></i>Create Test
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Tab Switching ──────────────────────────────────────────
+function switchTab(name, el) {
+    document.querySelectorAll('.hub-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.hub-panel').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById(`panel-${name}`).classList.add('active');
+}
+
+// Handle hash-based tab activation on load
+function activateHashTab() {
+    const hash = window.location.hash.replace('#', '');
+    const tabs = { meetings: 'tab-meetings', students: 'tab-students', tests: 'tab-tests', feedback: 'tab-feedback' };
+    if (tabs[hash]) {
+        const btn = document.getElementById(tabs[hash]);
+        if (btn) switchTab(hash, btn);
+    }
+}
+document.addEventListener('DOMContentLoaded', activateHashTab);
+window.addEventListener('hashchange', activateHashTab);
+
+// ── Filter Meetings ────────────────────────────────────────
+function filterMeetings() {
+    const status = document.getElementById('filter-status').value.toLowerCase();
+    const skill = document.getElementById('filter-skill').value.toLowerCase();
+    const search = document.getElementById('filter-search').value.toLowerCase();
+    const cards = document.querySelectorAll('#meetings-list .meeting-card');
+    let visible = 0;
+    cards.forEach(card => {
+        const matchStatus = !status || card.dataset.status === status;
+        const matchSkill = !skill || card.dataset.skill.toLowerCase() === skill;
+        const matchSearch = !search || card.dataset.title.includes(search);
+        const show = matchStatus && matchSkill && matchSearch;
+        card.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+    document.getElementById('no-filter-results').classList.toggle('hidden', visible > 0);
+}
+
+// ── Modal Helpers ──────────────────────────────────────────
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+document.querySelectorAll('.modal-overlay').forEach(m => {
+    m.addEventListener('click', e => { if (e.target === m) m.classList.add('hidden'); });
+});
+
+// ── Create Meeting ─────────────────────────────────────────
+function openCreateModal() {
+    document.getElementById('modal-title').innerHTML = '<i class="fas fa-video text-indigo-400 mr-2"></i>Create Live Meeting';
+    document.getElementById('modal-submit-text').textContent = 'Create Meeting';
+    document.getElementById('modal-meeting-id').value = '';
+    document.getElementById('meeting-form').reset();
+    // Set min datetime to now
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    document.getElementById('m-scheduled-at').min = now.toISOString().slice(0, 16);
+    document.getElementById('meeting-modal').classList.remove('hidden');
+}
+
+// ── Edit Meeting ───────────────────────────────────────────
+function openEditModal(meeting) {
+    document.getElementById('modal-title').innerHTML = '<i class="fas fa-edit text-yellow-400 mr-2"></i>Edit Meeting';
+    document.getElementById('modal-submit-text').textContent = 'Save Changes';
+    document.getElementById('modal-meeting-id').value = meeting.id;
+    document.getElementById('m-title').value = meeting.title || '';
+    document.getElementById('m-description').value = meeting.description || '';
+    document.getElementById('m-language').value = meeting.language || 'English';
+    document.getElementById('m-skill').value = meeting.skill_category || 'General';
+    if (meeting.scheduled_at) {
+        const dt = new Date(meeting.scheduled_at);
+        dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+        document.getElementById('m-scheduled-at').value = dt.toISOString().slice(0, 16);
+    }
+    document.getElementById('m-duration').value = meeting.duration_minutes || 60;
+    document.getElementById('m-link').value = meeting.meeting_link || '';
+    document.getElementById('m-max').value = meeting.max_participants || 50;
+    document.getElementById('m-status').value = meeting.status || 'upcoming';
+    document.getElementById('m-autogen').checked = false;
+    document.getElementById('meeting-modal').classList.remove('hidden');
+}
+
+// ── Submit Meeting Form ────────────────────────────────────
+document.getElementById('meeting-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const meetingId = document.getElementById('modal-meeting-id').value;
+    const isEdit = !!meetingId;
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Saving...';
+
+    const scheduledLocal = document.getElementById('m-scheduled-at').value;
+    const scheduledISO = new Date(scheduledLocal).toISOString().slice(0, 19);
+
+    const payload = {
+        title: document.getElementById('m-title').value,
+        description: document.getElementById('m-description').value,
+        language: document.getElementById('m-language').value,
+        skill_category: document.getElementById('m-skill').value,
+        scheduled_at: scheduledISO,
+        duration_minutes: parseInt(document.getElementById('m-duration').value),
+        meeting_link: document.getElementById('m-link').value,
+        auto_generate_link: document.getElementById('m-autogen').checked,
+        max_participants: parseInt(document.getElementById('m-max').value),
+        status: document.getElementById('m-status').value,
+    };
+
+    const url = isEdit ? `/api/meetings/${meetingId}/update` : '/api/meetings/create';
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+            showGlobalToast(isEdit ? 'Meeting updated!' : 'Meeting created!', true);
+            closeModal('meeting-modal');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showGlobalToast(data.error || 'Error saving meeting', false);
+        }
+    } catch (err) {
+        showGlobalToast('Network error', false);
+    }
+    btn.disabled = false;
+    btn.innerHTML = `<i class="fas fa-save mr-2"></i><span id="modal-submit-text">${isEdit ? 'Save Changes' : 'Create Meeting'}</span>`;
+});
+
+// ── Delete Meeting ─────────────────────────────────────────
+let _deleteMeetingId = null;
+function openDeleteModal(id, title) {
+    _deleteMeetingId = id;
+    document.getElementById('delete-meeting-title').textContent = title;
+    document.getElementById('delete-modal').classList.remove('hidden');
+}
+async function confirmDelete() {
+    if (!_deleteMeetingId) return;
+    const btn = document.getElementById('confirm-delete-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Deleting...';
+    try {
+        const res = await fetch(`/api/meetings/${_deleteMeetingId}/delete`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showGlobalToast('Meeting deleted', true);
+            closeModal('delete-modal');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showGlobalToast(data.error || 'Delete failed', false);
+        }
+    } catch (err) {
+        showGlobalToast('Network error', false);
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-trash mr-2"></i>Delete';
+}
+
+// ── Participants ───────────────────────────────────────────
+async function loadParticipants(meetingId) {
+    document.getElementById('participants-modal').classList.remove('hidden');
+    const list = document.getElementById('participants-list');
+    list.innerHTML = '<div class="skeleton h-12 rounded-xl mb-2"></div>'.repeat(3);
+    try {
+        const res = await fetch(`/api/meetings/${meetingId}/participants`);
+        const data = await res.json();
+        if (data.success && data.participants.length > 0) {
+            list.innerHTML = data.participants.map(p => `
+                <div class="glass-effect rounded-xl p-3 flex items-center gap-3">
+                    <div class="w-9 h-9 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                        ${p.name[0]}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-white font-semibold text-sm">${p.name}</p>
+                        <p class="text-gray-500 text-xs">${p.email}</p>
+                    </div>
+                    <span class="text-xs text-gray-500">Joined ${p.joined_at}</span>
+                </div>
+            `).join('');
+        } else {
+            list.innerHTML = '<p class="text-center text-gray-500 py-8 text-sm">No participants yet.</p>';
+        }
+    } catch (err) {
+        list.innerHTML = '<p class="text-center text-red-400 py-4 text-sm">Failed to load participants.</p>';
+    }
+}
+
+// ── Skill Test Create ──────────────────────────────────────
+function openCreateTestModal() {
+    document.getElementById('test-form').reset();
+    document.getElementById('test-modal').classList.remove('hidden');
+}
+document.getElementById('test-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Creating...';
+    const payload = {
+        title: document.getElementById('t-title').value,
+        skill_category: document.getElementById('t-skill').value,
+        pass_score: parseInt(document.getElementById('t-pass').value),
+        time_limit_minutes: parseInt(document.getElementById('t-time').value),
+        description: document.getElementById('t-desc').value,
+        questions: []
+    };
+    try {
+        const res = await fetch('/api/skill-tests/create', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+            showGlobalToast('Skill test created!', true);
+            closeModal('test-modal');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showGlobalToast(data.error || 'Error', false);
+        }
+    } catch (err) { showGlobalToast('Network error', false); }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-save mr-2"></i>Create Test';
+});
+
+async function deleteTest(testId) {
+    if (!confirm('Delete this skill test and all its results?')) return;
+    const res = await fetch(`/api/skill-tests/${testId}/delete`, { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+        showGlobalToast('Test deleted', true);
+        setTimeout(() => location.reload(), 600);
+    } else {
+        showGlobalToast(data.error || 'Error', false);
+    }
+}
+
+// ── Auto-link toggle ──────────────────────────────────────
+document.getElementById('m-autogen').addEventListener('change', function() {
+    document.getElementById('m-link').disabled = this.checked;
+    if (this.checked) document.getElementById('m-link').value = '';
+});
+</script>
+{% endblock %}

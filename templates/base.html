@@ -1,119 +1,535 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}SkillSync{% endblock %}</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SkillSync{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .dark-gradient { background: #02040a; background: radial-gradient(circle at top left, #05060f 0%, #03040a 40%, #020308 100%); }
+        .card-dark { 
+            background: rgba(13, 17, 23, 0.7); 
+            backdrop-filter: blur(12px); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5); 
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .card-dark:hover {
+            border-color: rgba(99, 102, 241, 0.4);
+            box-shadow: 0 20px 50px -15px rgba(99, 102, 241, 0.15);
+            background: rgba(13, 17, 23, 0.85);
+        }
+        
+        {% if current_user.is_authenticated %}
+        .sidebar { position: fixed; top: 0; left: 0; width: 260px; height: 100vh; background: rgba(12, 14, 24, 0.98); border-right: 1px solid rgba(255, 255, 255, 0.08); display: flex; flex-direction: column; z-index: 50; overflow-y: auto; overflow-x: hidden; }
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-track { background: transparent; }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+        .sidebar-brand { padding: 1.5rem 1.25rem; display: flex; align-items: center; gap: 0.75rem; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+        .sidebar-section-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(148, 163, 184, 0.6); padding: 1.25rem 1.25rem 0.5rem; }
+        .sidebar-link { display: flex; align-items: center; gap: 0.75rem; padding: 0.7rem 1.25rem; margin: 0.15rem 0.75rem; border-radius: 0.75rem; color: #94a3b8; text-decoration: none; font-size: 0.95rem; font-weight: 500; transition: all 0.25s ease; }
+        .sidebar-link:hover { background: rgba(255, 255, 255, 0.06); color: #e2e8f0; }
+        .sidebar-link.active { background: rgba(99, 102, 241, 0.1); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.2); }
+        .sidebar-link i { width: 20px; text-align: center; font-size: 1rem; }
+        .sidebar-user { margin-top: auto; padding: 1rem 1.25rem; border-top: 1px solid rgba(255, 255, 255, 0.06); display: flex; align-items: center; gap: 0.75rem; }
+        .main-content { margin-left: 260px; min-height: 100vh; }
+        .top-bar { display: flex; justify-content: flex-end; align-items: center; padding: 1rem 2rem; gap: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.06); background: rgba(12, 14, 24, 0.5); backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 40; }
+        
+        @media (max-width: 768px) {
+            .sidebar { width: 70px; }
+            .sidebar-link span, .sidebar-section-label, .sidebar-brand span, .sidebar-user .user-info { display: none; }
+            .sidebar-brand { justify-content: center; }
+            .sidebar-link { justify-content: center; margin: 0.15rem 0.35rem; }
+            .main-content { margin-left: 70px; }
+        }
+        {% else %}
+        .nav-guest { backdrop-filter: blur(12px); background: rgba(5, 6, 15, 0.7); border-bottom: 1px solid rgba(255,255,255,0.1); height: 80px; transition: all 0.3s ease; }
+        .nav-guest.scrolled { background: rgba(5, 6, 15, 0.95); height: 70px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .main-content { margin-left: 0; }
+        {% endif %}
 
-  <!-- Beautiful Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+        .hover-lift:hover { transform: translateY(-8px); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); }
+        .gradient-text { background: linear-gradient(135deg, #7F77DD 0%, #5DCAA5 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .glass-effect { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
 
-  <style>
-    body {
-      font-family: 'Poppins', sans-serif;
-      background: linear-gradient(135deg, #7f5af0 0%, #2cb67d 100%);
-      min-height: 100vh;
-      color: #1a1a1a;
-    }
+        /* Global Form Styles */
+        input, textarea, select {
+            background-color: #ffffff !important;
+            color: #111827 !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 12px !important;
+            padding: 12px 16px !important;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+        
+        input::placeholder, textarea::placeholder {
+            color: #6b7280 !important;
+        }
 
-    /* Navbar */
-    nav {
-      backdrop-filter: blur(10px);
-      background: rgba(255, 255, 255, 0.8);
-    }
+        input:focus, textarea:focus, select:focus {
+            border-color: #6366f1 !important;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2) !important;
+            outline: none !important;
+            transform: translateY(-1px);
+        }
 
-    /* Smooth Buttons */
-    .btn-primary {
-      background: linear-gradient(135deg, #7f5af0 0%, #2cb67d 100%);
-      color: white;
-      padding: 0.5rem 1.5rem;
-      border-radius: 9999px;
-      font-weight: 600;
-      transition: all 0.25s ease-in-out;
-      box-shadow: 0 4px 10px rgba(127, 90, 240, 0.3);
-    }
-    .btn-primary:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 8px 20px rgba(127, 90, 240, 0.4);
-    }
+        /* Scroll Reveal Animation */
+        .reveal { opacity: 0; transform: translateY(30px); transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+        .reveal.active { opacity: 1; transform: translateY(0); }
 
-    .btn-danger {
-      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-      color: white;
-      padding: 0.5rem 1.5rem;
-      border-radius: 9999px;
-      font-weight: 600;
-      transition: all 0.25s ease-in-out;
-      box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);
-    }
-    .btn-danger:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
-    }
+        /* Actions Animations */
 
-    /* Cards / Containers */
-    .gradient-card {
-      background: linear-gradient(135deg, #f9fafb 0%, #e0e7ff 100%);
-      border-radius: 1rem;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-      transition: transform 0.3s ease;
-    }
-    .gradient-card:hover {
-      transform: translateY(-5px);
-    }
+        /* Actions Animations */
+        @keyframes pulse-tap {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .pulse-tap { animation: pulse-tap 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 
-    /* Animations */
-    .card {
-      animation: fadeIn 0.6s ease-in-out;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(30px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-  </style>
+        #global-toast {
+            pointer-events: none;
+            transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        #global-toast.show {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+        #global-toast.hide {
+            transform: translateY(20px) scale(0.95);
+            opacity: 0;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
 </head>
-<body>
-  <!-- Navbar -->
-  <nav class="shadow-lg sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between h-16 items-center">
-        <a href="{{ url_for('index') }}" class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-green-400">
-          SkillSync
+<body class="dark-gradient min-h-screen text-gray-200">
+    {% if current_user.is_authenticated %}
+    <!-- Left Sidebar -->
+    <aside class="sidebar">
+        <a href="{{ url_for('post_home') }}" class="sidebar-brand hover:bg-white/5 transition-colors group">
+            <div class="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl group-hover:scale-110 transition-transform">
+                <i class="fas fa-sync-alt text-white text-lg"></i>
+            </div>
+            <span class="text-xl font-bold text-white tracking-tight">SkillSync</span>
         </a>
 
-        <div class="flex items-center space-x-6">
-          {% if current_user.is_authenticated %}
-            <a href="{{ url_for('dashboard') }}" class="text-gray-800 hover:text-purple-600 font-medium">Dashboard</a>
-            <a href="{{ url_for('progress') }}" class="text-gray-800 hover:text-purple-600 font-medium">Progress</a>
-            <a href="{{ url_for('peer_learning') }}" class="text-gray-800 hover:text-purple-600 font-medium">Peer Learning</a>
-            <a href="{{ url_for('provide_meet_link') }}" class="text-gray-800 hover:text-purple-600 font-medium">Meet</a>
-            <span class="text-gray-800 font-medium">👋 Hey, {{ current_user.name }}!</span>
-            <a href="{{ url_for('logout') }}" class="btn-danger">Logout</a>
-          {% else %}
-            <a href="{{ url_for('login') }}" class="text-gray-800 hover:text-purple-600 font-medium">Login</a>
-            <a href="{{ url_for('register') }}" class="btn-primary">Get Started</a>
-          {% endif %}
+        <div class="sidebar-section-label">Platform</div>
+        <a href="{{ url_for('post_home') }}" class="sidebar-link {% if request.path == url_for('post_home') %}active{% endif %}">
+            <i class="fas fa-home"></i>
+            <span>Home</span>
+        </a>
+        <a href="{{ url_for('notifications') }}" class="sidebar-link {% if request.path == url_for('notifications') %}active{% endif %}">
+            <i class="fas fa-bell"></i>
+            <span>Notifications</span>
+            <span id="sidebar-notif-badge" class="hidden ml-auto bg-indigo-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ring-2 ring-[#0f172a]">0</span>
+        </a>
+        <a href="{{ url_for('dashboard') }}" class="sidebar-link {% if request.path == url_for('dashboard') %}active{% endif %}">
+            <i class="fas fa-wave-square"></i>
+            <span>My Activity</span>
+        </a>
+        <a href="{{ url_for('trending') }}" class="sidebar-link {% if request.path == url_for('trending') %}active{% endif %}">
+            <i class="fas fa-bolt"></i>
+            <span>Trending</span>
+        </a>
+        <a href="{{ url_for('people') }}" class="sidebar-link {% if request.path == url_for('people') %}active{% endif %}">
+            <i class="fas fa-search"></i>
+            <span>People</span>
+        </a>
+
+        <div class="sidebar-section-label">Learning Modes</div>
+        <a href="{{ url_for('peer_learning') }}" class="sidebar-link {% if request.path == url_for('peer_learning') %}active{% endif %}">
+            <i class="fas fa-handshake"></i>
+            <span>Peer Learning</span>
+        </a>
+        <a href="{{ url_for('recordings') }}" class="sidebar-link {% if request.path == url_for('recordings') %}active{% endif %}">
+            <i class="fas fa-tv"></i>
+            <span>Recordings</span>
+        </a>
+        <a href="{{ url_for('live_learning') }}" class="sidebar-link {% if request.path == url_for('live_learning') %}active{% endif %}">
+            <i class="fas fa-circle text-red-500 text-[8px] mr-1"></i>
+            <span>Live Learning</span>
+        </a>
+
+        <div class="sidebar-section-label">Startup Careers</div>
+        <a href="{{ url_for('careers') }}" class="sidebar-link {% if request.path == url_for('careers') %}active{% endif %}">
+            <i class="fas fa-briefcase"></i><span>Careers</span>
+        </a>
+        <a href="{{ url_for('startups') }}" class="sidebar-link {% if request.path == url_for('startups') %}active{% endif %}">
+            <i class="fas fa-rocket"></i><span>Startups</span>
+        </a>
+        <a href="{{ url_for('live_sessions') }}" class="sidebar-link {% if request.path == url_for('live_sessions') %}active{% endif %}" style="color: #fca5a5; background: rgba(248, 113, 113, 0.05); border: 1px solid rgba(248, 113, 113, 0.1);">
+            <i class="fas fa-broadcast-tower"></i><span class="font-bold uppercase tracking-wider text-xs"> Live</span>
+        </a>
+
+        <div class="sidebar-section-label">Community</div>
+        <a href="{{ url_for('meetups') }}" class="sidebar-link {% if request.path == url_for('meetups') %}active{% endif %}">
+            <i class="fas fa-calendar-check"></i>
+            <span>Meetups</span>
+        </a>
+        <a href="{{ url_for('groups') }}" class="sidebar-link {% if request.path == url_for('groups') %}active{% endif %}">
+            <i class="fas fa-users"></i>
+            <span>Groups</span>
+        </a>
+
+        <div class="sidebar-section-label">Sessions</div>
+        <a href="{{ url_for('sessions') }}" class="sidebar-link {% if request.path == url_for('sessions') %}active{% endif %}">
+            <i class="fas fa-calendar-alt"></i>
+            <span>My Sessions</span>
+        </a>
+        <a href="{{ url_for('progress') }}" class="sidebar-link {% if request.path == url_for('progress') %}active{% endif %}">
+            <i class="fas fa-chart-line"></i>
+            <span>Progress</span>
+        </a>
+
+        {% if current_user.role == 'mentor' or current_user.is_mentor %}
+        <div class="sidebar-section-label" style="color:rgba(96,165,250,0.8);">Mentor Hub</div>
+        <a href="{{ url_for('mentor_dashboard') }}" class="sidebar-link {% if request.path == url_for('mentor_dashboard') %}active{% endif %}"
+           style="{% if request.path != url_for('mentor_dashboard') %}background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.15);{% endif %}">
+            <i class="fas fa-chalkboard-teacher" style="color:#60a5fa;"></i>
+            <span style="color:#93c5fd;font-weight:700;">Mentor Dashboard</span>
+        </a>
+        <a href="{{ url_for('mentor_dashboard') }}#meetings" class="sidebar-link">
+            <i class="fas fa-video" style="color:#818cf8;"></i>
+            <span>Live Meetings</span>
+        </a>
+        <a href="{{ url_for('mentor_dashboard') }}#tests" class="sidebar-link">
+            <i class="fas fa-clipboard-list" style="color:#34d399;"></i>
+            <span>Skill Tests</span>
+        </a>
+        <a href="{{ url_for('mentor_dashboard') }}#students" class="sidebar-link">
+            <i class="fas fa-user-graduate" style="color:#f59e0b;"></i>
+            <span>My Students</span>
+        </a>
+        {% elif current_user.role == 'student' %}
+        <div class="sidebar-section-label" style="color:rgba(52,211,153,0.8);">Live Learning</div>
+        <a href="{{ url_for('live_learning') }}" class="sidebar-link {% if request.path == url_for('live_learning') %}active{% endif %}"
+           style="{% if request.path != url_for('live_learning') %}background:rgba(52,211,153,0.07);border:1px solid rgba(52,211,153,0.15);{% endif %}">
+            <i class="fas fa-broadcast-tower" style="color:#34d399;"></i>
+            <span style="color:#6ee7b7;font-weight:700;">Join Live Sessions</span>
+        </a>
+        {% endif %}
+
+        {% if current_user.role == 'admin' %}
+        <div class="sidebar-section-label" style="color:rgba(248,113,113,0.7);">Admin</div>
+        <a href="{{ url_for('admin_dashboard') }}" class="sidebar-link {% if request.path == url_for('admin_dashboard') %}active{% endif %}"
+           style="{% if request.path != url_for('admin_dashboard') %}background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.15);{% endif %}">
+            <i class="fas fa-shield-alt" style="color:#f87171;"></i>
+            <span style="color:#f87171;font-weight:700;">Admin Panel</span>
+        </a>
+        {% endif %}
+
+        <div class="sidebar-section-label" style="color:rgba(167,139,250,0.7);">AI</div>
+        <a href="{{ url_for('ai_assistant_page') }}" class="sidebar-link {% if request.path == url_for('ai_assistant_page') %}active{% endif %}" style="{% if request.path != url_for('ai_assistant_page') %}background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.12);{% endif %}">
+            <i class="fas fa-robot" style="color:#a78bfa;"></i>
+            <span style="background:linear-gradient(90deg,#a78bfa,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:600;">AI Mentor ✨</span>
+        </a>
+
+        <div class="sidebar-user">
+            <a href="{{ url_for('mentor_profile', mentor_id=current_user.id) if current_user.is_mentor else url_for('learner_profile', learner_id=current_user.id) }}" class="flex items-center gap-3 w-full" style="text-decoration: none;">
+                <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 hover:ring-2 hover:ring-white/20 transition-all">{{ current_user.name[0] }}</div>
+                <div class="user-info" style="overflow: hidden;">
+                    <p class="text-white font-medium text-sm truncate hover:text-blue-400 transition-colors flex items-center gap-1">
+                        {{ current_user.name }}
+                        {% if current_user.is_verified %}
+                        <i class="fas fa-check-circle text-blue-400 text-[10px]" title="Verified {{ current_user.verified_role or 'Account' }}"></i>
+                        {% endif %}
+                    </p>
+                    <p class="text-xs truncate">
+                        {% if current_user.role == 'admin' %}
+                        <span style="color:#f87171;"><i class="fas fa-shield-alt mr-1"></i>Super Admin</span>
+                        {% elif current_user.role == 'mentor' or current_user.is_mentor %}
+                        <span class="text-blue-400"><i class="fas fa-chalkboard-teacher mr-1"></i>Mentor</span>
+                        {% else %}
+                        <span class="text-green-400"><i class="fas fa-graduation-cap mr-1"></i>Student</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </a>
+            <div class="ml-auto flex items-center space-x-3 text-gray-500">
+                <a href="{{ url_for('settings') }}" class="hover:text-blue-400 transition" title="Settings"><i class="fas fa-cog"></i></a>
+                <a href="{{ url_for('logout') }}" class="hover:text-red-400 transition" title="Logout"><i class="fas fa-sign-out-alt"></i></a>
+            </div>
         </div>
-      </div>
+    </aside>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <div class="mr-auto"></div>
+            <div class="flex items-center space-x-3">
+                <span class="text-gray-400 text-sm flex items-center gap-1">
+                    👋 Hey, {{ current_user.name }}!
+                    {% if current_user.is_verified %}
+                    <i class="fas fa-check-circle text-blue-400 text-[10px]" title="Verified {{ current_user.verified_role or 'Account' }}"></i>
+                    {% endif %}
+                </span>
+                <a href="{{ url_for('mentor_profile', mentor_id=current_user.id) if current_user.is_mentor else url_for('learner_profile', learner_id=current_user.id) }}" class="hover:scale-110 transition-transform">
+                    <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm ring-2 ring-transparent hover:ring-white/20">{{ current_user.name[0] }}</div>
+                </a>
+            </div>
+        </div>
+        
+        <div class="py-8 px-8 relative z-10">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="mb-6 p-4 rounded-xl card-dark border-l-4 {% if category == 'error' %}border-red-500 text-red-400{% elif category == 'success' %}border-green-500 text-green-400{% else %}border-blue-500 text-blue-400{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </div>
     </div>
-  </nav>
+    {% else %}
+    <!-- Guest Layout -->
+    <nav class="nav-guest sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 h-full flex justify-between items-center w-full">
+            <a href="{{ url_for('index') }}" class="text-2xl font-bold gradient-text">SkillSync</a>
+            <div class="space-x-4">
+                <a href="{{ url_for('login') }}" class="text-gray-300 hover:text-white font-medium">Login</a>
+                <a href="{{ url_for('register') }}" class="bg-indigo-500 text-white px-6 py-2 rounded-full font-bold hover:bg-indigo-600 transition">Get Started</a>
+            </div>
+        </div>
+    </nav>
+    <div class="main-content">
+        <div class="py-6 px-4 md:px-8 max-w-7xl mx-auto">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="mb-6 p-4 rounded-xl card-dark border-l-4 {% if category == 'error' %}border-red-500 text-red-400{% elif category == 'success' %}border-green-500 text-green-400{% else %}border-blue-500 text-blue-400{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+        {% block guest_content %}{% endblock %}
+    </div>
+    {% endif %}
 
-  <!-- Flash messages -->
-  <div class="container mx-auto px-4 py-8">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="mb-4 p-4 rounded-lg 
-              {% if category == 'error' %}bg-red-100 text-red-700{% elif category == 'success' %}bg-green-100 text-green-700{% else %}bg-blue-100 text-blue-700{% endif %}">
-            {{ message }}
-          </div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
+    {% block modals %}{% endblock %}
 
-    {% block content %}{% endblock %}
-  </div>
+    {% block scripts %}{% endblock %}
+    <!-- Incoming Connection Modal -->
+    <div id="incoming-connection-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div class="card-dark p-8 rounded-2xl max-w-sm w-full mx-4 border border-indigo-500/50 shadow-2xl shadow-indigo-500/20 transform animate-fade-in-up">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+                    <i class="fas fa-video text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-bold text-white mb-2">Incoming Live Request</h3>
+                <p class="text-gray-300 mb-6"><span id="caller-name" class="font-bold text-indigo-400">Someone</span> wants to connect with you live via Zoom right now!</p>
+                <div class="flex space-x-3">
+                    <button onclick="rejectConnection()" class="flex-1 px-4 py-2 border border-red-500/50 text-red-400 hover:bg-red-500/10 rounded-xl transition font-medium">Decline</button>
+                    <button onclick="acceptConnection()" class="flex-1 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl transition font-bold shadow-lg shadow-green-500/30">Accept</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Incoming Zoom Ready Modal -->
+    <div id="zoom-ready-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div class="card-dark p-8 rounded-2xl max-w-sm w-full mx-4 border border-green-500/50 shadow-2xl shadow-green-500/20 transform animate-fade-in-up">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-check text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-bold text-white mb-2">Connection Accepted!</h3>
+                <p class="text-gray-300 mb-6">Your live session with <span id="callee-name" class="font-bold text-green-400">Someone</span> is ready.</p>
+                <a id="join-zoom-btn" href="#" target="_blank" onclick="closeZoomReadyModal()" class="block w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition font-bold shadow-lg shadow-blue-500/30 flex items-center justify-center">
+                    <i class="fas fa-external-link-alt mr-2"></i> Join Live Session
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentIncomingConnectionId = null;
+        let activePollingInterval = null;
+
+        {% if current_user.is_authenticated %}
+        // Start polling for notifications
+        activePollingInterval = setInterval(() => {
+            pollNotifications();
+            pollUnreadNotifications();
+        }, 5000); // 5 seconds
+
+        async function pollUnreadNotifications() {
+            try {
+                const response = await fetch('/api/notifications/unread-count');
+                if (response.ok) {
+                    const data = await response.json();
+                    const badge = document.getElementById('sidebar-notif-badge');
+                    if (data.count > 0) {
+                        badge.textContent = data.count > 9 ? '9+' : data.count;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                }
+            } catch (e) { console.error('Unread count error:', e); }
+        }
+
+        async function pollNotifications() {
+            try {
+                const response = await fetch('/api/connect/notifications');
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Handle incoming requests
+                    if (data.incoming_requests && data.incoming_requests.length > 0) {
+                        const req = data.incoming_requests[0];
+                        if (currentIncomingConnectionId !== req.id) {
+                            currentIncomingConnectionId = req.id;
+                            document.getElementById('caller-name').textContent = req.sender_name;
+                            document.getElementById('incoming-connection-modal').classList.remove('hidden');
+                        }
+                    } else {
+                        document.getElementById('incoming-connection-modal').classList.add('hidden');
+                        currentIncomingConnectionId = null;
+                    }
+
+                    // Handle outgoing accepted requests
+                    if (data.accepted_requests && data.accepted_requests.length > 0) {
+                        const req = data.accepted_requests[0];
+                        // If we are waiting for this user on their profile page
+                        const statusDiv = document.getElementById(`connect-status-${req.receiver_id}`);
+                        if (statusDiv && !statusDiv.classList.contains('hidden')) {
+                            statusDiv.classList.add('hidden');
+                            document.getElementById('callee-name').textContent = req.receiver_name;
+                            document.getElementById('join-zoom-btn').href = req.zoom_url;
+                            document.getElementById('zoom-ready-modal').classList.remove('hidden');
+                        }
+                    }
+                }
+            } catch (e) { console.error('Polling error:', e); }
+        }
+
+        async function requestConnection(targetUserId) {
+            try {
+                const btn = document.getElementById(`connect-btn-${targetUserId}`);
+                const statusDiv = document.getElementById(`connect-status-${targetUserId}`);
+                
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+                statusDiv.classList.remove('hidden');
+                
+                const response = await fetch(`/api/connect/request/${targetUserId}`, { method: 'POST' });
+                const data = await response.json();
+                
+                if (!data.success) {
+                    alert(data.error);
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    statusDiv.classList.add('hidden');
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function acceptConnection() {
+            if (!currentIncomingConnectionId) return;
+            try {
+                const response = await fetch(`/api/connect/accept/${currentIncomingConnectionId}`, { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('incoming-connection-modal').classList.add('hidden');
+                    window.open(data.zoom_url, '_blank'); // Open zoom link directly for the receiver
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function rejectConnection() {
+            if (!currentIncomingConnectionId) return;
+            try {
+                await fetch(`/api/connect/reject/${currentIncomingConnectionId}`, { method: 'POST' });
+                document.getElementById('incoming-connection-modal').classList.add('hidden');
+                currentIncomingConnectionId = null;
+            } catch (e) { console.error(e); }
+        }
+
+        function closeZoomReadyModal() {
+            document.getElementById('zoom-ready-modal').classList.add('hidden');
+        }
+        {% endif %}
+    </script>
+    <!-- Firebase JS SDK (client-side) -->
+    {% if firebase_config and firebase_config.apiKey %}
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+        import { getFirestore, collection, onSnapshot, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+        // Emitted from server-side context processor – no secrets in JS
+        const firebaseConfig = {
+            apiKey:            "{{ firebase_config.apiKey }}",
+            authDomain:        "{{ firebase_config.authDomain }}",
+            projectId:         "{{ firebase_config.projectId }}",
+            storageBucket:     "{{ firebase_config.storageBucket }}",
+            messagingSenderId: "{{ firebase_config.messagingSenderId }}",
+            appId:             "{{ firebase_config.appId }}",
+            measurementId:     "{{ firebase_config.measurementId }}"
+        };
+        window._ssFirebaseApp = initializeApp(firebaseConfig);
+        window._ssFirestore   = getFirestore(window._ssFirebaseApp);
+        // Expose utilities for page-level scripts
+        window._fsUtils = { collection, onSnapshot, query, orderBy, limit };
+    </script>
+    {% endif %}
+    <!-- Global Toast -->
+    <div id="global-toast" class="fixed bottom-10 right-10 z-[100] hide">
+        <div class="glass-card px-6 py-4 rounded-2xl flex items-center gap-4 shadow-2xl bg-[#1e293b]/90 backdrop-blur-xl border border-white/10">
+            <div id="global-toast-icon" class="w-8 h-8 rounded-full flex items-center justify-center"></div>
+            <p id="global-toast-msg" class="text-sm font-bold text-white"></p>
+        </div>
+    </div>
+
+    <script>
+        function showGlobalToast(msg, ok=true) {
+            const t = document.getElementById('global-toast');
+            const m = document.getElementById('global-toast-msg');
+            const i = document.getElementById('global-toast-icon');
+            
+            m.textContent = msg;
+            i.className = `w-8 h-8 rounded-full flex items-center justify-center ${ok ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`;
+            i.innerHTML = `<i class="fas ${ok ? 'fa-check' : 'fa-times'}"></i>`;
+            
+            t.classList.remove('hide');
+            t.classList.add('show');
+            setTimeout(() => {
+                t.classList.remove('show');
+                t.classList.add('hide');
+            }, 3000);
+        }
+
+        // Scroll Reveal Logic
+        document.addEventListener('DOMContentLoaded', () => {
+            const observerOptions = { threshold: 0.1 };
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('active');
+                    }
+                });
+            }, observerOptions);
+
+            document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+            // Navbar scroll logic
+            const nav = document.querySelector('.nav-guest');
+            if (nav) {
+                window.addEventListener('scroll', () => {
+                    if (window.scrollY > 20) {
+                        nav.classList.add('scrolled');
+                    } else {
+                        nav.classList.remove('scrolled');
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>

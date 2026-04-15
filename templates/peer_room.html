@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block title %}Peer Session: {{ conn.topic }} - SkillSync{% endblock %}
+
+{% block extra_css %}
+<style>
+    .meeting-container {
+        height: calc(100vh - 80px);
+        background: #0f172a;
+    }
+    .video-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 1.5rem;
+        padding: 2rem;
+        height: calc(100% - 100px);
+    }
+    .video-tile {
+        background: #1e293b;
+        border-radius: 1.5rem;
+        overflow: hidden;
+        position: relative;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        aspect-ratio: 16/9;
+    }
+    video {
+        width: 100%;
+        height: 100%;
+        object-cover: cover;
+    }
+    .controls-bar {
+        height: 100px;
+        background: rgba(15, 23, 42, 0.9);
+        backdrop-filter: blur(20px);
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1.5rem;
+    }
+    .control-btn {
+        width: 50px;
+        height: 50px;
+        border-radius: 9999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #334155;
+        color: white;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    .control-btn:hover { background: #475569; transform: scale(1.1); }
+    .control-btn.active { background: #ef4444; color: white; }
+    .control-btn.active:hover { background: #dc2626; }
+    
+    .user-label {
+        position: absolute;
+        bottom: 1.5rem;
+        left: 1.5rem;
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(10px);
+        padding: 0.5rem 1rem;
+        border-radius: 0.75rem;
+        color: white;
+        font-size: 0.8rem;
+        font-weight: 600;
+        z-index: 10;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="meeting-container flex flex-col overflow-hidden">
+    <!-- Header info -->
+    <div class="px-8 py-4 bg-[#1e293b]/50 border-b border-white/5 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <div class="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30">
+                <i class="fas fa-handshake text-indigo-400"></i>
+            </div>
+            <div>
+                <h1 class="text-white font-bold leading-tight">{{ conn.topic }}</h1>
+                <p class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Live Peer Session with {{ other_user.name }}</p>
+            </div>
+        </div>
+        <div id="connection-status" class="px-3 py-1 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 rounded-lg text-xs font-bold animate-pulse">
+            Connecting...
+        </div>
+    </div>
+
+    <!-- Video Grid -->
+    <div class="video-grid flex-1 overflow-y-auto">
+        <!-- Local User -->
+        <div class="video-tile relative group">
+            <video id="localVideo" autoplay playsinline muted></video>
+            <div class="user-label">
+                <i class="fas fa-microphone mr-2"></i> You ({{ current_user.name }})
+            </div>
+        </div>
+
+        <!-- Remote User -->
+        <div class="video-tile relative group">
+            <video id="remoteVideo" autoplay playsinline></video>
+            <div id="remote-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-[#1e293b]">
+                <div class="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
+                <p class="text-gray-500 text-sm font-medium animate-pulse">Waiting for {{ other_user.name }} to join...</p>
+            </div>
+            <div class="user-label">
+                <i class="fas fa-microphone mr-2"></i> {{ other_user.name }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls Bar -->
+    <div class="controls-bar flex-shrink-0">
+        <div onclick="toggleMic()" id="mic-btn" class="control-btn shadow-lg" title="Toggle Microphone">
+            <i class="fas fa-microphone"></i>
+        </div>
+        <div onclick="toggleCamera()" id="cam-btn" class="control-btn shadow-lg" title="Toggle Camera">
+            <i class="fas fa-video"></i>
+        </div>
+        <div onclick="toggleScreenShare()" id="screen-btn" class="control-btn shadow-lg" title="Share Screen">
+            <i class="fas fa-desktop"></i>
+        </div>
+        <div onclick="endCall()" class="control-btn bg-red-500 hover:bg-red-600 shadow-xl shadow-red-500/20" title="Leave Session">
+            <i class="fas fa-phone-slash"></i>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    // WebRTC Logic with Firestore Signaling
+    const meetingId = '{{ conn.meeting_id }}';
+    const isSender = '{{ current_user.id }}' == '{{ conn.sender_id }}';
+    
+    let localStream;
+    let remoteStream;
+    let peerConnection;
+    
+    const servers = {
+        iceServers: [
+            { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }
+        ]
+    };
+
+    async function init() {
+        const { collection, onSnapshot, query, setDoc, doc, getDoc, updateDoc } = window._fsUtils;
+        const db = window._ssFirestore;
+        const callDoc = doc(db, 'peerSessions', meetingId);
+        const answerCandidates = collection(callDoc, 'answerCandidates');
+        const offerCandidates = collection(callDoc, 'offerCandidates');
+
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        document.getElementById('localVideo').srcObject = localStream;
+
+        peerConnection = new RTCPeerConnection(servers);
+        
+        localStream.getTracks().forEach(track => {
+            peerConnection.addTrack(track, localStream);
+        });
+
+        peerConnection.ontrack = event => {
+            event.streams[0].getTracks().forEach(track => {
+                remoteStream.addTrack(track);
+            });
+            document.getElementById('remote-loading').classList.add('hidden');
+            document.getElementById('connection-status').textContent = 'Live Session Active';
+            document.getElementById('connection-status').className = 'px-3 py-1 bg-green-500/10 text-green-500 border border-green-500/20 rounded-lg text-xs font-bold';
+        };
+
+        remoteStream = new MediaStream();
+        document.getElementById('remoteVideo').srcObject = remoteStream;
+
+        if (isSender) {
+            // Create Offer
+            peerConnection.onicecandidate = event => {
+                event.candidate && setDoc(doc(offerCandidates), event.candidate.toJSON());
+            };
+
+            const offerDescription = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offerDescription);
+
+            const offer = {
+                sdp: offerDescription.sdp,
+                type: offerDescription.type,
+            };
+
+            await setDoc(callDoc, { offer });
+
+            // Listen for remote answer
+            onSnapshot(callDoc, (snapshot) => {
+                const data = snapshot.data();
+                if (!peerConnection.currentRemoteDescription && data?.answer) {
+                    const answerDescription = new RTCSessionDescription(data.answer);
+                    peerConnection.setRemoteDescription(answerDescription);
+                }
+            });
+
+            // Listen for remote ICE candidates
+            onSnapshot(answerCandidates, (snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    if (change.type === 'added') {
+                        let data = change.doc.data();
+                        peerConnection.addIceCandidate(new RTCIceCandidate(data));
+                    }
+                });
+            });
+
+        } else {
+            // Create Answer
+            peerConnection.onicecandidate = event => {
+                event.candidate && setDoc(doc(answerCandidates), event.candidate.toJSON());
+            };
+
+            const callData = (await getDoc(callDoc)).data();
+
+            const offerDescription = callData.offer;
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(offerDescription));
+
+            const answerDescription = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answerDescription);
+
+            const answer = {
+                type: answerDescription.type,
+                sdp: answerDescription.sdp,
+            };
+
+            await updateDoc(callDoc, { answer });
+
+            // Listen for offer ICE candidates
+            onSnapshot(offerCandidates, (snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    if (change.type === 'added') {
+                        let data = change.doc.data();
+                        peerConnection.addIceCandidate(new RTCIceCandidate(data));
+                    }
+                });
+            });
+        }
+    }
+
+    // Controls Logic
+    window.toggleMic = () => {
+        const audioTrack = localStream.getAudioTracks()[0];
+        audioTrack.enabled = !audioTrack.enabled;
+        const btn = document.getElementById('mic-btn');
+        btn.classList.toggle('active', !audioTrack.enabled);
+        btn.innerHTML = audioTrack.enabled ? '<i class="fas fa-microphone"></i>' : '<i class="fas fa-microphone-slash"></i>';
+    };
+
+    window.toggleCamera = () => {
+        const videoTrack = localStream.getVideoTracks()[0];
+        videoTrack.enabled = !videoTrack.enabled;
+        const btn = document.getElementById('cam-btn');
+        btn.classList.toggle('active', !videoTrack.enabled);
+        btn.innerHTML = videoTrack.enabled ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
+    };
+
+    window.endCall = () => {
+        if (confirm('Are you sure you want to leave the session?')) {
+            window.location.href = '/peer-learning';
+        }
+    };
+
+    init().catch(err => {
+        console.error('Core WebRTC Error:', err);
+        alert('Failed to access camera/mic or establish connection.');
+    });
+</script>
+{% endblock %}

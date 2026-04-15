@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}Community Groups - SkillSync{% endblock %}
+
+{% block content %}
+<div class="mb-8 flex justify-between items-end">
+    <div>
+        <h1 class="text-3xl font-bold text-white mb-2">Community Groups</h1>
+        <p class="text-gray-400">Join specialized interest groups and learn together.</p>
+    </div>
+    <button onclick="document.getElementById('addGroupModal').classList.remove('hidden')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-semibold transition-colors shadow-lg shadow-indigo-500/20 flex items-center gap-2">
+        <i class="fas fa-plus"></i> Create Group
+    </button>
+</div>
+
+{% if groups %}
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+    {% for group in groups %}
+    <div class="card-dark rounded-2xl p-0 hover-lift flex flex-col h-full border border-white/5 relative overflow-hidden group">
+        <div class="h-24 bg-gradient-to-r from-indigo-900 via-purple-900 to-indigo-900 relative">
+            {% if group.banner_url %}
+            <img src="{{ group.banner_url }}" class="w-full h-full object-cover opacity-50" alt="{{ group.name }}">
+            {% endif %}
+            <div class="absolute inset-0 bg-black/20"></div>
+        </div>
+        
+        <div class="px-6 pb-6 relative flex-grow flex flex-col z-10">
+            <div class="w-16 h-16 bg-gray-900 rounded-2xl flex items-center justify-center border-4 border-[#171923] shadow-xl -mt-8 mb-4">
+                <i class="fas fa-users text-2xl text-indigo-400"></i>
+            </div>
+            
+            <h3 class="text-xl font-bold text-white mb-1 transition-colors">{{ group.name }}</h3>
+            
+            <div class="flex items-center gap-2 mb-4">
+                <span class="text-[10px] font-black px-2 py-1 bg-indigo-500/10 text-indigo-400 rounded-lg border border-indigo-500/20 uppercase tracking-widest">
+                    {{ group.category }}
+                </span>
+                <span class="text-[10px] font-bold px-2 py-1 bg-white/5 text-gray-400 rounded-lg border border-white/10 uppercase">
+                    {{ group.mode }}
+                </span>
+            </div>
+            
+            <p class="text-gray-300 text-sm mb-6 flex-grow line-clamp-3">{{ group.description }}</p>
+            
+            <div class="mt-auto pt-4 border-t border-white/10 flex justify-between items-center">
+                <div class="flex items-center text-xs text-gray-400">
+                    <span class="text-gray-500 mr-2">By</span>
+                    <span class="font-medium text-gray-300">{{ group.creator.name }}</span>
+                </div>
+                
+                <button class="text-indigo-400 hover:text-indigo-300 transition-colors px-4 py-2 rounded-xl hover:bg-indigo-500/10 text-sm font-bold flex items-center gap-2">
+                    Join Group
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card-dark rounded-2xl p-12 text-center border border-white/5">
+    <div class="w-20 h-20 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-indigo-500/20">
+        <i class="fas fa-users text-3xl text-indigo-400 opacity-50"></i>
+    </div>
+    <h3 class="text-xl font-bold text-white mb-2">No Groups Created</h3>
+    <p class="text-gray-400">Be the first to start a startup group and build your community.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block modals %}
+<!-- Add Group Modal -->
+<div id="addGroupModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4" style="z-index: 9999;">
+    <div class="bg-[#0f172a] border border-white/5 rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
+        <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-indigo-600/5">
+            <h3 class="text-xl font-bold text-white tracking-tight">Create New Group</h3>
+            <button onclick="document.getElementById('addGroupModal').classList.add('hidden')" class="text-gray-400 hover:text-white transition-colors">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form action="{{ url_for('add_group') }}" method="POST" class="p-8 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                    <div class="space-y-2">
+                        <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Group Name</label>
+                        <input type="text" name="name" required class="w-full transition" placeholder="e.g. AI Founders Circle">
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Description</label>
+                        <textarea name="description" required rows="3" class="w-full transition resize-none" placeholder="What is the purpose of this group?"></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Category</label>
+                            <div class="relative">
+                                <select name="category" required class="w-full transition appearance-none cursor-pointer">
+                                    <option value="Tech">Tech</option>
+                                    <option value="AI">AI</option>
+                                    <option value="FinTech">FinTech</option>
+                                    <option value="Marketing">Marketing</option>
+                                    <option value="Design">Design</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                                <i class="fas fa-chevron-down absolute right-5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"></i>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Mode</label>
+                            <div class="relative">
+                                <select name="mode" class="w-full transition appearance-none cursor-pointer">
+                                    <option value="Online">Online</option>
+                                    <option value="Offline">Offline</option>
+                                    <option value="Hybrid">Hybrid</option>
+                                </select>
+                                <i class="fas fa-chevron-down absolute right-5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Location (Optional)</label>
+                        <input type="text" name="location" class="w-full transition" placeholder="e.g. San Francisco or Remote">
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Banner Image URL</label>
+                        <input type="url" name="banner_url" class="w-full transition" placeholder="https://images.unsplash.com/...">
+                    </div>
+
+                    <div class="pt-4">
+                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-[1.5rem] transition shadow-xl shadow-indigo-600/20 uppercase tracking-widest text-xs">
+                            Create Group
+                        </button>
+                    </div>
+                </form>
+    </div>
+</div>
+{% endblock %}

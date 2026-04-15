@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% block title %}Admin Login – SkillSync{% endblock %}
+
+{% block extra_css %}
+<style>
+    .login-container {
+        min-height: 80vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+    }
+    .login-card {
+        background: rgba(23, 25, 35, 0.9);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 2.5rem;
+        width: 100%;
+        max-width: 450px;
+        padding: 3rem;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        animation: slideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .input-group { margin-bottom: 1.5rem; }
+    .input-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #94a3b8;
+        font-size: 0.875rem;
+        font-weight: 600;
+        letter-spacing: 0.025em;
+    }
+    .btn-login {
+        width: 100%;
+        background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+        color: white;
+        font-weight: 700;
+        padding: 1rem;
+        border-radius: 1rem;
+        transition: all 0.3s ease;
+        margin-top: 1rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: 0.875rem;
+    }
+    .btn-login:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.4);
+        filter: brightness(1.1);
+    }
+    .admin-badge {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 1.5rem;
+        display: inline-block;
+    }
+</style>
+{% endblock %}
+
+{% block guest_content %}
+<div class="login-container">
+    <div class="login-card">
+        <div class="text-center mb-8">
+            <span class="admin-badge">Admin Access</span>
+            <h2 class="text-3xl font-black text-white">SkillSync Control</h2>
+            <p class="text-slate-400 mt-2">Sign in to manage your ecosystem</p>
+        </div>
+
+        <form action="{{ url_for('admin_login') }}" method="POST">
+                    <div class="input-group">
+                        <label for="email">Admin Email / Username</label>
+                        <input type="text" id="email" name="email" class="w-full transition" placeholder="admin@skillsync.com" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="password">Security Password</label>
+                        <input type="password" id="password" name="password" class="w-full transition" placeholder="admin123" required>
+                    </div>
+
+                    <button type="submit" class="btn-login">
+                        Authorize Session
+                    </button>
+                </form>
+
+        <div class="mt-8 text-center text-xs text-gray-500">
+            <p>Default: <span class="text-indigo-400">admin@skillsync.com</span> / <span class="text-indigo-400">admin123</span></p>
+        </div>
+
+        <div class="mt-8 text-center border-t border-white/5 pt-6">
+            <a href="{{ url_for('login') }}" class="text-slate-500 hover:text-indigo-400 text-sm transition font-medium">
+                <i class="fas fa-arrow-left mr-1"></i> Return to Student Login
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

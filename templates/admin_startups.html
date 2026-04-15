@@ -1,0 +1,72 @@
+{% extends 'admin_base.html' %}
+{% block title %}Manage Startups – SkillSync Admin{% endblock %}
+{% block header_title %}Startup Management{% endblock %}
+
+{% block admin_content %}
+<div class="glass-card rounded-[2.5rem] overflow-hidden">
+    <div class="p-8 border-b border-white/5 flex items-center justify-between bg-indigo-600/5">
+        <div>
+            <h3 class="font-black text-white tracking-tight">Community Ventures</h3>
+            <p class="text-xs text-slate-500 mt-1">Monitor and support the innovative startups being built by our members.</p>
+        </div>
+    </div>
+    <div class="p-4 overflow-x-auto">
+        <table class="w-full text-left">
+            <thead>
+                <tr class="text-[10px] uppercase font-black tracking-widest text-slate-500">
+                    <th class="px-6 py-4">Startup</th>
+                    <th class="px-6 py-4">Founder</th>
+                    <th class="px-6 py-4">Domain</th>
+                    <th class="px-6 py-4">Stage</th>
+                    <th class="px-6 py-4">Connections</th>
+                    <th class="px-6 py-4 text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-white/5">
+                {% for startup in startups %}
+                <tr class="hover:bg-white/[0.02] transition-colors group">
+                    <td class="px-6 py-5">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-400">
+                                <i class="fas fa-rocket"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-white group-hover:text-indigo-400 transition-colors">{{ startup.name }}</p>
+                                <p class="text-[10px] text-slate-500">{{ startup.industry }}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-5">
+                        <div class="flex items-center gap-3">
+                            <div class="w-7 h-7 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400 font-bold text-[9px]">
+                                {{ startup.founder.name[0] }}
+                            </div>
+                            <span class="text-xs font-medium text-slate-300">{{ startup.founder.name }}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-5">
+                        <span class="text-[9px] font-black px-2 py-1 rounded bg-white/5 border border-white/10 text-slate-400 uppercase tracking-widest">
+                            {{ startup.domain or 'General' }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-5">
+                        <span class="text-[10px] font-bold text-indigo-300">{{ startup.funding_stage or 'Idea Phase' }}</span>
+                    </td>
+                    <td class="px-6 py-5">
+                        <span class="text-sm font-bold text-white">{{ startup.connections|length }}</span>
+                    </td>
+                    <td class="px-6 py-5 text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <a href="{{ url_for('startup_detail', startup_id=startup.id) }}" class="p-2 text-slate-400 hover:text-white transition"><i class="fas fa-eye text-sm"></i></a>
+                            <form action="{{ url_for('delete_startup', startup_id=startup.id) }}" method="POST" onsubmit="return confirm('Remove this startup?')">
+                                <button type="submit" class="p-2 text-slate-400 hover:text-red-400 transition"><i class="fas fa-trash-alt text-sm"></i></button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

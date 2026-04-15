@@ -1,225 +1,629 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register - SkillSync</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        .dark-gradient {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        }
-        .card-dark {
-            background: rgba(30, 41, 59, 0.8);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .input-dark {
-            background: rgba(15, 23, 42, 0.7);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #e2e8f0;
-        }
-        .input-dark:focus {
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-        }
-        .nav-dark {
-            background: rgba(15, 23, 42, 0.9);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-    </style>
-</head>
-<body class="dark-gradient min-h-screen">
-    <!-- Navigation -->
-    <nav class="nav-dark shadow-lg">
-        <div class="max-w-7xl mx-auto px-4">
-            <div class="flex justify-between items-center py-4">
-                <div class="flex items-center space-x-2">
-                    <i class="fas fa-sync-alt text-blue-400 text-xl"></i>
-                    <span class="text-xl font-bold text-white">SkillSync</span>
-                </div>
-                <a href="{{ url_for('login') }}" class="text-gray-300 hover:text-blue-400 transition duration-150">
-                    Already have an account? Sign in
-                </a>
-            </div>
+{% extends "base.html" %}
+
+{% block title %}Register - SkillSync{% endblock %}
+
+{% block extra_css %}
+<!-- TomSelect CSS -->
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
+<style>
+    /* Dark Theme overrides for TomSelect */
+    .ts-control { background-color: #ffffff !important; border: 1px solid #e5e7eb !important; color: #111827 !important; border-radius: 0.75rem; padding: 0.75rem 1rem; }
+    .ts-control .item { color: #111827 !important; }
+    .ts-control > input { color: #111827 !important; }
+    .ts-dropdown { background: #ffffff !important; border: 1px solid #e5e7eb !important; color: #111827 !important; border-radius: 0.5rem; overflow: hidden; }
+    .ts-dropdown .active { background-color: #6366f1 !important; color: white !important; }
+    
+    .step-active { display: block; animation: fadeIn 0.5s ease-out; }
+    .step-inactive { display: none; }
+    
+    .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+    
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    .role-card { cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 2px solid transparent; }
+    .role-card:hover { transform: translateY(-5px); background: rgba(255, 255, 255, 0.05); }
+    .role-card.selected { border-color: #6366f1; background: rgba(99, 102, 241, 0.1); box-shadow: 0 0 20px rgba(99, 102, 241, 0.2); }
+
+    .progress-bar-fill { transition: width 0.5s ease-in-out; }
+</style>
+{% endblock %}
+
+{% block guest_content %}
+<div class="max-w-3xl mx-auto py-12 px-4 relative z-10">
+    <!-- Progress Indicator -->
+    <div class="mb-10">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-indigo-400 bg-indigo-500/10" id="step-label">
+                Step 1 of 3: Basic Details
+            </span>
+            <span class="text-xs font-semibold inline-block text-indigo-400" id="step-percent">
+                0%
+            </span>
         </div>
-    </nav>
-
-    <!-- Background Pattern -->
-    <div class="absolute inset-0 opacity-5">
-        <div class="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-500 rounded-full blur-3xl"></div>
-        <div class="absolute bottom-1/4 right-1/4 w-64 h-64 bg-purple-500 rounded-full blur-3xl"></div>
-    </div>
-
-    <div class="max-w-2xl mx-auto py-8 px-4 relative z-10">
-        <div class="text-center mb-8">
-            <h1 class="text-3xl font-bold text-white">Join SkillSync</h1>
-            <p class="text-gray-400 mt-2">Create your account to start your learning journey</p>
-        </div>
-
-        <!-- Flash Messages -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="mb-6">
-                    {% for category, message in messages %}
-                        <div class="p-4 rounded-lg {% if category == 'error' %}bg-red-900 text-red-200 border border-red-700{% else %}bg-green-900 text-green-200 border border-green-700{% endif %}">
-                            {{ message }}
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
-
-        <form class="card-dark p-8 rounded-xl shadow-2xl space-y-6" method="POST">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label for="name" class="block text-sm font-medium text-gray-300 mb-2">Full Name</label>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <i class="fas fa-user text-gray-500"></i>
-                        </div>
-                        <input type="text" id="name" name="name" required 
-                               class="input-dark pl-10 mt-1 block w-full px-3 py-3 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                               placeholder="Enter your full name">
-                    </div>
-                </div>
-
-                <div>
-                    <label for="email" class="block text-sm font-medium text-gray-300 mb-2">Email</label>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <i class="fas fa-envelope text-gray-500"></i>
-                        </div>
-                        <input type="email" id="email" name="email" required 
-                               class="input-dark pl-10 mt-1 block w-full px-3 py-3 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                               placeholder="Enter your email">
-                    </div>
-                </div>
-            </div>
-
-            <div>
-                <label for="password" class="block text-sm font-medium text-gray-300 mb-2">Password</label>
-                <div class="relative">
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <i class="fas fa-lock text-gray-500"></i>
-                    </div>
-                    <input type="password" id="password" name="password" required 
-                           class="input-dark pl-10 mt-1 block w-full px-3 py-3 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                           placeholder="Create a strong password">
-                </div>
-                <p class="text-xs text-gray-500 mt-2">Use at least 8 characters with a mix of letters, numbers, and symbols</p>
-            </div>
-
-            <div>
-                <label for="skills" class="block text-sm font-medium text-gray-300 mb-2">Skills</label>
-                <div class="relative">
-                    <div class="absolute top-3 left-3 flex items-center pointer-events-none">
-                        <i class="fas fa-code text-gray-500"></i>
-                    </div>
-                    <textarea id="skills" name="skills" rows="2" 
-                              class="input-dark pl-10 mt-1 block w-full px-3 py-3 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                              placeholder="e.g., Python, JavaScript, Design, Marketing..."></textarea>
-                </div>
-                <p class="text-xs text-gray-500 mt-2">Separate skills with commas</p>
-            </div>
-
-            <div>
-                <label for="goals" class="block text-sm font-medium text-gray-300 mb-2">Learning Goals</label>
-                <div class="relative">
-                    <div class="absolute top-3 left-3 flex items-center pointer-events-none">
-                        <i class="fas fa-bullseye text-gray-500"></i>
-                    </div>
-                    <textarea id="goals" name="goals" rows="2" 
-                              class="input-dark pl-10 mt-1 block w-full px-3 py-3 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                              placeholder="What do you want to learn or achieve?"></textarea>
-                </div>
-            </div>
-
-            <div>
-                <label for="bio" class="block text-sm font-medium text-gray-300 mb-2">Bio</label>
-                <div class="relative">
-                    <div class="absolute top-3 left-3 flex items-center pointer-events-none">
-                        <i class="fas fa-edit text-gray-500"></i>
-                    </div>
-                    <textarea id="bio" name="bio" rows="3" 
-                              class="input-dark pl-10 mt-1 block w-full px-3 py-3 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                              placeholder="Tell us about yourself, your background, and interests..."></textarea>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label for="availability" class="block text-sm font-medium text-gray-300 mb-2">Availability</label>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <i class="fas fa-clock text-gray-500"></i>
-                        </div>
-                        <input type="text" id="availability" name="availability" 
-                               class="input-dark pl-10 mt-1 block w-full px-3 py-3 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                               placeholder="e.g., Weekends 2-5 PM">
-                    </div>
-                </div>
-
-                <div class="flex items-center pt-6">
-                    <input type="checkbox" id="is_mentor" name="is_mentor" 
-                           class="h-5 w-5 text-blue-500 focus:ring-blue-500 border-gray-600 rounded bg-gray-800">
-                    <label for="is_mentor" class="ml-3 block text-sm text-gray-300">
-                        <span class="font-medium">I want to be a mentor</span>
-                        <p class="text-xs text-gray-500 mt-1">Help others learn by sharing your expertise</p>
-                    </label>
-                </div>
-            </div>
-
-            <div class="pt-4">
-                <button type="submit" 
-                        class="group relative w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200">
-                    <span class="absolute left-0 inset-y-0 flex items-center pl-3">
-                        <i class="fas fa-user-plus text-blue-300 group-hover:text-blue-200"></i>
-                    </span>
-                    Create Account
-                </button>
-            </div>
-
-            <!-- Divider -->
-            <div class="relative mt-6">
-                <div class="absolute inset-0 flex items-center">
-                    <div class="w-full border-t border-gray-700"></div>
-                </div>
-                <div class="relative flex justify-center text-sm">
-                    <span class="px-2 bg-gray-800 text-gray-400">Or sign up with</span>
-                </div>
-            </div>
-
-            <!-- Social Signup Options -->
-            <div class="grid grid-cols-2 gap-3">
-                <button type="button" 
-                        class="inline-flex justify-center py-2 px-4 border border-gray-700 rounded-lg shadow-sm bg-gray-800 text-sm font-medium text-gray-300 hover:bg-gray-700 transition duration-150">
-                    <i class="fab fa-google text-red-400 mr-2"></i>
-                    Google
-                </button>
-                <button type="button" 
-                        class="inline-flex justify-center py-2 px-4 border border-gray-700 rounded-lg shadow-sm bg-gray-800 text-sm font-medium text-gray-300 hover:bg-gray-700 transition duration-150">
-                    <i class="fab fa-github text-gray-300 mr-2"></i>
-                    GitHub
-                </button>
-            </div>
-
-            <div class="text-center pt-4">
-                <p class="text-sm text-gray-400">
-                    Already have an account?
-                    <a href="{{ url_for('login') }}" class="font-medium text-blue-400 hover:text-blue-300 transition duration-150">
-                        Sign in here
-                    </a>
-                </p>
-            </div>
-        </form>
-
-        <!-- Security Notice -->
-        <div class="text-center text-xs text-gray-500 mt-6">
-            <p>Your information is securely encrypted and will only be used for matching purposes</p>
+        <div class="overflow-hidden h-2 mb-4 text-xs flex rounded-full bg-white/5 border border-white/5">
+            <div id="progress-bar" style="width:0%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-gradient-to-r from-indigo-500 to-purple-600 progress-bar-fill transition-all duration-500"></div>
         </div>
     </div>
-</body>
-</html>
+
+    <div class="text-center mb-10">
+        <h1 class="text-4xl font-bold text-white mb-2">Create Your Account</h1>
+        <p class="text-gray-400">Join SkillSync to start your learning or mentoring journey</p>
+    </div>
+
+    <!-- Alert Container -->
+    <div id="form-alert" class="hidden max-w-3xl mx-auto mb-6 p-4 rounded-xl border flex items-start gap-3 transition-all duration-300">
+        <i id="alert-icon" class="fas mt-1"></i>
+        <div>
+            <h4 id="alert-title" class="font-bold mb-1"></h4>
+            <p id="alert-message" class="text-sm"></p>
+        </div>
+    </div>
+
+    <form id="signup-form" class="card-dark p-8 md:p-12 rounded-3xl shadow-2xl" method="POST">
+                <!-- Step 1: Basic Details -->
+                <div id="step-1" class="step-active space-y-8">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label for="name" class="block text-sm font-medium text-gray-400">Full Name</label>
+                            <input type="text" id="name" name="name" required class="w-full transition" placeholder="John Doe">
+                        </div>
+                        <div class="space-y-2">
+                            <label for="email" class="block text-sm font-medium text-gray-400">Email Address</label>
+                            <input type="email" id="email" name="email" required class="w-full transition" placeholder="john@example.com">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label for="password" class="block text-sm font-medium text-gray-400">Password</label>
+                            <input type="password" id="password" name="password" required class="w-full transition" placeholder="Min 8 characters">
+                        </div>
+                        <div class="space-y-2">
+                            <label for="confirm_password" class="block text-sm font-medium text-gray-400">Confirm Password</label>
+                            <input type="password" id="confirm_password" name="confirm_password" required class="w-full transition" placeholder="Repeat password">
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <label class="block text-sm font-medium text-gray-400 text-center mb-4">I am a...</label>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div id="card-student" onclick="selectRole('student')" class="role-card glass-effect rounded-2xl p-6 text-center selected">
+                                <div class="w-12 h-12 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <i class="fas fa-user-graduate text-xl"></i>
+                                </div>
+                                <h3 class="text-white font-bold mb-1">Student</h3>
+                                <p class="text-xs text-gray-500">I want to learn new skills</p>
+                            </div>
+                            <div id="card-mentor" onclick="selectRole('mentor')" class="role-card glass-effect rounded-2xl p-6 text-center">
+                                <div class="w-12 h-12 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <i class="fas fa-chalkboard-teacher text-xl"></i>
+                                </div>
+                                <h3 class="text-white font-bold mb-1">Mentor</h3>
+                                <p class="text-xs text-gray-500">I want to share expertise</p>
+                            </div>
+                        </div>
+                        <input type="hidden" name="role" id="role-input" value="student">
+                    </div>
+
+                    <div class="pt-4">
+                        <button type="button" onclick="goToStep(2)" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition transform hover:-translate-y-1 shadow-xl shadow-indigo-500/20">
+                            Next: Profile Details <i class="fas fa-arrow-right ml-2 text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Role Specific Info -->
+                <div id="step-2" class="step-inactive space-y-8">
+                    <!-- Student Fields -->
+                    <div id="student-fields">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                            <!-- Left Column -->
+                            <div class="space-y-6">
+                                <div class="space-y-2">
+                                    <label for="education_level" class="block text-sm font-medium text-gray-400">Current Education Level</label>
+                                    <select id="education_level" name="education_level" class="w-full transition">
+                                        <option value="High School">High School</option>
+                                        <option value="Undergraduate">Undergraduate</option>
+                                        <option value="Graduate">Graduate</option>
+                                        <option value="Self-Taught">Self-Taught</option>
+                                    </select>
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-400">College Name</label>
+                                    <select id="college_name_sel" class="w-full transition">
+                                        <option value="">Select College Name...</option>
+                                    </select>
+                                    <input type="text" id="college_name" name="college_name" class="w-full transition hidden mt-2" placeholder="Enter College Name Manually">
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-400">College Code</label>
+                                    <select id="college_code_sel" class="w-full transition">
+                                        <option value="">Select College Code...</option>
+                                    </select>
+                                    <input type="text" id="college_code" name="college_code" class="w-full transition hidden mt-2" placeholder="Enter College Code Manually">
+                                </div>
+                                <div class="space-y-2">
+                                    <label for="learning_goals" class="block text-sm font-medium text-gray-400">Learning Goals</label>
+                                    <textarea id="learning_goals" name="goals" rows="3" class="w-full transition" placeholder="What do you want to achieve?"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Right Column -->
+                            <div class="space-y-6">
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-400">Skills Interested In</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="text" id="skill_input" class="flex-1 transition" placeholder="e.g. Python, UI Design..." onkeypress="handleSkillKeypress(event)">
+                                        <button type="button" onclick="addSkill()" class="bg-indigo-600 hover:bg-indigo-700 text-white w-12 h-12 rounded-xl font-bold flex items-center justify-center transition shadow-lg shadow-indigo-500/20">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                    </div>
+                                    <div id="skills_container" class="flex flex-wrap gap-2 mt-3 empty:hidden">
+                                        <!-- Skill badges will appear here -->
+                                    </div>
+                                    <!-- Hidden input to submit the comma separated string -->
+                                    <input type="hidden" id="skills_hidden" name="skills" value="">
+                                </div>
+
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-400 mb-3">Preferred Learning Mode</label>
+                                    <div class="grid grid-cols-1 gap-3">
+                                        <label for="mode_live" class="relative block cursor-pointer group">
+                                            <input type="radio" id="mode_live" name="learning_mode" value="Live" class="peer absolute w-full h-full inset-0 z-0 opacity-0 cursor-pointer" checked onchange="updateProgress()">
+                                            <div class="glass-effect p-4 rounded-xl flex items-center gap-4 border border-white/5 transition-all duration-300 hover:bg-white/10 peer-checked:border-indigo-500 peer-checked:bg-indigo-500/10 peer-checked:ring-2 peer-checked:ring-indigo-500/20 text-gray-400 peer-checked:text-white font-bold">
+                                                <div class="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center peer-checked:bg-indigo-500/20">
+                                                    <i class="fas fa-video text-sm opacity-50 peer-checked:opacity-100"></i>
+                                                </div>
+                                                <span>Live Mentorship</span>
+                                            </div>
+                                        </label>
+                                        <label for="mode_recorded" class="relative block cursor-pointer group">
+                                            <input type="radio" id="mode_recorded" name="learning_mode" value="Recorded" class="peer absolute w-full h-full inset-0 z-0 opacity-0 cursor-pointer" onchange="updateProgress()">
+                                            <div class="glass-effect p-4 rounded-xl flex items-center gap-4 border border-white/5 transition-all duration-300 hover:bg-white/10 peer-checked:border-indigo-500 peer-checked:bg-indigo-500/10 peer-checked:ring-2 peer-checked:ring-indigo-500/20 text-gray-400 peer-checked:text-white font-bold">
+                                                <div class="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center peer-checked:bg-indigo-500/20">
+                                                    <i class="fas fa-play-circle text-sm opacity-50 peer-checked:opacity-100"></i>
+                                                </div>
+                                                <span>Recorded Sessions</span>
+                                            </div>
+                                        </label>
+                                        <label for="mode_peer" class="relative block cursor-pointer group">
+                                            <input type="radio" id="mode_peer" name="learning_mode" value="Peer" class="peer absolute w-full h-full inset-0 z-0 opacity-0 cursor-pointer" onchange="updateProgress()">
+                                            <div class="glass-effect p-4 rounded-xl flex items-center gap-4 border border-white/5 transition-all duration-300 hover:bg-white/10 peer-checked:border-indigo-500 peer-checked:bg-indigo-500/10 peer-checked:ring-2 peer-checked:ring-indigo-500/20 text-gray-400 peer-checked:text-white font-bold">
+                                                <div class="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center peer-checked:bg-indigo-500/20">
+                                                    <i class="fas fa-users text-sm opacity-50 peer-checked:opacity-100"></i>
+                                                </div>
+                                                <span>Peer Learning</span>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mentor Fields -->
+                    <div id="mentor-fields" class="hidden space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="space-y-2">
+                                <label for="expertise" class="block text-sm font-medium text-gray-400">Area of Expertise</label>
+                                <input type="text" id="expertise" name="expertise" class="w-full transition" placeholder="e.g. Data Science, Web Dev">
+                            </div>
+                            <div class="space-y-2">
+                                <label for="years_experience" class="block text-sm font-medium text-gray-400">Years of Experience</label>
+                                <input type="number" id="years_experience" name="years_experience" class="w-full transition" placeholder="e.g. 5">
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <label for="job_role" class="block text-sm font-medium text-gray-400">Current Job Role / Organization</label>
+                            <input type="text" id="job_role" name="job_role" class="w-full transition" placeholder="e.g. Senior Dev at Google">
+                        </div>
+                        <div class="space-y-2">
+                            <label for="bio" class="block text-sm font-medium text-gray-400">Short Professional Bio</label>
+                            <textarea id="bio" name="bio" rows="3" class="w-full transition" placeholder="Tell us about your professional background..."></textarea>
+                        </div>
+                        <div class="space-y-2">
+                            <label for="availability" class="block text-sm font-medium text-gray-400">Available Time Slots</label>
+                            <input type="text" id="availability" name="availability" class="w-full transition" placeholder="e.g. Mon-Fri 6 PM-8 PM">
+                        </div>
+                        <!-- Re-using hidden skills/goals for back compatible saving -->
+                        <input type="hidden" name="skills" id="mentor-skills-hidden">
+                        <input type="hidden" name="goals" id="mentor-goals-hidden">
+                    </div>
+
+                    <div class="flex space-x-4">
+                        <button type="button" onclick="goToStep(1)" class="flex-1 px-4 py-4 rounded-xl font-bold bg-white/5 text-gray-400 hover:text-white border border-white/5 transition">
+                            <i class="fas fa-arrow-left mr-2"></i> Back
+                        </button>
+                        <button type="button" onclick="goToStep(3)" class="flex-[2] bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition transform hover:-translate-y-1 shadow-xl shadow-indigo-500/20">
+                            Next: Verification <i class="fas fa-check-circle ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Verification & Final -->
+                <div id="step-3" class="step-inactive space-y-10">
+                    <!-- Section Header -->
+                    <div class="text-center space-y-4">
+                        <div class="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-indigo-500/10 text-indigo-400 mb-2 border border-indigo-500/20 shadow-xl shadow-indigo-500/10">
+                            <i class="fas fa-shield-check text-3xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-3xl font-bold text-white mb-2">Final Verification</h2>
+                            <p class="text-gray-400 text-sm max-w-sm mx-auto leading-relaxed">Almost there! Upload a profile photo and confirm your agreement to join the SkillSync community.</p>
+                        </div>
+                    </div>
+
+                    <!-- Enhanced Profile Photo Upload -->
+                    <div class="max-w-xs mx-auto">
+                        <div class="relative group">
+                            <div class="w-36 h-36 bg-white/5 border-2 border-dashed border-white/10 rounded-full flex items-center justify-center mx-auto transition-all duration-500 group-hover:border-indigo-500/50 group-hover:bg-indigo-500/10 cursor-pointer overflow-hidden relative">
+                                <div class="text-center z-10 transition-transform duration-500 group-hover:scale-110">
+                                    <i class="fas fa-user-circle text-gray-600 text-4xl group-hover:text-indigo-400 transition-colors"></i>
+                                    <span class="block text-[10px] text-gray-500 mt-2 font-bold uppercase tracking-widest">Add Photo</span>
+                                </div>
+                                <!-- Decorative background effect -->
+                                <div class="absolute inset-0 bg-gradient-to-tr from-indigo-500/0 to-purple-500/0 group-hover:from-indigo-500/10 group-hover:to-purple-500/10 transition-all duration-500"></div>
+                                
+                                <!-- Hidden file input -->
+                                <input type="file" id="photo-upload" name="profile_photo" class="absolute inset-0 opacity-0 cursor-pointer z-20">
+                            </div>
+                            <div class="absolute -bottom-2 right-1/2 translate-x-12 w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-500/30 border-4 border-[#171923] group-hover:scale-110 transition-transform">
+                                <i class="fas fa-plus text-xs"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Premium Terms Confirmation Block -->
+                    <div class="p-8 rounded-[2rem] bg-indigo-500/5 border border-indigo-500/10 space-y-6 relative overflow-hidden group">
+                        <div class="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity">
+                            <i class="fas fa-file-contract text-8xl transform rotate-12"></i>
+                        </div>
+                        
+                        <div class="flex items-center gap-4 text-indigo-400">
+                            <div class="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                                <i class="fas fa-check-double text-sm"></i>
+                            </div>
+                            <h3 class="font-bold text-lg">Terms & Conditions</h3>
+                        </div>
+                        
+                        <p class="text-sm text-gray-400 leading-relaxed relative z-10">
+                            By clicking "Complete Registry", you acknowledge that you have read and agreed to our 
+                            <a href="#" class="text-indigo-400 hover:text-indigo-300 underline font-semibold underline-offset-4">Academic Integrity Policy</a> 
+                            and 
+                            <a href="#" class="text-indigo-400 hover:text-indigo-300 underline font-semibold underline-offset-4">Community Guidelines</a>.
+                        </p>
+
+                        <label for="terms" class="flex items-center cursor-pointer group/label p-5 rounded-2xl bg-white/5 border border-white/5 hover:border-indigo-500/30 hover:bg-white/10 transition-all duration-300 select-none relative z-10">
+                            <input type="checkbox" id="terms" required class="peer hidden" onchange="updateProgress()">
+                            <div class="w-8 h-8 rounded-xl border-2 border-white/10 flex items-center justify-center peer-checked:bg-indigo-600 peer-checked:border-indigo-600 transition-all duration-300 shadow-xl shadow-indigo-500/0 peer-checked:shadow-indigo-500/30">
+                                <i class="fas fa-check text-white text-sm scale-0 peer-checked:scale-100 transition-transform duration-300"></i>
+                            </div>
+                            <div class="ml-4">
+                                <span class="block text-sm font-bold text-gray-300 group-hover/label:text-white transition-colors">I Accept and Conform</span>
+                                <span class="block text-xs text-gray-500 mt-0.5">I agree to the terms mentioned above.</span>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- Final Action Buttons -->
+                    <div class="flex flex-col sm:flex-row gap-4 pt-4">
+                        <button type="button" onclick="goToStep(2)" class="order-2 sm:order-1 flex-1 px-8 py-5 rounded-2xl font-bold bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5 transition-all text-sm uppercase tracking-widest">
+                            <i class="fas fa-arrow-left mr-2"></i> Previous
+                        </button>
+                        <button type="submit" id="submit-btn" class="order-1 sm:order-2 flex-[2] bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-5 px-8 rounded-2xl font-bold text-lg hover:from-indigo-700 hover:to-purple-700 transition-all transform hover:-translate-y-1 shadow-2xl shadow-indigo-500/30 disabled:opacity-50 disabled:grayscale disabled:transform-none disabled:cursor-not-allowed">
+                            Complete Registry <i class="fas fa-rocket ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-8 text-center pt-8 border-t border-white/5">
+                    <p class="text-gray-400 text-sm">
+                        Already part of the community?
+                        <a href="{{ url_for('login') }}" class="text-indigo-400 font-bold ml-1">Sign In</a>
+                    </p>
+                </div>
+            </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+<script>
+    let currentStep = 1;
+    let selectedRole = 'student';
+    let skillsArray = [];
+    
+    // College Selection Logic
+    let tsName = null;
+    let tsCode = null;
+    let collegeData = [];
+
+    async function fetchColleges() {
+        try {
+            const res = await fetch('/api/colleges');
+            collegeData = await res.json();
+            
+            const nameOptions = collegeData.map(c => ({value: c.name, text: c.name}));
+            const codeOptions = collegeData.map(c => ({value: c.code, text: c.code}));
+            
+            nameOptions.push({value: 'Other', text: 'Other (Enter Manually)'});
+            codeOptions.push({value: 'Other', text: 'Other (Enter Manually)'});
+            
+            tsName = new TomSelect('#college_name_sel', {
+                options: nameOptions,
+                create: false,
+                maxOptions: 100,
+                onChange: function(val) {
+                    const codeSel = tsCode;
+                    if (val === 'Other') {
+                        document.getElementById('college_name').classList.remove('hidden');
+                        document.getElementById('college_code').classList.remove('hidden');
+                        document.getElementById('college_name').value = '';
+                        document.getElementById('college_code').value = '';
+                        codeSel.setValue('Other', true);
+                    } else if (val) {
+                        document.getElementById('college_name').classList.add('hidden');
+                        document.getElementById('college_code').classList.add('hidden');
+                        document.getElementById('college_name').value = val;
+                        const match = collegeData.find(c => c.name === val);
+                        if (match) {
+                            codeSel.setValue(match.code, true);
+                            document.getElementById('college_code').value = match.code;
+                        }
+                    }
+                }
+            });
+            
+            tsCode = new TomSelect('#college_code_sel', {
+                options: codeOptions,
+                create: false,
+                maxOptions: 100,
+                onChange: function(val) {
+                    const nameSel = tsName;
+                    if (val === 'Other') {
+                        document.getElementById('college_name').classList.remove('hidden');
+                        document.getElementById('college_code').classList.remove('hidden');
+                        document.getElementById('college_name').value = '';
+                        document.getElementById('college_code').value = '';
+                        nameSel.setValue('Other', true);
+                    } else if (val) {
+                        document.getElementById('college_name').classList.add('hidden');
+                        document.getElementById('college_code').classList.add('hidden');
+                        document.getElementById('college_code').value = val;
+                        const match = collegeData.find(c => c.code === val);
+                        if (match) {
+                            nameSel.setValue(match.name, true);
+                            document.getElementById('college_name').value = match.name;
+                        }
+                    }
+                }
+            });
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function handleSkillKeypress(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            addSkill();
+        }
+    }
+
+    function addSkill() {
+        const inputField = document.getElementById('skill_input');
+        const skill = inputField.value.trim();
+        
+        if (skill && !skillsArray.map(s => s.toLowerCase()).includes(skill.toLowerCase())) {
+            skillsArray.push(skill);
+            inputField.value = '';
+            renderSkills();
+        } else if (skill) {
+            inputField.value = ''; // clear if duplicate
+        }
+    }
+
+    function removeSkill(index) {
+        skillsArray.splice(index, 1);
+        renderSkills();
+    }
+
+    function renderSkills() {
+        const container = document.getElementById('skills_container');
+        const hiddenInput = document.getElementById('skills_hidden');
+        
+        container.innerHTML = '';
+        skillsArray.forEach((skill, index) => {
+            const badge = document.createElement('span');
+            badge.className = 'bg-white/10 border border-white/20 text-indigo-300 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-white/20 transition-colors';
+            badge.innerHTML = `
+                ${skill}
+                <button type="button" onclick="removeSkill(${index})" class="text-gray-400 hover:text-red-400 focus:outline-none transition" title="Remove">
+                    <i class="fas fa-times text-xs"></i>
+                </button>
+            `;
+            container.appendChild(badge);
+        });
+        
+        hiddenInput.value = skillsArray.join(', ');
+    }
+
+    function selectRole(role) {
+        selectedRole = role;
+        document.getElementById('role-input').value = role;
+        
+        // Update UI
+        document.getElementById('card-student').classList.toggle('selected', role === 'student');
+        document.getElementById('card-mentor').classList.toggle('selected', role === 'mentor');
+        
+        // Show/Hide fields
+        if (role === 'mentor') {
+            document.getElementById('student-fields').classList.add('hidden');
+            document.getElementById('mentor-fields').classList.remove('hidden');
+            document.getElementById('college_name').disabled = true;
+            document.getElementById('college_code').disabled = true;
+            if (tsName) tsName.disable();
+            if (tsCode) tsCode.disable();
+        } else {
+            document.getElementById('student-fields').classList.remove('hidden');
+            document.getElementById('mentor-fields').classList.add('hidden');
+            document.getElementById('college_name').disabled = false;
+            document.getElementById('college_code').disabled = false;
+            if (tsName) tsName.enable();
+            if (tsCode) tsCode.enable();
+        }
+        updateProgress();
+    }
+
+    function showError(title, message) {
+        const alertBox = document.getElementById('form-alert');
+        const alertIcon = document.getElementById('alert-icon');
+        const alertTitle = document.getElementById('alert-title');
+        const alertMsg = document.getElementById('alert-message');
+        
+        alertBox.className = "max-w-3xl mx-auto mb-6 p-4 rounded-xl border flex items-start gap-3 transition-all duration-300 bg-red-500/10 border-red-500/30 text-red-400 animate-fade-in-up";
+        alertIcon.className = "fas fa-exclamation-circle mt-1";
+        alertTitle.textContent = title;
+        alertMsg.textContent = message;
+        
+        // Scroll to top gently
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    
+    function hideError() {
+        document.getElementById('form-alert').classList.add('hidden');
+    }
+
+    function goToStep(step) {
+        hideError();
+        
+        // Validation for step 1
+        if (currentStep === 1 && step === 2) {
+            const name = document.getElementById('name').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const pass = document.getElementById('password').value;
+            const confirm = document.getElementById('confirm_password').value;
+            
+            if (!name) { showError("Missing Information", "Please enter your Full Name."); return; }
+            if (!email || !email.includes('@')) { showError("Invalid Email", "Please enter a valid email address."); return; }
+            if (pass.length < 8) { showError("Weak Password", "Password must be at least 8 characters long."); return; }
+            if (pass !== confirm) { showError("Password Mismatch", "Passwords do not match. Please re-type them carefully."); return; }
+        }
+
+        // Validation for leaving step 2
+        if (currentStep === 2 && step === 3) {
+            if (selectedRole === 'student') {
+                if (skillsArray.length === 0) {
+                    showError("Skills Required", "Please add at least one skill you are interested in by typing it and clicking the + button.");
+                    return;
+                }
+            } else if (selectedRole === 'mentor') {
+                const expertise = document.getElementById('expertise').value.trim();
+                const yrs = document.getElementById('years_experience').value.trim();
+                if (!expertise) { showError("Missing Expertise", "Please specify your Area of Expertise."); return; }
+                if (!yrs) { showError("Missing Experience", "Please enter your Years of Experience."); return; }
+            }
+        }
+
+        // Hide current step
+        document.getElementById(`step-${currentStep}`).classList.remove('step-active');
+        document.getElementById(`step-${currentStep}`).classList.add('step-inactive');
+        
+        // Show next step
+        document.getElementById(`step-${step}`).classList.remove('step-inactive');
+        document.getElementById(`step-${step}`).classList.add('step-active');
+        
+        currentStep = step;
+        updateProgress();
+    }
+
+    function updateProgress() {
+        let total = 0;
+        let filled = 0;
+        
+        // Step 1 basic fields
+        const step1Fields = ['name', 'email', 'password', 'confirm_password'];
+        step1Fields.forEach(id => {
+            total++;
+            const el = document.getElementById(id);
+            if (el && el.value.trim().length > 0) filled++;
+        });
+
+        // Step 2 profile fields
+        if (selectedRole === 'student') {
+            const studentFields = ['college_name', 'college_code', 'learning_goals'];
+            studentFields.forEach(id => {
+                total++;
+                const el = document.getElementById(id);
+                if (el && el.value.trim().length > 0) filled++;
+            });
+            // Skills
+            total++;
+            if (skillsArray && skillsArray.length > 0) filled++;
+            // Learning mode
+            total++;
+            const modes = document.querySelectorAll('input[name="learning_mode"]:checked');
+            if (modes.length > 0) filled++;
+        } else {
+            const mentorFields = ['expertise', 'years_experience', 'job_role', 'bio'];
+            mentorFields.forEach(id => {
+                total++;
+                const el = document.getElementById(id);
+                if (el && el.value.trim().length > 0) filled++;
+            });
+        }
+
+        // Step 3 verification fields
+        total++;
+        const terms = document.getElementById('terms');
+        if (terms && terms.checked) filled++;
+
+        const percent = Math.round((filled / total) * 100);
+        
+        const progressBar = document.getElementById('progress-bar');
+        const stepPercent = document.getElementById('step-percent');
+        const stepLabel = document.getElementById('step-label');
+        
+        if (progressBar) progressBar.style.width = percent + '%';
+        if (stepPercent) stepPercent.textContent = percent + '%';
+        
+        const labels = ["Basic Details", "Profile Details", "Verification"];
+        if (stepLabel) stepLabel.textContent = `Step ${currentStep} of 3: ${labels[currentStep-1]}`;
+        
+        // Handle final button state
+        const signupBtn = document.getElementById('submit-btn');
+        if (signupBtn) {
+            signupBtn.disabled = !terms.checked;
+        }
+    }
+
+    document.getElementById('signup-form').onsubmit = function(e) {
+        hideError();
+        
+        // Student required fields
+        if (selectedRole === 'student') {
+            const cn = document.getElementById('college_name').value.trim();
+            const cc = document.getElementById('college_code').value.trim();
+            if (!cn || !cc) {
+                showError("Missing College", "Please select or manually enter your College Name and Code.");
+                e.preventDefault();
+                return false;
+            }
+        }
+
+        // Before submitting, sync mentor specific expertise/bio to general skills/goals for DB consistency
+        if (selectedRole === 'mentor') {
+            document.getElementById('mentor-skills-hidden').value = document.getElementById('expertise').value;
+            document.getElementById('mentor-goals-hidden').value = "Mentor users in " + document.getElementById('expertise').value;
+        }
+        return true;
+    };
+    
+    // Bind global progression update
+    document.getElementById('signup-form').addEventListener('input', updateProgress);
+    document.getElementById('terms').addEventListener('change', updateProgress);
+    
+    window.onload = function() {
+        updateProgress(); // init to 0
+        fetchColleges();
+    };
+</script>
+{% endblock %}
