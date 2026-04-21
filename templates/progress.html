@@ -87,26 +87,30 @@
                 {% for session in peer_history %}
                 <tr class="hover:bg-white/5 transition group">
                     <td class="py-4 px-4">
-                        <p class="text-white font-bold">{{ session.topic }}</p>
-                        <p class="text-[10px] text-gray-500 font-medium">Session ID: {{ session.meeting_id }}</p>
+                        <p class="text-white font-bold">{{ session.request.skills_expected if session.request else 'Peer Session' }}</p>
+                        <p class="text-[10px] text-gray-500 font-medium">Status: <span class="capitalize text-{{ 'green' if session.status == 'completed' else 'indigo' }}-400">{{ session.status }}</span> | Type: {{ session.session_type }}</p>
                     </td>
                     <td class="py-4 px-4">
                         <div class="flex items-center gap-3">
-                            {% set other = session.receiver if session.sender_id == current_user.id else session.sender %}
+                            {% set other = session.user_b if session.user_a_id == current_user.id else session.user_a %}
                             <div class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-xs font-bold text-gray-400">
-                                {{ other.name[0] }}
+                                {{ other.name[0] if other else '?' }}
                             </div>
-                            <span class="text-sm text-gray-300">{{ other.name }}</span>
+                            <span class="text-sm text-gray-300">{{ other.name if other else 'Unknown' }}</span>
                         </div>
                     </td>
                     <td class="py-4 px-4">
-                        <span class="text-sm text-gray-500">{{ session.created_at.strftime('%b %d, %Y') }}</span>
+                        <span class="text-sm text-gray-500">{{ session.start_time.strftime('%b %d, %Y') if session.start_time else 'TBD' }}</span>
                     </td>
                     <td class="py-4 px-4">
                         <div class="flex items-center justify-center gap-1 text-yellow-500">
-                            {% for i in range(session.rating or 5) %}
-                                <i class="fas fa-star text-[10px]"></i>
-                            {% endfor %}
+                            {% if session.status == 'completed' %}
+                                {% for i in range(5) %}
+                                    <i class="fas fa-star text-[10px]"></i>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-xs font-bold text-indigo-400 tracking-wider uppercase">Ongoing</span>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>
@@ -131,38 +135,62 @@
         const response = await fetch('/api/progress-data');
         const data = await response.json();
         
+        // Use an array of dynamic neon colors for the donut pie chart
+        const bgColors = [
+            'rgba(99, 102, 241, 0.8)', // Indigo
+            'rgba(168, 85, 247, 0.8)', // Purple
+            'rgba(236, 72, 153, 0.8)', // Pink
+            'rgba(59, 130, 246, 0.8)', // Blue
+            'rgba(16, 185, 129, 0.8)', // Emerald
+            'rgba(245, 158, 11, 0.8)', // Amber
+            'rgba(239, 68, 68, 0.8)',  // Red
+            'rgba(14, 165, 233, 0.8)'  // Sky
+        ];
+
         const ctx = document.getElementById('skillsChart').getContext('2d');
         new Chart(ctx, {
-            type: 'radar',
+            type: 'doughnut',
             data: {
                 labels: data.labels,
                 datasets: [{
-                    label: 'Mastery Level (%)',
                     data: data.values,
-                    backgroundColor: 'rgba(99, 102, 241, 0.2)',
-                    borderColor: '#6366f1',
+                    backgroundColor: bgColors.slice(0, data.values.length),
+                    borderColor: '#0f172a',
                     borderWidth: 3,
-                    pointBackgroundColor: '#6366f1',
-                    pointBorderColor: '#fff',
-                    pointHoverBackgroundColor: '#fff',
-                    pointHoverBorderColor: '#6366f1'
+                    hoverOffset: 12
                 }]
             },
             options: {
-                scales: {
-                    r: {
-                        beginAtZero: true,
-                        max: 100,
-                        ticks: { display: false, stepSize: 20 },
-                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                        angleLines: { color: 'rgba(255, 255, 255, 0.05)' },
-                        pointLabels: { color: '#94a3b8', font: { size: 12, weight: '600' } }
+                plugins: {
+                    legend: { 
+                        display: true,
+                        position: 'right',
+                        labels: {
+                            color: '#94a3b8',
+                            font: { size: 12, weight: '600', family: "'Clash Display', 'Inter', sans-serif" },
+                            padding: 20
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#fff',
+                        bodyColor: '#cbd5e1',
+                        padding: 12,
+                        cornerRadius: 12,
+                        borderColor: 'rgba(255,255,255,0.05)',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                return ` ${context.label}: ${context.parsed}% Mastery`;
+                            }
+                        }
                     }
                 },
-                plugins: {
-                    legend: { display: false }
-                },
-                maintainAspectRatio: false
+                maintainAspectRatio: false,
+                cutout: '70%',
+                layout: {
+                    padding: 20
+                }
             }
         });
     });

@@ -42,10 +42,13 @@
                             <span class="text-emerald-400 flex items-center gap-2 font-bold bg-emerald-400/10 px-3 py-1 rounded-lg">
                                 <i class="fas fa-graduation-cap"></i> Learner
                             </span>
-                            <span class="text-slate-400 flex items-center gap-2">
-                                <i class="fas fa-envelope"></i> {{ learner.email }}
-                            </span>
-                        </div>
+                                <span class="text-purple-400 flex items-center gap-2 font-bold bg-purple-400/10 px-3 py-1 rounded-lg">
+                                    <i class="fas fa-users"></i> {{ learner.connection_count }} Connections
+                                </span>
+                                <span class="text-slate-400 flex items-center gap-2">
+                                    <i class="fas fa-envelope"></i> {{ learner.email }}
+                                </span>
+                            </div>
                     </div>
                     <div class="bg-indigo-600/10 border border-indigo-500/20 p-5 rounded-3xl text-right">
                         <p class="text-[10px] text-indigo-300 font-black uppercase tracking-widest mb-1">Membership</p>
@@ -166,7 +169,40 @@
                 </button>
             </div>
         </div>
+
+        <!-- NEW: Book a Mentor CTA for Mentors visiting this profile -->
+        {% if current_user.is_mentor %}
+        <div class="card-dark p-6 rounded-2xl border border-purple-500/20 bg-purple-500/5 mt-6">
+            <h3 class="font-bold text-white mb-2 flex items-center uppercase tracking-wider text-sm">
+                <i class="fas fa-chalkboard-teacher mr-3 text-purple-400"></i>Mentor Options
+            </h3>
+            <p class="text-gray-400 text-sm mb-4">As a mentor, you can schedule a session with this student to guide them.</p>
+            <a href="{{ url_for('mentor_dashboard') }}#meetings" class="block w-full bg-purple-600 text-white py-3 px-6 rounded-xl font-bold text-center hover:bg-purple-700 transition">
+                Schedule Meeting
+            </a>
+        </div>
+        {% endif %}
         {% else %}
+        <!-- For Learner themselves: Promote Finding a Mentor -->
+        <div class="card-dark p-8 rounded-[2rem] border border-indigo-500/20 bg-indigo-500/5 mt-8 relative overflow-hidden">
+            <div class="absolute -bottom-10 -right-10 w-32 h-32 bg-indigo-600/10 rounded-full blur-3xl"></div>
+            <h3 class="text-xl font-black text-white mb-4 flex items-center gap-3">
+                <i class="fas fa-lightbulb text-yellow-400"></i>
+                Stuck on a topic?
+            </h3>
+            <p class="text-slate-400 text-sm mb-6 leading-relaxed">
+                SkillSync mentors are here to help you bridge the gap. Book a 1-on-1 session to get personalized guidance on your learning path.
+            </p>
+            <div class="flex flex-wrap gap-4">
+                <a href="{{ url_for('people', tab='mentors') }}" class="flex-1 min-w-[160px] bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 px-6 rounded-xl font-bold text-center hover:shadow-lg hover:shadow-indigo-500/25 transition">
+                    Find a Mentor
+                </a>
+                <a href="{{ url_for('my_bookings') }}" class="flex-1 min-w-[160px] bg-white/5 border border-white/10 text-white py-3 px-6 rounded-xl font-bold text-center hover:bg-white/10 transition">
+                    My Bookings
+                </a>
+            </div>
+        </div>
+        {% endif %}
         <!-- Saved Posts Section (Only visible to owner) -->
         {% if current_user.id == learner.id and saved_posts %}
         <div class="mt-16 pt-12 border-t border-white/5">
@@ -195,6 +231,6 @@
             </div>
         </div>
         {% endif %}
-    {% endif %}
+    </div>
 </div>
 {% endblock %}

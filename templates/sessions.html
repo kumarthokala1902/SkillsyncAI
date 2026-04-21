@@ -137,13 +137,93 @@
             </div>
             {% endfor %}
         </div>
-        {% else %}
-        <div class="text-center py-12">
-            <i class="fas fa-calendar-day text-gray-700 text-6xl mb-4"></i>
-            <h3 class="text-xl font-bold text-gray-400 mb-2">No Sessions Yet</h3>
-            <p class="text-gray-500">Your learning journey starts here. Book a session with a mentor today!</p>
-        </div>
         {% endif %}
+    </div>
+
+    <!-- Peer Learning Sessions -->
+    <div class="card-dark rounded-2xl p-8">
+        <h2 class="text-2xl font-bold text-white mb-8 flex items-center">
+            <i class="fas fa-users text-purple-400 mr-4"></i>
+            Peer Learning Exchanges
+        </h2>
+
+        <!-- Upcoming Peer Sessions -->
+        <div class="mb-10">
+            <h3 class="text-sm font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-3">
+                Upcoming Sessions
+                <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% set upcoming_peers = peer_sessions | selectattr('status', 'equalto', 'scheduled') | list %}
+                {% if upcoming_peers %}
+                    {% for session in upcoming_peers %}
+                    <div class="glass-effect rounded-2xl p-6 border border-white/5 bg-white/[0.02] hover:bg-white/5 transition duration-300 group flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-start mb-4">
+                                <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase status-scheduled">
+                                    {{ session.status }}
+                                </span>
+                                <span class="text-gray-500 text-xs">{{ session.start_time.strftime('%B %d') }}</span>
+                            </div>
+                            {% set role = 'Teacher' if current_user.id == session.user_b_id else 'Learner' %}
+                            <h3 class="text-xl font-bold text-white mb-2 group-hover:text-purple-400 transition">Peer Session</h3>
+                            <p class="text-xs text-indigo-400 font-bold mb-4 uppercase tracking-widest">Your Role: {{ role }}</p>
+                            <div class="space-y-3 mb-6">
+                                <div class="flex items-center text-gray-400 text-sm">
+                                    <i class="far fa-clock mr-3 text-purple-400"></i>
+                                    {{ session.start_time.strftime('%I:%M %p') }}
+                                </div>
+                            </div>
+                        </div>
+                        {% if session.video_link %}
+                        <a href="{{ url_for('peer_session', session_id=session.id) }}" class="w-full block text-center bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-xl font-bold hover:shadow-lg hover:shadow-purple-500/20 transition-all transform hover:-translate-y-1">
+                            Join Room
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="col-span-full py-10 bg-white/[0.01] border border-dashed border-white/5 rounded-2xl text-center">
+                        <p class="text-slate-500 text-sm italic">No upcoming peer sessions scheduled</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Finished Peer Sessions -->
+        <div>
+            <h3 class="text-sm font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-3">
+                Finished Sessions
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-60 grayscale-[0.5]">
+                {% set finished_peers = peer_sessions | selectattr('status', 'ne', 'scheduled') | list %}
+                {% if finished_peers %}
+                    {% for session in finished_peers %}
+                    <div class="glass-effect rounded-2xl p-6 border border-white/5 bg-white/[0.01] transition duration-300 group flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-start mb-4">
+                                <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase status-{{ session.status }}">
+                                    {{ session.status }}
+                                </span>
+                                <span class="text-gray-500 text-xs">{{ session.start_time.strftime('%B %d') }}</span>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-400 mb-2">Peer Session (Archived)</h3>
+                            <div class="space-y-3 mb-6">
+                                <div class="flex items-center text-gray-500 text-sm">
+                                    <i class="far fa-clock mr-3"></i>
+                                    {{ session.start_time.strftime('%I:%M %p') }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="col-span-full py-8 text-center">
+                        <p class="text-slate-600 text-xs">No finished sessions yet</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

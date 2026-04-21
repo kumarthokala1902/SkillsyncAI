@@ -68,6 +68,12 @@
                                     {% if current_user.is_mentor %}Mentor (Admin){% else %}Student (Learner){% endif %}
                                 </p>
                             </div>
+                            <div>
+                                <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Connections</p>
+                                <p class="text-purple-400 text-sm font-semibold" id="profile-connections">
+                                    {{ current_user.connection_count }}
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -137,9 +137,13 @@
             <i class="fas fa-bolt"></i>
             <span>Trending</span>
         </a>
-        <a href="{{ url_for('people') }}" class="sidebar-link {% if request.path == url_for('people') %}active{% endif %}">
+        <a href="{{ url_for('people') }}" class="sidebar-link {% if request.path == url_for('people') and request.args.get('tab') != 'mentors' %}active{% endif %}">
             <i class="fas fa-search"></i>
             <span>People</span>
+        </a>
+        <a href="{{ url_for('people', tab='mentors') }}" class="sidebar-link {% if request.path == url_for('people') and request.args.get('tab') == 'mentors' %}active{% endif %}">
+            <i class="fas fa-chalkboard-teacher text-purple-400"></i>
+            <span>Mentors</span>
         </a>
 
         <div class="sidebar-section-label">Learning Modes</div>
@@ -185,6 +189,10 @@
         <a href="{{ url_for('progress') }}" class="sidebar-link {% if request.path == url_for('progress') %}active{% endif %}">
             <i class="fas fa-chart-line"></i>
             <span>Progress</span>
+        </a>
+        <a href="{{ url_for('my_bookings') }}" class="sidebar-link {% if request.path == url_for('my_bookings') %}active{% endif %}">
+            <i class="fas fa-calendar-check text-indigo-400"></i>
+            <span>My Bookings</span>
         </a>
 
         {% if current_user.role == 'mentor' or current_user.is_mentor %}
@@ -353,6 +361,9 @@
                             <div class="flex flex-wrap gap-4 text-sm font-medium">
                                 <span class="text-emerald-400 flex items-center gap-1.5">
                                     <i class="fas fa-graduation-cap"></i> {{ 'Mentor' if current_user.is_mentor else 'Learner' }}
+                                </span>
+                                <span class="text-purple-400 flex items-center gap-1.5">
+                                    <i class="fas fa-users"></i> {{ current_user.connection_count }} Connections
                                 </span>
                                 <span class="text-slate-400 flex items-center gap-1.5">
                                     <i class="fas fa-envelope"></i> {{ current_user.email }}

@@ -1,0 +1,240 @@
+<style>
+    @keyframes modalSlideIn {
+        from { opacity: 0; transform: scale(0.9) translateY(30px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .bm-overlay { backdrop-filter: blur(8px); animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    
+    .bm-input:focus {
+        border-color: rgba(99, 102, 241, 0.5) !important;
+        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+    }
+    
+    .dur-btn.active, .mode-btn.active {
+        border-color: #6366f1 !important;
+        background: rgba(99, 102, 241, 0.1) !important;
+        color: white !important;
+    }
+</style>
+
+<div id="bookMentorOverlay" class="bm-overlay hidden" style="position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; padding: 1rem;" onclick="handleOverlayClick(event)">
+    <div class="bm-modal" id="bookMentorModal" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); border: 1px solid rgba(99,102,241,0.25); border-radius: 2rem; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 80px rgba(99,102,241,0.12); animation: modalSlideIn 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards;">
+        <!-- Header -->
+        <div class="flex items-center justify-between p-7 pb-0">
+            <div>
+                <h2 class="text-2xl font-black text-white">Book Mentor</h2>
+                <p class="text-sm text-indigo-300 mt-0.5">Session with <span class="font-bold text-white" id="bm-mentor-name"></span></p>
+            </div>
+            <button onclick="closeBookModal()" class="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-slate-400 hover:text-white transition">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Mentor mini-card -->
+        <div class="mx-7 mt-5 p-4 rounded-2xl bg-white/5 border border-white/8 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xl font-black" id="bm-mentor-avatar"></div>
+            <div>
+                <p class="text-white font-bold text-sm" id="bm-mentor-name-card"></p>
+                <p class="text-xs text-slate-500" id="bm-mentor-role"></p>
+                <div class="flex flex-wrap gap-1 mt-1" id="bm-mentor-skills"></div>
+            </div>
+        </div>
+
+        <!-- Form -->
+        <form id="bookMentorForm" class="p-7 space-y-5" onsubmit="submitBooking(event)">
+            <input type="hidden" id="bm-mentor-id">
+            
+            <!-- Topic -->
+            <div>
+                <label class="bm-label" style="display: block; font-size: 0.72rem; font-weight: 700; color: #94a3b8; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.07em;">Topic / Skill Required *</label>
+                <input type="text" id="bm-topic" class="bm-input" style="width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.85rem; padding: 0.75rem 1rem; color: #e2e8f0; font-size: 0.9rem; outline: none;" placeholder="e.g. Python DSA, System Design, React Hooks…" required>
+            </div>
+
+            <!-- Date + Time -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="bm-label" style="display: block; font-size: 0.72rem; font-weight: 700; color: #94a3b8; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.07em;">Date *</label>
+                    <input type="date" id="bm-date" class="bm-input" style="width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.85rem; padding: 0.75rem 1rem; color: #e2e8f0; font-size: 0.9rem; outline: none; color-scheme: dark;" required>
+                </div>
+                <div>
+                    <label class="bm-label" style="display: block; font-size: 0.72rem; font-weight: 700; color: #94a3b8; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.07em;">Time Slot *</label>
+                    <input type="time" id="bm-time" class="bm-input" style="width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.85rem; padding: 0.75rem 1rem; color: #e2e8f0; font-size: 0.9rem; outline: none; color-scheme: dark;" required>
+                </div>
+            </div>
+
+            <!-- Duration -->
+            <div>
+                <label class="bm-label" style="display: block; font-size: 0.72rem; font-weight: 700; color: #94a3b8; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.07em;">Session Duration</label>
+                <div class="grid grid-cols-3 gap-3 mt-1" id="duration-selector">
+                    <button type="button" data-val="30" class="dur-btn bm-input active text-center font-bold text-sm cursor-pointer" style="width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.85rem; padding: 0.75rem 1rem; color: #e2e8f0;">30 min</button>
+                    <button type="button" data-val="60" class="dur-btn bm-input text-center font-bold text-sm cursor-pointer" style="width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.85rem; padding: 0.75rem 1rem; color: #e2e8f0;">60 min</button>
+                    <button type="button" data-val="90" class="dur-btn bm-input text-center font-bold text-sm cursor-pointer" style="width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.85rem; padding: 0.75rem 1rem; color: #e2e8f0;">90 min</button>
+                </div>
+                <input type="hidden" id="bm-duration" value="30">
+            </div>
+
+            <!-- Mode -->
+            <div>
+                <label class="bm-label" style="display: block; font-size: 0.72rem; font-weight: 700; color: #94a3b8; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.07em;">Session Mode</label>
+                <div class="flex gap-3 mt-1" id="mode-selector">
+                    <button type="button" data-val="video" class="mode-btn flex-1 p-2 rounded-xl border-2 border-white/10 bg-white/5 active" style="transition: all 0.2s; color: #94a3b8; font-size: 0.78rem; font-weight: 700; cursor: pointer;">
+                        <i class="fas fa-video block text-lg mb-1"></i>Video Call
+                    </button>
+                    <button type="button" data-val="audio" class="mode-btn flex-1 p-2 rounded-xl border-2 border-white/10 bg-white/5" style="transition: all 0.2s; color: #94a3b8; font-size: 0.78rem; font-weight: 700; cursor: pointer;">
+                        <i class="fas fa-microphone block text-lg mb-1"></i>Audio
+                    </button>
+                    <button type="button" data-val="chat" class="mode-btn flex-1 p-2 rounded-xl border-2 border-white/10 bg-white/5" style="transition: all 0.2s; color: #94a3b8; font-size: 0.78rem; font-weight: 700; cursor: pointer;">
+                        <i class="fas fa-comments block text-lg mb-1"></i>Chat
+                    </button>
+                </div>
+                <input type="hidden" id="bm-mode" value="video">
+            </div>
+
+            <!-- Message -->
+            <div>
+                <label class="bm-label" style="display: block; font-size: 0.72rem; font-weight: 700; color: #94a3b8; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.07em;">Message <span class="normal-case text-slate-600 font-normal">(optional)</span></label>
+                <textarea id="bm-message" class="bm-input" rows="3" style="width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.85rem; padding: 0.75rem 1rem; color: #e2e8f0; font-size: 0.9rem; outline: none;" placeholder="Share your goals or what you'd like to work on…"></textarea>
+            </div>
+
+            <!-- Error -->
+            <div id="bm-error" class="hidden p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm"></div>
+
+            <!-- Actions -->
+            <div class="flex gap-3 pt-1">
+                <button type="button" onclick="closeBookModal()" class="flex-1 py-3 rounded-2xl border border-white/10 text-slate-400 hover:text-white hover:border-white/20 font-bold text-sm transition">
+                    Cancel
+                </button>
+                <button type="submit" id="bm-submit"
+                    class="flex-1 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition flex items-center justify-center gap-2">
+                    <i class="fas fa-paper-plane"></i> Send Request
+                </button>
+            </div>
+        </form>
+
+        <!-- Success State -->
+        <div id="bm-success" class="hidden p-8 text-center">
+            <div class="w-20 h-20 mx-auto mb-5 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center animate-bounce-once">
+                <i class="fas fa-check text-white text-3xl"></i>
+            </div>
+            <h3 class="text-xl font-black text-white mb-2">Request Sent! 🎉</h3>
+            <p class="text-slate-400 text-sm mb-1">Your booking request has been sent successfully.</p>
+            <p class="text-slate-500 text-xs mb-6">You'll get a real-time notification once they respond.</p>
+            <div id="bm-summary" class="p-4 rounded-2xl bg-white/5 border border-white/10 text-left text-sm space-y-2 mb-6" style="color: #e2e8f0;"></div>
+            <div class="flex gap-3">
+                <a href="/my-bookings" class="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-sm text-center hover:bg-indigo-700 transition">My Bookings</a>
+                <button onclick="closeBookModal()" class="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 font-bold text-sm hover:text-white transition">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openBookModal(mentorData) {
+        document.getElementById('bm-mentor-id').value = mentorData.id;
+        document.getElementById('bm-mentor-name').textContent = mentorData.name;
+        document.getElementById('bm-mentor-name-card').textContent = mentorData.name;
+        document.getElementById('bm-mentor-avatar').textContent = mentorData.name[0];
+        document.getElementById('bm-mentor-role').textContent = mentorData.expertise || 'Expert Mentor';
+        
+        const skillsContainer = document.getElementById('bm-mentor-skills');
+        skillsContainer.innerHTML = '';
+        (mentorData.skills || []).slice(0, 3).forEach(s => {
+            const span = document.createElement('span');
+            span.className = 'text-[9px] bg-indigo-500/15 text-indigo-300 px-2 py-0.5 rounded-full font-bold';
+            span.textContent = s;
+            skillsContainer.appendChild(span);
+        });
+
+        document.getElementById('bookMentorOverlay').style.display = 'flex';
+        document.getElementById('bookMentorOverlay').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        
+        // Modal reset
+        document.getElementById('bookMentorForm').classList.remove('hidden');
+        document.getElementById('bm-success').classList.add('hidden');
+        document.getElementById('bm-topic').value = '';
+        document.getElementById('bm-message').value = '';
+        
+        // Set date min
+        const today = new Date();
+        today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+        document.getElementById('bm-date').min = today.toISOString().split('T')[0];
+    }
+
+    function closeBookModal() {
+        document.getElementById('bookMentorOverlay').style.display = 'none';
+        document.getElementById('bookMentorOverlay').classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+
+    function handleOverlayClick(e) { if (e.target.id === 'bookMentorOverlay') closeBookModal(); }
+
+    // Logic for button selections
+    document.querySelectorAll('.dur-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('bm-duration').value = btn.dataset.val;
+        });
+    });
+
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('bm-mode').value = btn.dataset.val;
+        });
+    });
+
+    async function submitBooking(e) {
+        e.preventDefault();
+        const btn = document.getElementById('bm-submit');
+        const errEl = document.getElementById('bm-error');
+        const mentorId = document.getElementById('bm-mentor-id').value;
+        errEl.classList.add('hidden');
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+        const payload = {
+            mentor_id: parseInt(mentorId),
+            topic: document.getElementById('bm-topic').value,
+            date: document.getElementById('bm-date').value,
+            time: document.getElementById('bm-time').value,
+            duration: parseInt(document.getElementById('bm-duration').value),
+            mode: document.getElementById('bm-mode').value,
+            message: document.getElementById('bm-message').value
+        };
+
+        try {
+            const res = await fetch('/api/booking/create', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('bookMentorForm').classList.add('hidden');
+                document.getElementById('bm-success').classList.remove('hidden');
+                const b = data.booking;
+                const mLabels = { video: '📹 Video Call', audio: '🎙️ Audio', chat: '💬 Chat' };
+                document.getElementById('bm-summary').innerHTML = `
+                    <div class="flex justify-between"><span class="text-slate-500">Topic</span><span class="text-white font-bold">${b.topic}</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">Date</span><span class="text-white">${b.date_display}</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">Time</span><span class="text-white">${b.time_display}</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">Mode</span><span class="text-white">${mLabels[b.mode] || b.mode}</span></div>
+                `;
+            } else {
+                errEl.textContent = data.error || 'Request failed';
+                errEl.classList.remove('hidden');
+            }
+        } catch (err) {
+            errEl.textContent = 'Network error';
+            errEl.classList.remove('hidden');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Request';
+        }
+    }
+</script>

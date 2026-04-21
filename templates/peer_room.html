@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Peer Session: {{ conn.topic }} - SkillSync{% endblock %}
+{% block title %}Peer Session - SkillSync{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -80,195 +80,59 @@
                 <i class="fas fa-handshake text-indigo-400"></i>
             </div>
             <div>
-                <h1 class="text-white font-bold leading-tight">{{ conn.topic }}</h1>
-                <p class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Live Peer Session with {{ other_user.name }}</p>
+                <h1 class="text-white font-bold leading-tight">Live Peer Session</h1>
+                <p class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Collaborating with {{ other_user.name }}</p>
             </div>
         </div>
-        <div id="connection-status" class="px-3 py-1 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 rounded-lg text-xs font-bold animate-pulse">
-            Connecting...
+        <div id="connection-status" class="px-3 py-1 bg-green-500/10 text-green-500 border border-green-500/20 rounded-lg text-xs font-bold">
+            Live Session Active
         </div>
     </div>
 
-    <!-- Video Grid -->
-    <div class="video-grid flex-1 overflow-y-auto">
-        <!-- Local User -->
-        <div class="video-tile relative group">
-            <video id="localVideo" autoplay playsinline muted></video>
-            <div class="user-label">
-                <i class="fas fa-microphone mr-2"></i> You ({{ current_user.name }})
-            </div>
-        </div>
-
-        <!-- Remote User -->
-        <div class="video-tile relative group">
-            <video id="remoteVideo" autoplay playsinline></video>
-            <div id="remote-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-[#1e293b]">
-                <div class="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
-                <p class="text-gray-500 text-sm font-medium animate-pulse">Waiting for {{ other_user.name }} to join...</p>
-            </div>
-            <div class="user-label">
-                <i class="fas fa-microphone mr-2"></i> {{ other_user.name }}
-            </div>
-        </div>
+    <!-- Video Grid with Jitsi iframe -->
+    <div class="video-grid flex-1 overflow-hidden p-0 m-0 w-full h-full block">
+        <iframe allow="camera; microphone; fullscreen; display-capture; autoplay" src="{{ session.video_link }}" style="height: 100%; width: 100%; border: 0;"></iframe>
     </div>
 
     <!-- Controls Bar -->
     <div class="controls-bar flex-shrink-0">
-        <div onclick="toggleMic()" id="mic-btn" class="control-btn shadow-lg" title="Toggle Microphone">
-            <i class="fas fa-microphone"></i>
-        </div>
-        <div onclick="toggleCamera()" id="cam-btn" class="control-btn shadow-lg" title="Toggle Camera">
-            <i class="fas fa-video"></i>
-        </div>
-        <div onclick="toggleScreenShare()" id="screen-btn" class="control-btn shadow-lg" title="Share Screen">
-            <i class="fas fa-desktop"></i>
-        </div>
-        <div onclick="endCall()" class="control-btn bg-red-500 hover:bg-red-600 shadow-xl shadow-red-500/20" title="Leave Session">
+        <button onclick="endCall()" class="control-btn bg-red-500 hover:bg-red-600 shadow-xl shadow-red-500/20" title="Leave Session">
             <i class="fas fa-phone-slash"></i>
-        </div>
+        </button>
+        <button onclick="markComplete()" class="control-btn bg-indigo-500 hover:bg-indigo-600 shadow-xl shadow-indigo-500/20 ml-4 font-bold px-4 w-auto rounded-2xl" title="Mark Session Completed">
+            Complete Session
+        </button>
     </div>
 </div>
 
 {% endblock %}
 
 {% block scripts %}
-<script type="module">
-    // WebRTC Logic with Firestore Signaling
-    const meetingId = '{{ conn.meeting_id }}';
-    const isSender = '{{ current_user.id }}' == '{{ conn.sender_id }}';
-    
-    let localStream;
-    let remoteStream;
-    let peerConnection;
-    
-    const servers = {
-        iceServers: [
-            { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }
-        ]
-    };
-
-    async function init() {
-        const { collection, onSnapshot, query, setDoc, doc, getDoc, updateDoc } = window._fsUtils;
-        const db = window._ssFirestore;
-        const callDoc = doc(db, 'peerSessions', meetingId);
-        const answerCandidates = collection(callDoc, 'answerCandidates');
-        const offerCandidates = collection(callDoc, 'offerCandidates');
-
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        document.getElementById('localVideo').srcObject = localStream;
-
-        peerConnection = new RTCPeerConnection(servers);
+<script>
+    async function markComplete() {
+        if (!confirm('Mark this session as completed?')) return;
         
-        localStream.getTracks().forEach(track => {
-            peerConnection.addTrack(track, localStream);
-        });
-
-        peerConnection.ontrack = event => {
-            event.streams[0].getTracks().forEach(track => {
-                remoteStream.addTrack(track);
+        try {
+            const res = await fetch('/api/peer/complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: {{ session.id }} })
             });
-            document.getElementById('remote-loading').classList.add('hidden');
-            document.getElementById('connection-status').textContent = 'Live Session Active';
-            document.getElementById('connection-status').className = 'px-3 py-1 bg-green-500/10 text-green-500 border border-green-500/20 rounded-lg text-xs font-bold';
-        };
-
-        remoteStream = new MediaStream();
-        document.getElementById('remoteVideo').srcObject = remoteStream;
-
-        if (isSender) {
-            // Create Offer
-            peerConnection.onicecandidate = event => {
-                event.candidate && setDoc(doc(offerCandidates), event.candidate.toJSON());
-            };
-
-            const offerDescription = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offerDescription);
-
-            const offer = {
-                sdp: offerDescription.sdp,
-                type: offerDescription.type,
-            };
-
-            await setDoc(callDoc, { offer });
-
-            // Listen for remote answer
-            onSnapshot(callDoc, (snapshot) => {
-                const data = snapshot.data();
-                if (!peerConnection.currentRemoteDescription && data?.answer) {
-                    const answerDescription = new RTCSessionDescription(data.answer);
-                    peerConnection.setRemoteDescription(answerDescription);
-                }
-            });
-
-            // Listen for remote ICE candidates
-            onSnapshot(answerCandidates, (snapshot) => {
-                snapshot.docChanges().forEach((change) => {
-                    if (change.type === 'added') {
-                        let data = change.doc.data();
-                        peerConnection.addIceCandidate(new RTCIceCandidate(data));
-                    }
-                });
-            });
-
-        } else {
-            // Create Answer
-            peerConnection.onicecandidate = event => {
-                event.candidate && setDoc(doc(answerCandidates), event.candidate.toJSON());
-            };
-
-            const callData = (await getDoc(callDoc)).data();
-
-            const offerDescription = callData.offer;
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(offerDescription));
-
-            const answerDescription = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answerDescription);
-
-            const answer = {
-                type: answerDescription.type,
-                sdp: answerDescription.sdp,
-            };
-
-            await updateDoc(callDoc, { answer });
-
-            // Listen for offer ICE candidates
-            onSnapshot(offerCandidates, (snapshot) => {
-                snapshot.docChanges().forEach((change) => {
-                    if (change.type === 'added') {
-                        let data = change.doc.data();
-                        peerConnection.addIceCandidate(new RTCIceCandidate(data));
-                    }
-                });
-            });
+            const data = await res.json();
+            if (data.success) {
+                window.location.href = '/peer-learning';
+            } else {
+                alert(data.error);
+            }
+        } catch(e) {
+            alert('Error completing session');
         }
     }
 
-    // Controls Logic
-    window.toggleMic = () => {
-        const audioTrack = localStream.getAudioTracks()[0];
-        audioTrack.enabled = !audioTrack.enabled;
-        const btn = document.getElementById('mic-btn');
-        btn.classList.toggle('active', !audioTrack.enabled);
-        btn.innerHTML = audioTrack.enabled ? '<i class="fas fa-microphone"></i>' : '<i class="fas fa-microphone-slash"></i>';
-    };
-
-    window.toggleCamera = () => {
-        const videoTrack = localStream.getVideoTracks()[0];
-        videoTrack.enabled = !videoTrack.enabled;
-        const btn = document.getElementById('cam-btn');
-        btn.classList.toggle('active', !videoTrack.enabled);
-        btn.innerHTML = videoTrack.enabled ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
-    };
-
-    window.endCall = () => {
+    function endCall() {
         if (confirm('Are you sure you want to leave the session?')) {
             window.location.href = '/peer-learning';
         }
-    };
-
-    init().catch(err => {
-        console.error('Core WebRTC Error:', err);
-        alert('Failed to access camera/mic or establish connection.');
-    });
+    }
 </script>
 {% endblock %}

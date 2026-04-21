@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+{% block title %}My Bookings – SkillSync{% endblock %}
+
+{% block extra_css %}
+<style>
+.booking-card {
+    background: rgba(23,25,35,0.95);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 1.25rem;
+    padding: 1.5rem;
+    transition: transform .25s, border-color .25s;
+}
+.booking-card:hover { transform: translateY(-3px); border-color: rgba(99,102,241,0.25); }
+
+.badge {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: .25rem .75rem; border-radius: 9999px;
+    font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+}
+.badge-pending  { background:rgba(250,204,21,.12);  color:#fde68a; border:1px solid rgba(250,204,21,.25); }
+.badge-accepted { background:rgba(34,197,94,.12);   color:#86efac; border:1px solid rgba(34,197,94,.3);  }
+.badge-rejected { background:rgba(239,68,68,.12);   color:#fca5a5; border:1px solid rgba(239,68,68,.25); }
+.badge-cancelled{ background:rgba(107,114,128,.12); color:#9ca3af; border:1px solid rgba(107,114,128,.25);}
+
+.tab-btn { padding:.5rem 1.1rem; border-radius:.65rem; font-size:.85rem; font-weight:600; cursor:pointer;
+    color:#94a3b8; background:transparent; border:none; transition:all .2s; }
+.tab-btn.active { background:rgba(99,102,241,.15); color:#a5b4fc; }
+.tab-btn:hover:not(.active) { background:rgba(255,255,255,.05); color:#e2e8f0; }
+
+.join-btn {
+    display:inline-flex; align-items:center; gap:.4rem;
+    padding:.5rem 1.1rem; border-radius:.65rem;
+    background:linear-gradient(135deg,#6366f1,#8b5cf6);
+    color:#fff; font-weight:700; font-size:.78rem;
+    text-decoration:none; transition:all .2s;
+    box-shadow:0 4px 16px rgba(99,102,241,.3);
+}
+.join-btn:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(99,102,241,.45); }
+
+.skeleton { background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.08) 50%,rgba(255,255,255,.04) 75%);
+    background-size:200% 100%; animation:sw 1.5s infinite; border-radius:.5rem; }
+@keyframes sw { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-10 px-4">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8 flex-wrap gap-4">
+        <div>
+            <h1 class="text-3xl font-black text-white flex items-center gap-3">
+                <span class="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-calendar-check text-white text-lg"></i>
+                </span>
+                My Bookings
+            </h1>
+            <p class="text-gray-400 mt-1 text-sm">Track all your mentor session requests & confirmations</p>
+        </div>
+        <a href="{{ url_for('people') }}?tab=mentors"
+            class="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/35 transition hover:-translate-y-0.5">
+            <i class="fas fa-search"></i> Find Mentors
+        </a>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex gap-2 mb-6 p-1 bg-white/5 rounded-xl w-fit">
+        <button class="tab-btn active" onclick="switchTab('all', this)">All</button>
+        <button class="tab-btn" onclick="switchTab('pending', this)">
+            Pending
+            {% set pcount = bookings|selectattr('status','equalto','pending')|list|length %}
+            {% if pcount %}<span class="ml-1 bg-yellow-500/20 text-yellow-300 text-xs px-1.5 py-0.5 rounded-full">{{pcount}}</span>{% endif %}
+        </button>
+        <button class="tab-btn" onclick="switchTab('accepted', this)">
+            Accepted
+            {% set acount = bookings|selectattr('status','equalto','accepted')|list|length %}
+            {% if acount %}<span class="ml-1 bg-green-500/20 text-green-300 text-xs px-1.5 py-0.5 rounded-full">{{acount}}</span>{% endif %}
+        </button>
+        <button class="tab-btn" onclick="switchTab('past', this)">Past</button>
+    </div>
+
+    <!-- Bookings List -->
+    <div id="bookingsList" class="space-y-4">
+        {% if bookings %}
+            {% for b in bookings %}
+            <div class="booking-card" data-status="{{ b.status }}" id="booking-card-{{ b.id }}">
+                <div class="flex items-start justify-between gap-4 flex-wrap">
+                    <!-- Left info -->
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-2 flex-wrap">
+                            <span class="badge badge-{{ b.status }}">
+                                {% if b.status == 'pending' %}<i class="fas fa-clock"></i>
+                                {% elif b.status == 'accepted' %}<i class="fas fa-check"></i>
+                                {% elif b.status == 'rejected' %}<i class="fas fa-times"></i>
+                                {% else %}<i class="fas fa-ban"></i>{% endif %}
+                                {{ b.status|capitalize }}
+                            </span>
+                            <span class="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">
+                                {% if b.mode == 'video' %}<i class="fas fa-video mr-1 text-indigo-400"></i>Video
+                                {% elif b.mode == 'audio' %}<i class="fas fa-microphone mr-1 text-purple-400"></i>Audio
+                                {% else %}<i class="fas fa-comments mr-1 text-blue-400"></i>Chat{% endif %}
+                            </span>
+                            <span class="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">
+                                <i class="fas fa-clock mr-1 text-gray-400"></i>{{ b.duration }} min
+                            </span>
+                        </div>
+
+                        <h3 class="text-white font-bold text-base mb-1 truncate">{{ b.topic }}</h3>
+
+                        <!-- Mentor info -->
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-black">
+                                {{ b.mentor.name[0] }}
+                            </div>
+                            <span class="text-sm text-gray-400">with <span class="text-white font-semibold">{{ b.mentor.name }}</span></span>
+                        </div>
+
+                        <div class="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
+                            <span><i class="fas fa-calendar mr-1 text-indigo-400"></i>{{ b.date.strftime('%b %d, %Y') }}</span>
+                            <span><i class="fas fa-clock mr-1 text-blue-400"></i>{{ b.time.strftime('%I:%M %p') }}</span>
+                            <span><i class="fas fa-history mr-1 text-gray-500"></i>Booked {{ b.created_at.strftime('%b %d') }}</span>
+                        </div>
+
+                        {% if b.status == 'rejected' and b.reject_reason %}
+                        <p class="text-xs text-red-400 mt-2"><i class="fas fa-info-circle mr-1"></i>{{ b.reject_reason }}</p>
+                        {% endif %}
+
+                        {% if b.message %}
+                        <p class="text-xs text-gray-500 mt-2 italic">"{{ b.message[:80] }}{% if b.message|length > 80 %}…{% endif %}"</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Right actions -->
+                    <div class="flex flex-col gap-2 items-end flex-shrink-0">
+                        {% if b.status == 'accepted' and b.meeting_link %}
+                        <a href="{{ b.meeting_link }}" target="_blank" class="join-btn">
+                            <i class="fas fa-video"></i> Join Session
+                        </a>
+                        {% endif %}
+
+                        {% if b.status in ('pending', 'accepted') %}
+                        <button onclick="cancelBooking({{ b.id }}, this)"
+                            class="text-xs text-red-400 hover:text-red-300 border border-red-500/20 hover:border-red-500/40 px-3 py-1.5 rounded-lg font-bold transition">
+                            <i class="fas fa-times mr-1"></i>Cancel
+                        </button>
+                        {% endif %}
+
+                        {% if b.status in ('rejected', 'cancelled') %}
+                        <a href="{{ url_for('mentor_profile', mentor_id=b.mentor_id) }}"
+                            class="text-xs text-indigo-400 hover:text-indigo-300 border border-indigo-500/20 hover:border-indigo-500/40 px-3 py-1.5 rounded-lg font-bold transition">
+                            <i class="fas fa-redo mr-1"></i>Book Again
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+        <div class="text-center py-20 bg-white/5 rounded-3xl border border-dashed border-white/10">
+            <div class="w-20 h-20 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-calendar-times text-indigo-400 text-3xl"></i>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">No bookings yet</h3>
+            <p class="text-gray-500 mb-6 text-sm">Find a mentor and book your first session!</p>
+            <a href="{{ url_for('people') }}?tab=mentors"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition">
+                <i class="fas fa-search mr-2"></i>Browse Mentors
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <p id="no-results" class="hidden text-center text-gray-600 text-sm py-12">No bookings in this category.</p>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="fixed bottom-6 right-6 z-[9999] translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+    <div class="bg-[#1e293b] border border-white/10 px-5 py-4 rounded-2xl shadow-2xl flex items-center gap-3 min-w-[220px]">
+        <div id="toast-icon" class="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"></div>
+        <p id="toast-msg" class="text-sm font-bold text-white"></p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+<script>
+// ── Real-time socket ─────────────────────────────────────────────────────
+const socket = io();
+const ME = {{ current_user.id }};
+
+socket.on('booking_accepted', (data) => {
+    if (data.booking && data.booking.student_id == ME) {
+        showToast('🎉 Booking accepted! Check your sessions.', 'success');
+        updateCardStatus(data.booking.id, 'accepted', data.booking.meeting_link);
+    }
+});
+socket.on('booking_rejected', (data) => {
+    if (data.booking && data.booking.student_id == ME) {
+        showToast('❌ Mentor unavailable for that slot.', 'error');
+        updateCardStatus(data.booking.id, 'rejected');
+    }
+});
+socket.on('booking_cancelled', (data) => {
+    if (data.booking && data.booking.student_id == ME) {
+        updateCardStatus(data.booking.id, 'cancelled');
+    }
+});
+
+function updateCardStatus(bookingId, newStatus, meetingLink) {
+    const card = document.getElementById(`booking-card-${bookingId}`);
+    if (!card) return;
+    card.dataset.status = newStatus;
+    // Reload to reflect full HTML changes
+    setTimeout(() => location.reload(), 1200);
+}
+
+// ── Tab switching ────────────────────────────────────────────────────────
+let currentTab = 'all';
+function switchTab(name, btn) {
+    currentTab = name;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const cards = document.querySelectorAll('#bookingsList .booking-card');
+    let visible = 0;
+    cards.forEach(card => {
+        const s = card.dataset.status;
+        let show;
+        if (name === 'all') show = true;
+        else if (name === 'past') show = ['rejected','cancelled','completed'].includes(s);
+        else show = s === name;
+        card.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+    document.getElementById('no-results').classList.toggle('hidden', visible > 0);
+}
+
+// ── Cancel booking ───────────────────────────────────────────────────────
+async function cancelBooking(bookingId, btn) {
+    if (!confirm('Cancel this booking?')) return;
+    const origHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch(`/api/booking/${bookingId}/cancel`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Booking cancelled.', 'info');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showToast(data.error || 'Failed to cancel', 'error');
+            btn.innerHTML = origHTML;
+            btn.disabled = false;
+        }
+    } catch {
+        showToast('Network error', 'error');
+        btn.innerHTML = origHTML;
+        btn.disabled = false;
+    }
+}
+
+// ── Toast ────────────────────────────────────────────────────────────────
+function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    const i = document.getElementById('toast-icon');
+    const m = document.getElementById('toast-msg');
+    const colors = { success:'bg-green-500/20 text-green-400', error:'bg-red-500/20 text-red-400', info:'bg-indigo-500/20 text-indigo-400' };
+    const icons  = { success:'fas fa-check', error:'fas fa-times', info:'fas fa-info' };
+    i.className = `w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${colors[type]}`;
+    i.innerHTML = `<i class="${icons[type]}"></i>`;
+    m.textContent = msg;
+    t.classList.remove('translate-y-20','opacity-0');
+    t.classList.add('pointer-events-auto');
+    clearTimeout(t._t);
+    t._t = setTimeout(() => {
+        t.classList.add('translate-y-20','opacity-0');
+        t.classList.remove('pointer-events-auto');
+    }, 4000);
+}
+</script>
+{% endblock %}

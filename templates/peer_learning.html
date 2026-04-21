@@ -36,6 +36,25 @@
         background: rgba(15, 23, 42, 0.8);
         backdrop-filter: blur(8px);
     }
+    .modal-scroll-body {
+        overflow-y: auto;
+        max-height: calc(90vh - 80px);
+        padding-right: 4px;
+    }
+    .modal-scroll-body::-webkit-scrollbar {
+        width: 5px;
+    }
+    .modal-scroll-body::-webkit-scrollbar-track {
+        background: rgba(255,255,255,0.03);
+        border-radius: 8px;
+    }
+    .modal-scroll-body::-webkit-scrollbar-thumb {
+        background: rgba(99,102,241,0.4);
+        border-radius: 8px;
+    }
+    .modal-scroll-body::-webkit-scrollbar-thumb:hover {
+        background: rgba(99,102,241,0.7);
+    }
 </style>
 {% endblock %}
 
@@ -123,56 +142,167 @@
 <!-- Booking Modal -->
 <div id="bookingModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
     <div class="modal-overlay absolute inset-0" onclick="closeBookingModal()"></div>
-    <div class="relative w-full max-w-lg bg-[#1e293b] rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
-        <div class="p-8">
-            <div class="flex items-center justify-between mb-8">
+    <div class="relative w-full max-w-lg bg-[#1e293b] rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300" style="max-height: 90vh;">
+        <div class="p-8 flex flex-col" style="max-height: 90vh;">
+        <!-- Sticky modal header -->
+        <div class="flex items-center justify-between mb-6 flex-shrink-0">
                 <div>
                     <h2 class="text-2xl font-bold text-white">Book Peer Session</h2>
                     <p class="text-sm text-gray-400 mt-1">Connect with <span id="modalStudentName" class="text-indigo-400 font-bold"></span></p>
                 </div>
-                <button onclick="closeBookingModal()" class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition">
+                <button onclick="closeBookingModal()" class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition flex-shrink-0">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
+            <!-- Scrollable form body -->
+            <div class="modal-scroll-body">
 
             <form id="bookingForm" onsubmit="submitBooking(event)">
                 <input type="hidden" id="receiverId" name="receiver_id">
                 
-                <div class="space-y-6">
+                <div class="space-y-5">
+                    <!-- Skills Expected -->
                     <div>
-                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">What do you want to learn?</label>
-                        <input type="text" id="topic" name="topic" required placeholder="e.g. React Hooks, DSA Prep, Case Study..." class="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-indigo-500 transition">
+                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Skills You Are Expecting</label>
+                        <select id="skillsExpected" name="skills_expected" multiple required onchange="handleSkillsExpectedChange()" class="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition h-36 overflow-y-auto custom-scrollbar">
+                            <option value="Python" class="py-1">Python</option>
+                            <option value="React" class="py-1">React</option>
+                            <option value="DSA" class="py-1">DSA</option>
+                            <option value="System Design" class="py-1">System Design</option>
+                            <option value="Machine Learning" class="py-1">Machine Learning</option>
+                            <option value="UI/UX" class="py-1">UI/UX Design</option>
+                            <option value="JavaScript" class="py-1">JavaScript</option>
+                            <option value="Node.js" class="py-1">Node.js</option>
+                            <option value="Django" class="py-1">Django</option>
+                            <option value="Flask" class="py-1">Flask</option>
+                            <option value="SQL" class="py-1">SQL</option>
+                            <option value="DevOps" class="py-1">DevOps</option>
+                            <option value="Other" class="py-1 text-indigo-300 font-semibold">✦ Other (specify below)</option>
+                        </select>
+                        <p class="text-[10px] text-gray-500 mt-1">Hold Cmd/Ctrl to select multiple</p>
+
+                        <!-- Custom skill input (shown when "Other" is selected) -->
+                        <div id="customSkillContainer" class="hidden mt-3 transition-all duration-300">
+                            <div class="relative">
+                                <i class="fas fa-pencil-alt absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400 text-xs"></i>
+                                <input type="text" id="customSkillInput" placeholder="e.g. Kubernetes, Rust, Figma..." class="w-full bg-white/5 border border-indigo-500/40 rounded-2xl pl-10 pr-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 transition placeholder-gray-500">
+                            </div>
+                            <p class="text-[10px] text-indigo-400 mt-1">Type your custom skill — it will be added to your request.</p>
+                        </div>
+                    </div>
+
+                    <!-- Peer Mode Toggle -->
+                    <div class="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/10">
+                        <div>
+                            <p class="text-sm font-bold text-white">Peer Mode</p>
+                            <p class="text-xs text-gray-400 mt-0.5">Exchange skills in two sessions</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="peerModeToggle" name="peer_mode" class="sr-only peer" onchange="togglePeerMode()">
+                            <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
+                        </label>
+                    </div>
+
+                    <!-- Skill to Offer (Hidden initially) -->
+                    <div id="skillOfferContainer" class="hidden transition-all duration-300">
+                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Your Skill to Offer</label>
+                        <input type="text" id="skillsOffered" name="skills_offered" placeholder="e.g. Node.js, Frontend..." class="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition">
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Date</label>
-                            <input type="date" id="date" name="date" required class="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-indigo-500 transition [color-scheme:dark]">
+                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Date</label>
+                            <input type="date" id="date" name="date" required class="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition [color-scheme:dark]">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Time</label>
-                            <input type="time" id="time" name="time" required class="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-indigo-500 transition [color-scheme:dark]">
+                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Time</label>
+                            <input type="time" id="time" name="time" required class="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition [color-scheme:dark]">
                         </div>
                     </div>
 
-                    <div class="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 flex gap-4">
-                        <i class="fas fa-info-circle text-indigo-400 mt-1"></i>
-                        <p class="text-xs text-gray-400 leading-relaxed">Your request will be sent to the peer for approval. Once accepted, a live meeting link will be generated automatically.</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="col-span-2">
+                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Duration</label>
+                            <select id="duration" name="duration" class="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition">
+                                <option value="30">30 min</option>
+                                <option value="60">60 min</option>
+                                <option value="90">90 min</option>
+                                <option value="120">Custom (2 hrs)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Message (Optional)</label>
+                        <textarea id="message" name="message" rows="2" placeholder="Share your learning goals..." class="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition"></textarea>
                     </div>
 
                     <button type="submit" id="submitBtn" class="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm shadow-xl shadow-indigo-600/20 hover:scale-[1.02] transition active:scale-95">
-                        Send Peer Request
+                        <i class="fas fa-paper-plane mr-2"></i> Send Request
                     </button>
                 </div>
             </form>
+            </div><!-- end modal-scroll-body -->
         </div>
     </div>
 </div>
 
+<!-- SocketIO -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+
 <script>
+    const socket = io();
+
+    socket.on('connect', () => {
+        console.log('Connected to real-time server');
+    });
+
+    socket.on('new_peer_request', (data) => {
+        // Notification logic for User B
+        const currentUserId = "{{ current_user.id }}";
+        if (data.receiver_id == currentUserId) {
+            showToast(`New Peer Request from ${data.sender_name}!`, 'success');
+            // Normally you would update an notification badge here
+        }
+    });
+
+    socket.on('peer_accepted', (data) => {
+        const currentUserId = "{{ current_user.id }}";
+        if (data.sender_id == currentUserId) {
+            showToast(`Your Peer Request was accepted!`, 'success');
+        }
+    });
+
+    function togglePeerMode() {
+        const isChecked = document.getElementById('peerModeToggle').checked;
+        const offerContainer = document.getElementById('skillOfferContainer');
+        if (isChecked) {
+            offerContainer.classList.remove('hidden');
+            document.getElementById('skillsOffered').required = true;
+        } else {
+            offerContainer.classList.add('hidden');
+            document.getElementById('skillsOffered').required = false;
+        }
+    }
+
+    function handleSkillsExpectedChange() {
+        const select = document.getElementById('skillsExpected');
+        const customContainer = document.getElementById('customSkillContainer');
+        const otherSelected = Array.from(select.selectedOptions).some(opt => opt.value === 'Other');
+        if (otherSelected) {
+            customContainer.classList.remove('hidden');
+            document.getElementById('customSkillInput').focus();
+        } else {
+            customContainer.classList.add('hidden');
+            document.getElementById('customSkillInput').value = '';
+        }
+    }
+
     function openBookingModal(id, name) {
         document.getElementById('modalStudentName').textContent = name;
         document.getElementById('receiverId').value = id;
+        document.getElementById('bookingForm').reset();
+        togglePeerMode(); // reset state
         document.getElementById('bookingModal').classList.remove('hidden');
         document.body.style.overflow = 'hidden';
     }
@@ -186,14 +316,24 @@
         e.preventDefault();
         const btn = document.getElementById('submitBtn');
         const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner animate-spin"></i> Sending Request...';
+        btn.innerHTML = '<i class="fas fa-spinner animate-spin mr-2"></i> Sending...';
         btn.disabled = true;
 
         const formData = new FormData(e.target);
+        const selectedSkills = Array.from(document.getElementById('skillsExpected').selectedOptions).map(opt => opt.value).filter(v => v !== 'Other');
+        const customSkill = document.getElementById('customSkillInput').value.trim();
+        if (customSkill) selectedSkills.push(customSkill);
+        const expectedSkills = selectedSkills.join(', ');
+
         const data = {
             receiver_id: formData.get('receiver_id'),
-            topic: formData.get('topic'),
-            scheduled_at: `${formData.get('date')} ${formData.get('time')}`
+            skills_expected: expectedSkills,
+            skills_offered: formData.get('skills_offered') || '',
+            peer_mode: document.getElementById('peerModeToggle').checked,
+            date: formData.get('date'),
+            time: formData.get('time'),
+            duration: formData.get('duration'),
+            message: formData.get('message')
         };
 
         try {
@@ -207,7 +347,6 @@
             if (result.success) {
                 showToast('Peer request sent successfully!', 'success');
                 closeBookingModal();
-                e.target.reset();
             } else {
                 showToast(result.error || 'Failed to send request', 'error');
             }
@@ -220,8 +359,29 @@
     }
 
     function showToast(message, type) {
-        // Implement or use existing toast logic
-        alert(message);
+        // Build a sleek toast
+        const toast = document.createElement('div');
+        toast.className = `fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-2xl z-50 font-bold text-white transform transition-all duration-300 translate-y-10 opacity-0 flex items-center gap-3`;
+        if (type === 'success') {
+            toast.classList.add('bg-green-500');
+            toast.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
+        } else {
+            toast.classList.add('bg-red-500');
+            toast.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+        }
+        
+        document.body.appendChild(toast);
+        
+        // Animate in
+        setTimeout(() => {
+            toast.classList.remove('translate-y-10', 'opacity-0');
+        }, 100);
+
+        // Animate out
+        setTimeout(() => {
+            toast.classList.add('translate-y-10', 'opacity-0');
+            setTimeout(() => toast.remove(), 300);
+        }, 4000);
     }
 </script>
 {% endblock %}

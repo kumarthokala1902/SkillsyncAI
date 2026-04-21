@@ -506,3 +506,42 @@ def delete_meeting_from_firestore(meeting_id: int) -> bool:
         logger.error("delete_meeting_from_firestore error: %s", exc)
         return False
 
+def sync_booking_to_firestore(booking) -> bool:
+    """
+    Upsert a MentorBooking object to Firestore mentor_bookings/{bookingId}.
+    This mirrors the SQL state to Firestore for real-time messaging locks and dashboards.
+    """
+    fs = _get_fs()
+    if fs is None:
+        return False
+    try:
+        from datetime import datetime, timezone
+        doc_ref = fs.collection("mentor_bookings").document(str(booking.id))
+        
+        # Calculate window
+        start_dt = datetime.combine(booking.date, booking.time)
+        end_dt = start_dt + __import__('datetime').timedelta(minutes=booking.duration)
+        
+        doc_ref.set(
+            {
+                "bookingId":   str(booking.id),
+                "mentorId":    str(booking.mentor_id),
+                "studentId":   str(booking.student_id),
+                "mentorName":  booking.mentor.name if booking.mentor else "Mentor",
+                "studentName": booking.student.name if booking.student else "Student",
+                "topic":       booking.topic,
+                "status":      booking.status,
+                "mode":        booking.mode,
+                "scheduledAt": start_dt.isoformat(),
+                "expiresAt":   end_dt.isoformat(),
+                "meetingLink": booking.meeting_link or "",
+                "updatedAt":   datetime.now(timezone.utc).isoformat(),
+                "isChatLocked": booking.status != 'accepted'
+            },
+            merge=True,
+        )
+        logger.debug("Synced MentorBooking %s to Firestore", booking.id)
+        return True
+    except Exception as exc:
+        logger.error("sync_booking_to_firestore error: %s", exc)
+        return False

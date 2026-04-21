@@ -12,12 +12,13 @@ load_dotenv()
 
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, abort, g
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import (db, User, SkillProgress, MentorSession, Post, Poll, Meetup, Career, Startup, Group,
-                    PostLike, PostComment, PostSave, PostView, PeerConnection, Notification,
+from models import (db, User, SkillProgress, MentorSession, MentorBooking, Post, Poll, Meetup, Career, Startup, Group,
+                    PostLike, PostComment, PostSave, PostView, PeerConnection, PeerRequest, PeerSession, Notification,
                     AIConversation, AIMessage, LearningPath, MockInterview, CourseProgress,
                     CourseCategory, Course, SkillQuestion, VerificationRequest,
                     CareerApplication, StartupConnection,
                     LiveMeeting, MeetingParticipant, SkillTest, TestResult, MentorFeedback)
+from flask_socketio import SocketIO, emit
 from youtube_utils import parse_roadmap_md, get_playlist_videos, get_single_video_as_list
 from ai_engine import SkillMatcher
 from ai_assistant import SkillSyncAI
@@ -33,6 +34,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///skillsync.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -422,9 +424,16 @@ def sessions():
         mentor_sessions = [s for s in all_sessions if s.mentor_id == current_user.id]
         learner_sessions = [s for s in all_sessions if s.learner_id == current_user.id]
         
+        # Get Peer Sessions
+        peer_sessions = PeerSession.query.filter(
+            (PeerSession.user_a_id == current_user.id) | 
+            (PeerSession.user_b_id == current_user.id)
+        ).order_by(PeerSession.start_time).all()
+        
         return render_template('sessions.html',
                              mentor_sessions=mentor_sessions,
-                             learner_sessions=learner_sessions)
+                             learner_sessions=learner_sessions,
+                             peer_sessions=peer_sessions)
     
     except Exception as e:
         flash('Error loading sessions. Please try again.', 'error')
@@ -464,17 +473,76 @@ def update_session_status(session_id):
         print(f"Update session error: {e}")
         return redirect(url_for('sessions'))
 
+def sync_user_skills(user):
+    from models import db, SkillProgress, PeerSession, CourseProgress, Course
+    from datetime import datetime
+
+    target_levels = {}
+    
+    def _apply_level(skill_name, level):
+        skill_name = skill_name.strip()
+        if not skill_name: return
+        level = min(level, 1.0)
+        if skill_name not in target_levels or level > target_levels[skill_name]:
+            target_levels[skill_name] = level
+
+    # 1. Base user skills
+    for skill in user.get_skills_list():
+        _apply_level(skill, 0.2)
+
+    # 2. Peer Learning History
+    past_sessions = PeerSession.query.filter(
+        (PeerSession.user_a_id == user.id) | (PeerSession.user_b_id == user.id)
+    ).all()
+    
+    for session in past_sessions:
+        is_completed = session.status == 'completed' or (session.end_time and session.end_time < datetime.utcnow())
+        if is_completed and session.request:
+            if session.user_a_id == user.id and session.request.skills_expected:
+                for s in session.request.skills_expected.split(','):
+                    _apply_level(s, 0.45)
+            elif session.user_b_id == user.id and session.request.skills_offered:
+                for s in session.request.skills_offered.split(','):
+                    _apply_level(s, 0.60) # Teaching solidifies knowledge
+
+    # 3. Recordings History
+    course_progress = CourseProgress.query.filter_by(user_id=user.id).all()
+    for cp in course_progress:
+        videos = cp.get_completed_videos()
+        if videos:
+            course = Course.query.filter_by(playlist_id=cp.playlist_id).first()
+            if course:
+                skill_name = course.category.name if course.category else course.title.split()[0]
+                _apply_level(skill_name, 0.2 + (len(videos) * 0.05))
+
+    updates_made = False
+    
+    for skill_name, target_level in target_levels.items():
+        sp = SkillProgress.query.filter_by(user_id=user.id, skill_name=skill_name).first()
+        if not sp:
+            sp = SkillProgress(user_id=user.id, skill_name=skill_name, level=target_level)
+            db.session.add(sp)
+            updates_made = True
+        elif sp.level < target_level:
+            sp.level = target_level
+            updates_made = True
+            
+    if updates_made:
+        db.session.commit()
+
+
 @app.route('/progress')
 @login_required
 def progress():
     try:
+        sync_user_skills(current_user)
         skill_progress = SkillProgress.query.filter_by(user_id=current_user.id).order_by(SkillProgress.skill_name).all()
         
         # Fetch peer history
-        peer_history = PeerConnection.query.filter(
-            (PeerConnection.sender_id == current_user.id) | (PeerConnection.receiver_id == current_user.id),
-            PeerConnection.status == 'Completed'
-        ).order_by(PeerConnection.created_at.desc()).all()
+        peer_history = PeerSession.query.filter(
+            (PeerSession.user_a_id == current_user.id) | (PeerSession.user_b_id == current_user.id),
+            PeerSession.status.in_(['live', 'completed', 'scheduled'])
+        ).order_by(PeerSession.start_time.desc()).all()
         
         return render_template('progress.html', skill_progress=skill_progress, peer_history=peer_history)
     
@@ -487,6 +555,7 @@ def progress():
 @login_required
 def progress_data():
     try:
+        sync_user_skills(current_user)
         skill_progress = SkillProgress.query.filter_by(user_id=current_user.id).order_by(SkillProgress.skill_name).all()
         
         data = {
@@ -791,69 +860,155 @@ def peer_learning():
 def peer_request():
     data = request.json
     receiver_id = data.get('receiver_id')
-    topic = data.get('topic')
-    scheduled_at_str = data.get('scheduled_at') # e.g. "2024-04-12 18:00"
-    
-    if not receiver_id or not topic:
+    skills_expected = data.get('skills_expected')
+    skills_offered = data.get('skills_offered')
+    peer_mode = data.get('peer_mode', False)
+    date_str = data.get('date')
+    time_str = data.get('time')
+    duration = int(data.get('duration', 30))
+    message = data.get('message', '')
+
+    if not receiver_id or not date_str or not time_str:
         return jsonify({"success": False, "error": "Missing fields"}), 400
 
     try:
-        scheduled_at = datetime.strptime(scheduled_at_str, '%Y-%m-%d %H:%M')
-    except:
-        scheduled_at = datetime.utcnow()
+        req_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        req_time = datetime.strptime(time_str, '%H:%M').time()
+    except Exception as e:
+        return jsonify({"success": False, "error": "Invalid date/time format"}), 400
 
-    # Create Connection
-    conn = PeerConnection(
+    # Create PeerRequest
+    peer_req = PeerRequest(
         sender_id=current_user.id,
         receiver_id=receiver_id,
-        topic=topic,
-        scheduled_at=scheduled_at,
-        status='Pending',
-        meeting_id=f"peer_{current_user.id}_{receiver_id}_{int(datetime.utcnow().timestamp())}"
+        skills_expected=skills_expected,
+        skills_offered=skills_offered,
+        peer_mode=peer_mode,
+        date=req_date,
+        time=req_time,
+        duration=duration,
+        message=message,
+        status='Pending'
     )
-    db.session.add(conn)
+    db.session.add(peer_req)
+    db.session.flush() # Flush to generate peer_req.id
     
-    # Create Notification
-    create_notification(
+    # Broadcast via SocketIO
+    socketio.emit('new_peer_request', {
+        'request_id': peer_req.id,
+        'sender_id': current_user.id,
+        'sender_name': current_user.name,
+        'receiver_id': receiver_id,
+        'skills': skills_expected
+    })
+    
+    # DB Notification
+    from models import Notification
+    notif = Notification(
         user_id=receiver_id,
         title="New Peer Learning Request",
-        message=f"{current_user.name} sent a peer learning request for '{topic}' on {scheduled_at.strftime('%d %B at %I %p')}",
+        message=f"{current_user.name} sent a peer request for '{skills_expected}' on {req_date.strftime('%B %d')} at {req_time.strftime('%I:%M %p')}",
         type='peer_request',
-        link=f"/peer-learning?highlight={conn.id}"
+        link=f"/peer-learning?highlight={peer_req.id}"
     )
-    
-    db.session.commit()
-    return jsonify({"success": True, "conn_id": conn.id})
+    db.session.add(notif)
 
+    db.session.commit()
+    return jsonify({"success": True, "req_id": peer_req.id})
+
+import uuid
 @app.route('/api/peer/respond', methods=['POST'])
 @login_required
 def peer_respond():
     data = request.json
-    conn_id = data.get('conn_id')
-    response = data.get('response') # accept | reject
+    req_id = data.get('conn_id') # Keeping compatible with original parameter name if possible, or 'req_id'
     
-    conn = PeerConnection.query.get(conn_id)
-    if not conn or conn.receiver_id != current_user.id:
-        return jsonify({"success": False, "error": "Invalid connection"}), 403
+    # Handle the difference in JS if any
+    if not req_id:
+        req_id = data.get('req_id')
 
+    response = data.get('response') # accept | reject
+    if req_id == 'None' or not req_id:
+        return jsonify({"success": False, "error": "This is a corrupted old notification. Please try a new request."}), 400
+        
+    try:
+        req_id = int(req_id)
+    except ValueError:
+        return jsonify({"success": False, "error": "Malformed request ID."}), 400
+
+    peer_req = PeerRequest.query.get(req_id)
+    if not peer_req or str(peer_req.receiver_id) != str(current_user.id):
+        return jsonify({"success": False, "error": "This request is invalid, corrupted, or has expired."}), 403
     if response == 'accept':
-        conn.status = 'Accepted'
-        # Notify sender
-        create_notification(
-            user_id=conn.sender_id,
-            title="Peer Request Accepted!",
-            message=f"{current_user.name} accepted your request for '{conn.topic}'. You can now join the live session.",
-            type='peer_accepted',
-            link=f"/peer-session/{conn.meeting_id}"
+        peer_req.status = 'Accepted'
+        
+        # Schedule the primary session
+        base_datetime = datetime.combine(peer_req.date, peer_req.time)
+        video_link_1 = f"https://meet.jit.si/SkillSync_Peer_{uuid.uuid4().hex[:8]}"
+
+        session1 = PeerSession(
+            user_a_id=peer_req.sender_id, # Learner
+            user_b_id=peer_req.receiver_id, # Teacher
+            session_type='peer-mode-1' if peer_req.peer_mode else 'one-way',
+            start_time=base_datetime,
+            end_time=base_datetime + timedelta(minutes=peer_req.duration),
+            status='scheduled',
+            video_link=video_link_1,
+            associated_request_id=peer_req.id
         )
+        db.session.add(session1)
+
+        # If Peer Mode, schedule reciprocal session exactly after
+        if peer_req.peer_mode:
+            start_time2 = base_datetime + timedelta(minutes=peer_req.duration)
+            end_time2 = start_time2 + timedelta(minutes=peer_req.duration)
+            video_link_2 = f"https://meet.jit.si/SkillSync_Peer_{uuid.uuid4().hex[:8]}"
+
+            session2 = PeerSession(
+                user_a_id=peer_req.receiver_id, # B learns
+                user_b_id=peer_req.sender_id,   # A teaches
+                session_type='peer-mode-2',
+                start_time=start_time2,
+                end_time=end_time2,
+                status='scheduled',
+                video_link=video_link_2,
+                associated_request_id=peer_req.id
+            )
+            db.session.add(session2)
+
+        # Notify sender via websocket
+        socketio.emit('peer_accepted', {
+            'request_id': peer_req.id,
+            'sender_id': peer_req.sender_id,
+            'receiver_id': peer_req.receiver_id
+        })
+        
+        from models import Notification
+        notif = Notification(
+            user_id=peer_req.sender_id,
+            title="Peer Request Accepted!",
+            message=f"{current_user.name} accepted your request. You can join the live session at the scheduled time.",
+            type='peer_accepted',
+            link=f"/peer-session/{session1.id}"
+        )
+        db.session.add(notif)
+        
     elif response == 'reject':
-        conn.status = 'Rejected'
-        create_notification(
-            user_id=conn.sender_id,
+        peer_req.status = 'Rejected'
+        # Notify sender via websocket optionally
+        socketio.emit('peer_rejected', {
+            'request_id': peer_req.id,
+            'sender_id': peer_req.sender_id
+        })
+        
+        from models import Notification
+        notif = Notification(
+            user_id=peer_req.sender_id,
             title="Peer Request Declined",
-            message=f"{current_user.name} is unavailable for '{conn.topic}' at this time.",
+            message=f"{current_user.name} is unavailable at this time.",
             type='peer_rejected'
         )
+        db.session.add(notif)
     
     db.session.commit()
     return jsonify({"success": True})
@@ -862,31 +1017,26 @@ def peer_respond():
 @login_required
 def peer_complete():
     data = request.json
-    conn_id = data.get('conn_id')
-    rating = data.get('rating')
-    feedback = data.get('feedback', '')
+    session_id = data.get('session_id')
     
-    conn = PeerConnection.query.get(conn_id)
-    if not conn or current_user.id not in (conn.sender_id, conn.receiver_id):
+    session = PeerSession.query.get(session_id)
+    if not session or current_user.id not in (session.user_a_id, session.user_b_id):
         return jsonify({"success": False, "error": "Unauthorized"}), 403
 
-    conn.status = 'Completed'
-    conn.rating = rating
-    conn.feedback = feedback
-    
+    session.status = 'completed'
     db.session.commit()
     return jsonify({"success": True})
 
-@app.route('/peer-session/<meeting_id>')
+@app.route('/peer-session/<int:session_id>')
 @login_required
-def peer_session(meeting_id):
+def peer_session(session_id):
     # Verify user is part of this session
-    conn = PeerConnection.query.filter_by(meeting_id=meeting_id).first()
-    if not conn or current_user.id not in (conn.sender_id, conn.receiver_id):
+    session = PeerSession.query.get_or_404(session_id)
+    if current_user.id not in (session.user_a_id, session.user_b_id):
         abort(403)
         
-    other_user = User.query.get(conn.receiver_id if current_user.id == conn.sender_id else conn.sender_id)
-    return render_template('peer_room.html', conn=conn, other_user=other_user)
+    other_user = User.query.get(session.user_b_id if current_user.id == session.user_a_id else session.user_a_id)
+    return render_template('peer_room.html', session=session, other_user=other_user)
 
 @app.route('/api/course/progress', methods=['POST'])
 @login_required
@@ -923,8 +1073,15 @@ def live_sessions():
 @app.route('/people')
 @login_required
 def people():
+    active_tab = request.args.get('tab', 'students')
+    
     # Fetch all users except current user
     all_users = User.query.filter(User.id != current_user.id).all()
+    
+    if active_tab == 'mentors':
+        filtered_users = [u for u in all_users if getattr(u, 'is_mentor', False) or u.role == 'mentor']
+    else:
+        filtered_users = [u for u in all_users if not getattr(u, 'is_mentor', False) and u.role != 'mentor']
     
     # Map connection status for each user
     connections = PeerConnection.query.filter(
@@ -945,7 +1102,7 @@ def people():
                 'conn_id': conn.id
             }
             
-    return render_template('people.html', users=all_users, status_map=status_map)
+    return render_template('people.html', users=filtered_users, status_map=status_map, active_tab=active_tab)
 
 @app.route('/meetups')
 @login_required
@@ -1260,6 +1417,8 @@ def get_trending_topics(limit=5):
             "tag": tag,
             "score": score,
             "count": stats["count"],
+            "likes": stats["likes"],
+            "views": stats["views"],
             "posts": stats["posts"]
         })
 
@@ -1489,80 +1648,114 @@ def share_post(post_id):
 def request_connection(user_id):
     if current_user.id == user_id:
         return jsonify({'success': False, 'error': 'Cannot connect with yourself'}), 400
-        
+
     target_user = User.query.get_or_404(user_id)
-    
-    # Check if a pending connection already exists
+
+    # Check if any non-rejected connection already exists between these two users
     existing = PeerConnection.query.filter(
         ((PeerConnection.sender_id == current_user.id) & (PeerConnection.receiver_id == user_id)) |
         ((PeerConnection.sender_id == user_id) & (PeerConnection.receiver_id == current_user.id))
-    ).filter(PeerConnection.status == 'Pending').first()
-    
+    ).filter(PeerConnection.status.in_(['Pending', 'Accepted'])).first()
+
     if existing:
-        return jsonify({'success': False, 'error': 'A pending connection request already exists'}), 400
-        
+        return jsonify({'success': False, 'error': 'A connection request already exists'}), 400
+
     new_conn = PeerConnection(sender_id=current_user.id, receiver_id=user_id)
     db.session.add(new_conn)
     db.session.commit()
-    
-    # Create notification for receiver
+
+    # LinkedIn-style notification for receiver
     create_notification(
         user_id=user_id,
-        title="Live Connection Request",
-        message=f"{current_user.name} wants to connect live on Zoom with you.",
+        title="New Connection Request",
+        message=f"{current_user.name} sent you a connection request.",
         type="connection",
-        link=url_for('dashboard')
+        link=url_for('people')
     )
-    
+
+    # Real-time socket event
+    socketio.emit('new_connection_request', {
+        'connection_id': new_conn.id,
+        'sender_id': current_user.id,
+        'sender_name': current_user.name,
+        'receiver_id': user_id
+    })
+
     return jsonify({'success': True, 'connection_id': new_conn.id, 'status': 'Pending'})
 
-def generate_mock_zoom_link():
-    import uuid
-    meet_id = uuid.uuid4().hex[:8]
-    return f"https://zoom.us/j/mock{meet_id}", meet_id
+
+@app.route('/api/connect/withdraw/<int:connection_id>', methods=['POST'])
+@login_required
+def withdraw_connection(connection_id):
+    """Allow the sender to cancel a pending connection request."""
+    conn = PeerConnection.query.get_or_404(connection_id)
+
+    if conn.sender_id != current_user.id:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+    if conn.status != 'Pending':
+        return jsonify({'success': False, 'error': 'Can only withdraw pending requests'}), 400
+
+    db.session.delete(conn)
+    db.session.commit()
+    return jsonify({'success': True})
+
 
 @app.route('/api/connect/accept/<int:connection_id>', methods=['POST'])
 @login_required
 def accept_connection(connection_id):
     conn = PeerConnection.query.get_or_404(connection_id)
-    
+
     if conn.receiver_id != current_user.id:
         return jsonify({'success': False, 'error': 'Unauthorized'}), 403
-        
+
     if conn.status != 'Pending':
         return jsonify({'success': False, 'error': 'Connection is not pending'}), 400
-        
-    # Mock Zoom API Integration
-    zoom_url, zoom_id = generate_mock_zoom_link()
-    
+
     conn.status = 'Accepted'
-    conn.zoom_url = zoom_url
-    conn.zoom_meeting_id = zoom_id
-    conn.expires_at = datetime.utcnow() + timedelta(hours=1)
-    
+    conn.expires_at = datetime.utcnow() + timedelta(days=365)  # Connections don't expire
     db.session.commit()
-    
-    # Create notification for sender
+
+    # LinkedIn-style notification for the original sender
     create_notification(
         user_id=conn.sender_id,
-        title="Connection Request Accepted!",
-        message=f"{current_user.name} accepted your live connection request. Click to join Zoom.",
+        title="Connection Accepted!",
+        message=f"{current_user.name} accepted your connection request. You are now connected!",
         type="connection",
-        link=zoom_url
+        link=url_for('people')
     )
-    
-    return jsonify({'success': True, 'zoom_url': zoom_url})
+
+    # Real-time socket event
+    socketio.emit('connection_accepted', {
+        'connection_id': conn.id,
+        'sender_id': conn.sender_id,
+        'receiver_id': conn.receiver_id,
+        'receiver_name': current_user.name
+    })
+
+    return jsonify({'success': True})
+
 
 @app.route('/api/connect/reject/<int:connection_id>', methods=['POST'])
 @login_required
 def reject_connection(connection_id):
     conn = PeerConnection.query.get_or_404(connection_id)
-    
+
     if conn.receiver_id != current_user.id:
         return jsonify({'success': False, 'error': 'Unauthorized'}), 403
-        
+
     conn.status = 'Rejected'
     db.session.commit()
+
+    # Notify sender their request was declined
+    create_notification(
+        user_id=conn.sender_id,
+        title="Connection Declined",
+        message=f"{current_user.name} declined your connection request.",
+        type="connection",
+        link=url_for('people')
+    )
+
     return jsonify({'success': True})
 
 @app.route('/api/connect/notifications', methods=['GET'])
@@ -1629,7 +1822,286 @@ def mark_all_read():
     db.session.commit()
     return jsonify({'success': True})
 
+# ──────────────────────── MENTOR BOOKING ROUTES ──────────────────────────────
+
+@app.route('/my-bookings')
+@login_required
+def my_bookings():
+    """Student's booking dashboard."""
+    bookings = MentorBooking.query.filter_by(student_id=current_user.id)\
+        .order_by(MentorBooking.created_at.desc()).all()
+    return render_template('bookings.html', bookings=bookings)
+
+
+@app.route('/api/booking/create', methods=['POST'])
+@login_required
+def create_booking():
+    """Student submits a booking request to a mentor with hard conflict validation."""
+    data = request.get_json()
+    mentor_id  = data.get('mentor_id')
+    topic      = (data.get('topic') or '').strip()
+    date_str   = data.get('date')
+    time_str   = data.get('time')
+    duration   = int(data.get('duration', 60))
+    mode       = data.get('mode', 'video')
+    message    = (data.get('message') or '').strip()
+
+    if not all([mentor_id, topic, date_str, time_str]):
+        return jsonify({'success': False, 'error': 'Missing required fields'}), 400
+
+    try:
+        m_id = int(mentor_id)
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Invalid mentor ID'}), 400
+
+    mentor = User.query.get(m_id)
+    if not mentor or not mentor.is_mentor:
+        return jsonify({'success': False, 'error': 'Mentor not found'}), 404
+
+    if m_id == current_user.id:
+        return jsonify({'success': False, 'error': 'You cannot book yourself'}), 400
+
+    try:
+        # Support both YYYY-MM-DD and browser-specific displays if possible
+        req_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        
+        # Support both HH:MM (24h) and potentially other formats from older browsers
+        try:
+            req_time = datetime.strptime(time_str, '%H:%M').time()
+        except ValueError:
+            # Fallback for HH:MM:SS or similar
+            req_time = datetime.strptime(time_str[:5], '%H:%M').time()
+            
+        start_dt = datetime.combine(req_date, req_time)
+        end_dt = start_dt + timedelta(minutes=duration)
+    except Exception as e:
+        print(f"Booking Parse Error: {e} | Date: {date_str} | Time: {time_str}")
+        return jsonify({'success': False, 'error': f'Invalid date/time format. Please use standard inputs.'}), 400
+
+    # ─── HARD CONFLICT VALIDATION ───
+    # Check for any already accepted bookings for this mentor that overlap with requested window
+    overlapping = MentorBooking.query.filter(
+        MentorBooking.mentor_id == m_id,
+        MentorBooking.status == 'accepted',
+        MentorBooking.date == req_date
+    ).all()
+
+    for ex in overlapping:
+        ex_start = datetime.combine(ex.date, ex.time)
+        ex_end = ex_start + timedelta(minutes=ex.duration)
+        # CheckOverlap logic: (StartA < EndB) and (EndA > StartB)
+        if start_dt < ex_end and end_dt > ex_start:
+            return jsonify({
+                'success': False, 
+                'error': f'Mentor has a hard conflict at this time ({ex.time.strftime("%I:%M %p")}). Please choose another slot.'
+            }), 409
+
+    # Prevent duplicate pending booking for same exactly slot by same user
+    clash = MentorBooking.query.filter_by(
+        mentor_id=m_id, student_id=current_user.id,
+        date=req_date, time=req_time, status='pending'
+    ).first()
+    if clash:
+        return jsonify({'success': False, 'error': 'You already have a pending request for this slot'}), 400
+
+    booking = MentorBooking(
+        mentor_id=m_id,
+        student_id=current_user.id,
+        topic=topic,
+        date=req_date,
+        time=req_time,
+        duration=duration,
+        mode=mode,
+        message=message,
+        status='pending'
+    )
+    db.session.add(booking)
+    db.session.commit()
+
+    mode_labels = {'video': 'Video Call', 'audio': 'Audio Call', 'chat': 'Chat'}
+    # Notify mentor
+    create_notification(
+        user_id=m_id,
+        title='📅 New Booking Request',
+        message=f'{current_user.name} requested a {mode_labels.get(mode, mode)} session on "{topic}" — {req_date.strftime("%b %d")} at {req_time.strftime("%I:%M %p")}',
+        type='booking',
+        link=url_for('mentor_dashboard') + '#bookings'
+    )
+
+    # Sync to Firestore
+    import firebase_service as fs_svc
+    fs_svc.sync_booking_to_firestore(booking)
+
+    # Real-time push to mentor
+    socketio.emit('new_booking_request', { 'booking': booking.to_dict() })
+
+    return jsonify({'success': True, 'booking_id': booking.id, 'booking': booking.to_dict()})
+
+
+@app.route('/api/booking/<int:booking_id>/accept', methods=['POST'])
+@login_required
+def accept_booking(booking_id):
+    """Mentor accepts the booking and auto-generates a private WebRTC meeting record."""
+    booking = MentorBooking.query.get_or_404(booking_id)
+    if booking.mentor_id != current_user.id:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    if booking.status != 'pending':
+        return jsonify({'success': False, 'error': 'Booking is not pending'}), 400
+
+    import uuid
+    from models import MentorBookingMeeting
+    room_id = f"MB_{uuid.uuid4().hex[:12]}"
+    
+    # Create the meeting record
+    start_dt = datetime.combine(booking.date, booking.time)
+    end_dt = start_dt + timedelta(minutes=booking.duration)
+    
+    meeting = MentorBookingMeeting(
+        booking_id=booking.id,
+        room_id=room_id,
+        meeting_link=f'/mentor-session/{room_id}',
+        start_time=start_dt,
+        end_time=end_dt,
+        status='upcoming'
+    )
+    db.session.add(meeting)
+    db.session.flush() # Get meeting ID
+    
+    booking.meeting_link = meeting.meeting_link
+    booking.status = 'accepted'
+    
+    db.session.commit()
+
+    # Notify student
+    create_notification(
+        user_id=booking.student_id,
+        title='🎉 Booking Accepted!',
+        message=f'{current_user.name} accepted your session on "{booking.topic}". Room ready at {booking.time.strftime("%I:%M %p")}.',
+        type='booking_accepted',
+        link=url_for('my_bookings')
+    )
+
+    # Mirror state to Firestore for chat unlock
+    import firebase_service as fs_svc
+    fs_svc.sync_booking_to_firestore(booking)
+
+    # Real-time push
+    socketio.emit('booking_accepted', {'booking': booking.to_dict()})
+
+    return jsonify({'success': True, 'booking': booking.to_dict()})
+
+
+@app.route('/api/booking/<int:booking_id>/reject', methods=['POST'])
+@login_required
+def reject_booking(booking_id):
+    """Mentor declines the booking."""
+    booking = MentorBooking.query.get_or_404(booking_id)
+    if booking.mentor_id != current_user.id:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    if booking.status != 'pending':
+        return jsonify({'success': False, 'error': 'Booking is not pending'}), 400
+
+    data = request.get_json() or {}
+    booking.reject_reason = data.get('reason', '')
+    booking.status = 'rejected'
+    db.session.commit()
+    
+    import firebase_service as fs_svc
+    fs_svc.sync_booking_to_firestore(booking)
+
+    # Notify student
+    create_notification(
+        user_id=booking.student_id,
+        title='❌ Booking Rejected',
+        message=f'{current_user.name} was unable to accept your session request. Reason: {booking.reject_reason or "No reason provided"}',
+        type='booking_rejected',
+        link=url_for('my_bookings')
+    )
+
+    return jsonify({'success': True, 'booking': booking.to_dict()})
+
+    create_notification(
+        user_id=booking.student_id,
+        title='⚠️ Booking Unavailable',
+        message=f'{current_user.name} is unavailable for your "{booking.topic}" session. Consider booking a different time.',
+        type='booking_rejected',
+        link=url_for('my_bookings')
+    )
+
+    socketio.emit('booking_rejected', {'booking': booking.to_dict()})
+    return jsonify({'success': True})
+
+
+@app.route('/api/booking/<int:booking_id>/cancel', methods=['POST'])
+@login_required
+def cancel_booking(booking_id):
+    """Student cancels a pending or accepted booking."""
+    booking = MentorBooking.query.get_or_404(booking_id)
+    if booking.student_id != current_user.id:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    if booking.status not in ('pending', 'accepted'):
+        return jsonify({'success': False, 'error': 'Cannot cancel this booking'}), 400
+
+    booking.status = 'cancelled'
+    db.session.commit()
+
+    create_notification(
+        user_id=booking.mentor_id,
+        title='❌ Booking Cancelled',
+        message=f'{current_user.name} cancelled the session on "{booking.topic}" scheduled for {booking.date.strftime("%b %d")}.',
+        type='booking_cancelled',
+        link=url_for('mentor_dashboard') + '#bookings'
+    )
+
+    socketio.emit('booking_cancelled', {'booking': booking.to_dict()})
+    return jsonify({'success': True})
+
+
+@app.route('/api/bookings/incoming')
+@login_required
+def incoming_bookings():
+    """Mentor: all incoming bookings."""
+    if not current_user.is_mentor and current_user.role != 'admin':
+        return jsonify({'success': False, 'error': 'Mentor only'}), 403
+
+    bookings = MentorBooking.query.filter_by(mentor_id=current_user.id)\
+        .order_by(MentorBooking.created_at.desc()).all()
+    return jsonify({'success': True, 'bookings': [b.to_dict() for b in bookings]})
+
+
+@app.route('/api/bookings/my')
+@login_required
+def student_bookings():
+    """Student: all own bookings."""
+    bookings = MentorBooking.query.filter_by(student_id=current_user.id)\
+        .order_by(MentorBooking.created_at.desc()).all()
+    return jsonify({'success': True, 'bookings': [b.to_dict() for b in bookings]})
+
+
+@app.route('/mentor-session/<room_id>')
+@login_required
+def mentor_session_room(room_id):
+    """Secure private session room for mentor-student meetings."""
+    from models import MentorBookingMeeting
+    meeting = MentorBookingMeeting.query.filter_by(room_id=room_id).first_or_404()
+    booking = meeting.booking_link # backref from MentorBooking
+    
+    # Security: Only mentor or student can join
+    if current_user.id != booking.mentor_id and current_user.id != booking.student_id:
+        flash("You are not authorized to join this private session.", "error")
+        return redirect(url_for('dashboard'))
+        
+    # Get total chat messages for this booking from Firestore? 
+    # No, we'll do that client side.
+    
+    return render_template('session_room.html', 
+                           meeting=meeting, 
+                           booking=booking, 
+                           partner=booking.mentor if current_user.id == booking.student_id else booking.student)
+
+
 # ──────────────────────── AI ASSISTANT ROUTES ────────────────────────
+
 
 @app.route('/ai-assistant')
 @login_required
@@ -2982,13 +3454,12 @@ with app.app_context():
         
     except Exception as e:
         print(f"Error during database initialization: {e}")
-        # If there's an error, drop all tables and try again
+        # Manual intervention required if schema is broken to prevent accidental data loss.
+        # db.create_all() will still attempt to create new tables if possible.
         try:
-            db.drop_all()
             db.create_all()
-            init_sample_data()
-        except Exception as e2:
-            print(f"Failed to reinitialize database: {e2}")
+        except:
+            pass
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5004, debug=True)
+    socketio.run(app, host='0.0.0.0', port=5004, debug=True)

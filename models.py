@@ -67,6 +67,13 @@ class User(UserMixin, db.Model):
     def get_goals_list(self):
         return [g.strip() for g in self.goals.split(',') if g.strip()]
     
+    @property
+    def connection_count(self):
+        """Returns the number of accepted/completed peer connections."""
+        sent = [c for c in self.sent_connections if c.status in ('Accepted', 'Completed')]
+        received = [c for c in self.received_connections if c.status in ('Accepted', 'Completed')]
+        return len(sent) + len(received)
+
     def __repr__(self):
         return f'<User {self.name} ({self.email})>'
 
@@ -100,6 +107,93 @@ class MentorSession(db.Model):
     
     def __repr__(self):
         return f'<MentorSession {self.topic} ({self.status})>'
+
+class MentorBooking(db.Model):
+    """Student-initiated booking request for a 1-on-1 mentor session."""
+    id = db.Column(db.Integer, primary_key=True)
+    mentor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    topic = db.Column(db.String(300), nullable=False)  # Acts as 'skill'
+    date = db.Column(db.Date, nullable=False)
+    time = db.Column(db.Time, nullable=False)
+    duration = db.Column(db.Integer, default=60)           # minutes
+    mode = db.Column(db.String(20), default='video')       # video | audio | chat
+    status = db.Column(db.String(20), default='pending')   # pending | accepted | rejected | cancelled
+    meeting_link = db.Column(db.String(500))
+    message = db.Column(db.Text, default='')
+    reject_reason = db.Column(db.String(300), default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    mentor  = db.relationship('User', foreign_keys=[mentor_id],  backref=db.backref('received_bookings', lazy=True))
+    student = db.relationship('User', foreign_keys=[student_id], backref=db.backref('sent_bookings',     lazy=True))
+    meeting = db.relationship('MentorBookingMeeting', 
+                              primaryjoin="MentorBooking.id == MentorBookingMeeting.booking_id",
+                              foreign_keys="MentorBookingMeeting.booking_id",
+                              backref=db.backref('booking_link', uselist=False),
+                              uselist=False)
+
+    @property
+    def start_datetime(self):
+        return datetime.combine(self.date, self.time)
+
+    @property
+    def end_datetime(self):
+        return self.start_datetime + __import__('datetime').timedelta(minutes=self.duration)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'mentor_id': self.mentor_id,
+            'student_id': self.student_id,
+            'mentor_name': self.mentor.name if self.mentor else '',
+            'student_name': self.student.name if self.student else '',
+            'topic': self.topic,
+            'date': self.date.strftime('%Y-%m-%d') if self.date else '',
+            'date_display': self.date.strftime('%b %d, %Y') if self.date else '',
+            'time': self.time.strftime('%H:%M') if self.time else '',
+            'time_display': self.time.strftime('%I:%M %p') if self.time else '',
+            'duration': self.duration,
+            'mode': self.mode,
+            'status': self.status,
+            'meeting_id': self.meeting.id if self.meeting else None,
+            'meeting_link': self.meeting_link or '',
+            'message': self.message or '',
+            'reject_reason': self.reject_reason or '',
+            'created_at': self.created_at.isoformat() if self.created_at else '',
+            'is_active': self.status == 'accepted' and datetime.utcnow() >= self.start_datetime and datetime.utcnow() <= self.end_datetime
+        }
+
+    def __repr__(self):
+        return f'<MentorBooking {self.id} {self.status}>'
+
+class MentorBookingMeeting(db.Model):
+    """Automated WebRTC meeting associated with a mentor booking."""
+    id = db.Column(db.Integer, primary_key=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey('mentor_booking.id'), nullable=True) # Linked after creation
+    room_id = db.Column(db.String(100), unique=True, nullable=False)
+    meeting_link = db.Column(db.String(500))
+    start_time = db.Column(db.DateTime, nullable=False)
+    end_time = db.Column(db.DateTime, nullable=False)
+    # status: upcoming | live | completed | cancelled
+    status = db.Column(db.String(20), default='upcoming')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def is_joinable(self):
+        now = datetime.utcnow()
+        return self.status == 'upcoming' and now >= (self.start_time - __import__('datetime').timedelta(minutes=5)) and now <= self.end_time
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'room_id': self.room_id,
+            'meeting_link': self.meeting_link,
+            'start_time': self.start_time.isoformat(),
+            'end_time': self.end_time.isoformat(),
+            'status': self.status,
+            'is_joinable': self.is_joinable()
+        }
+
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -283,12 +377,46 @@ class PeerConnection(db.Model):
     feedback = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime)
+    zoom_url = db.Column(db.String(500))
+    zoom_meeting_id = db.Column(db.String(100))
 
     sender = db.relationship('User', foreign_keys=[sender_id], backref=db.backref('sent_connections', lazy=True))
     receiver = db.relationship('User', foreign_keys=[receiver_id], backref=db.backref('received_connections', lazy=True))
 
     def __repr__(self):
         return f'<PeerConnection {self.id} ({self.status})>'
+
+class PeerRequest(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    receiver_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    skills_expected = db.Column(db.String(500))  # JSON or comma-separated
+    skills_offered = db.Column(db.String(500))
+    peer_mode = db.Column(db.Boolean, default=False)
+    date = db.Column(db.Date)
+    time = db.Column(db.Time)
+    duration = db.Column(db.Integer, default=30)  # Session duration in minutes
+    message = db.Column(db.Text)
+    status = db.Column(db.String(20), default='Pending') # Pending, Accepted, Rejected
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    sender = db.relationship('User', foreign_keys=[sender_id], backref=db.backref('sent_peer_reqs', lazy=True))
+    receiver = db.relationship('User', foreign_keys=[receiver_id], backref=db.backref('received_peer_reqs', lazy=True))
+
+class PeerSession(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_a_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False) # Caller / Learner in 1-way
+    user_b_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False) # Receiver / Teacher
+    session_type = db.Column(db.String(50), default='one-way') # one-way, peer-mode-1, peer-mode-2
+    start_time = db.Column(db.DateTime)
+    end_time = db.Column(db.DateTime)
+    status = db.Column(db.String(20), default='scheduled') # scheduled, live, completed, cancelled
+    video_link = db.Column(db.String(500))
+    associated_request_id = db.Column(db.Integer, db.ForeignKey('peer_request.id'), nullable=True)
+
+    user_a = db.relationship('User', foreign_keys=[user_a_id])
+    user_b = db.relationship('User', foreign_keys=[user_b_id])
+    request = db.relationship('PeerRequest', backref=db.backref('sessions', lazy=True))
 
 class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)

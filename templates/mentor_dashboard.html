@@ -152,6 +152,10 @@
                     <i class="fas fa-video mr-2"></i>Live Meetings
                     <span class="ml-2 bg-indigo-500/20 text-indigo-300 text-xs px-2 py-0.5 rounded-full">{{ total_meetings }}</span>
                 </button>
+                <button class="hub-tab" onclick="switchTab('bookings', this)" id="tab-bookings">
+                    <i class="fas fa-calendar-check mr-2"></i>Bookings
+                    <span id="bookings-badge" class="ml-2 bg-orange-500/20 text-orange-300 text-xs px-2 py-0.5 rounded-full">…</span>
+                </button>
                 <button class="hub-tab" onclick="switchTab('students', this)" id="tab-students">
                     <i class="fas fa-users mr-2"></i>Students
                     <span class="ml-2 bg-green-500/20 text-green-300 text-xs px-2 py-0.5 rounded-full">{{ students|length }}</span>
@@ -640,6 +644,18 @@
     </div>
 </div>
 
+<!-- ═══════ BOOKINGS PANEL (appended outside card, loaded by JS) ════════ -->
+<div id="panel-bookings" class="hub-panel card-dark rounded-2xl p-6">
+    <div id="bookings-loading" class="space-y-4">
+        <div class="skeleton h-24 rounded-xl"></div>
+        <div class="skeleton h-24 rounded-xl"></div>
+        <div class="skeleton h-24 rounded-xl"></div>
+    </div>
+    <div id="bookings-content" class="hidden">
+        <!-- Sub-sections rendered by JS -->
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -650,12 +666,14 @@ function switchTab(name, el) {
     document.querySelectorAll('.hub-panel').forEach(p => p.classList.remove('active'));
     el.classList.add('active');
     document.getElementById(`panel-${name}`).classList.add('active');
+
+    if (name === 'bookings') loadBookings();
 }
 
 // Handle hash-based tab activation on load
 function activateHashTab() {
     const hash = window.location.hash.replace('#', '');
-    const tabs = { meetings: 'tab-meetings', students: 'tab-students', tests: 'tab-tests', feedback: 'tab-feedback' };
+    const tabs = { meetings: 'tab-meetings', bookings: 'tab-bookings', students: 'tab-students', tests: 'tab-tests', feedback: 'tab-feedback' };
     if (tabs[hash]) {
         const btn = document.getElementById(tabs[hash]);
         if (btn) switchTab(hash, btn);
@@ -879,6 +897,146 @@ async function deleteTest(testId) {
 document.getElementById('m-autogen').addEventListener('change', function() {
     document.getElementById('m-link').disabled = this.checked;
     if (this.checked) document.getElementById('m-link').value = '';
+});
+
+// ── Booking Management (Real-time) ────────────────────────
+const socket = io();
+socket.on('new_booking_request', (data) => {
+    showGlobalToast('📅 New booking request received!', true);
+    updateBookingsBadge(1);
+    if (document.getElementById('panel-bookings').classList.contains('active')) loadBookings();
+});
+
+socket.on('booking_cancelled', (data) => {
+    showGlobalToast('❌ A booking was cancelled.', false);
+    if (document.getElementById('panel-bookings').classList.contains('active')) loadBookings();
+});
+
+function updateBookingsBadge(delta) {
+    const b = document.getElementById('bookings-badge');
+    if (!b) return;
+    let count = parseInt(b.textContent) || 0;
+    b.textContent = Math.max(0, count + delta);
+}
+
+async function loadBookings() {
+    const loader = document.getElementById('bookings-loading');
+    const content = document.getElementById('bookings-content');
+    loader.classList.remove('hidden');
+    content.classList.add('hidden');
+
+    try {
+        const res = await fetch('/api/bookings/incoming');
+        const data = await res.json();
+        if (data.success) {
+            renderBookings(data.bookings);
+            document.getElementById('bookings-badge').textContent = data.bookings.filter(b => b.status === 'pending').length;
+        }
+    } catch (err) { console.error('Load bookings error:', err); }
+
+    loader.classList.add('hidden');
+    content.classList.remove('hidden');
+}
+
+function renderBookings(bookings) {
+    const container = document.getElementById('bookings-content');
+    if (bookings.length === 0) {
+        container.innerHTML = '<div class="text-center py-12 text-gray-500">No bookings yet.</div>';
+        return;
+    }
+
+    const pending = bookings.filter(b => b.status === 'pending');
+    const upcoming = bookings.filter(b => b.status === 'accepted');
+    const history = bookings.filter(b => ['rejected', 'cancelled', 'completed'].includes(b.status));
+
+    container.innerHTML = `
+        <div class="space-y-8">
+            ${pending.length > 0 ? `
+                <section>
+                    <h3 class="text-sm font-bold text-orange-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <i class="fas fa-clock"></i> Incoming Requests (${pending.length})
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        ${pending.map(b => renderBookingCard(b)).join('')}
+                    </div>
+                </section>
+            ` : ''}
+
+            <section>
+                <h3 class="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <i class="fas fa-calendar-check"></i> Confirmed Sessions
+                </h3>
+                ${upcoming.length > 0 ? `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        ${upcoming.map(b => renderBookingCard(b)).join('')}
+                    </div>
+                ` : '<p class="text-xs text-gray-600">No upcoming confirmed sessions.</p>'}
+            </section>
+
+            ${history.length > 0 ? `
+                <section>
+                    <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <i class="fas fa-history"></i> Booking History
+                    </h3>
+                    <div class="space-y-2 opacity-70">
+                        ${history.map(b => renderBookingCard(b)).join('')}
+                    </div>
+                </section>
+            ` : ''}
+        </div>
+    `;
+}
+
+function renderBookingCard(b) {
+    const isPending = b.status === 'pending';
+    const isAccepted = b.status === 'accepted';
+
+    return `
+        <div class="meeting-card">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-xs font-bold px-2 py-0.5 rounded-full badge-${b.status}">${b.status.toUpperCase()}</span>
+                        <span class="text-[10px] bg-white/5 text-gray-500 px-2 py-0.5 rounded-full capitalize">${b.mode}</span>
+                    </div>
+                    <h4 class="text-white font-bold truncate">${b.topic}</h4>
+                    <p class="text-xs text-gray-400 mt-1">Student: <span class="text-indigo-300">${b.student_name}</span></p>
+                    <div class="flex items-center gap-3 mt-3 text-[10px] text-gray-500">
+                        <span><i class="fas fa-calendar mr-1"></i>${b.date_display}</span>
+                        <span><i class="fas fa-clock mr-1"></i>${b.time_display}</span>
+                    </div>
+                </div>
+                <div class="flex flex-col gap-2">
+                    ${isPending ? `
+                        <button onclick="respondBooking(${b.id}, 'accept')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition">Accept</button>
+                        <button onclick="respondBooking(${b.id}, 'reject')" class="bg-white/5 hover:bg-white/10 text-gray-400 text-[10px] font-bold px-3 py-1.5 rounded-lg transition">Decline</button>
+                    ` : ''}
+                    ${isAccepted ? `
+                        <a href="${b.meeting_link}" target="_blank" class="bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition text-center"><i class="fas fa-video mr-1"></i>Join</a>
+                    ` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+async function respondBooking(bookingId, action) {
+    const url = `/api/booking/${bookingId}/${action}`;
+    try {
+        const res = await fetch(url, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showGlobalToast(`Booking ${action}ed!`, true);
+            loadBookings();
+        } else {
+            showGlobalToast(data.error || 'Execution failed', false);
+        }
+    } catch (err) { showGlobalToast('Network error', false); }
+}
+
+// Initial badge load
+fetch('/api/bookings/incoming').then(r => r.json()).then(d => {
+    if (d.success) document.getElementById('bookings-badge').textContent = d.bookings.filter(b => b.status === 'pending').length;
 });
 </script>
 {% endblock %}

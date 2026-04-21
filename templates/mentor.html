@@ -8,6 +8,79 @@
     .input-dark:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
     .animate-fade-in-up { animation: fadeInUp 0.6s ease-out forwards; opacity: 0; transform: translateY(20px); }
     @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
+
+    /* ── Book Mentor Button ── */
+    .btn-book-mentor {
+        display: inline-flex; align-items: center; gap: 0.6rem;
+        padding: 0.85rem 2rem;
+        border-radius: 9999px;
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+        color: #fff; font-weight: 800; font-size: 0.95rem;
+        box-shadow: 0 8px 30px rgba(99,102,241,0.45);
+        transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+        border: none; cursor: pointer;
+        position: relative; overflow: hidden;
+    }
+    .btn-book-mentor::before {
+        content: ''; position: absolute; inset: 0;
+        background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%);
+        opacity: 0; transition: opacity 0.3s;
+    }
+    .btn-book-mentor:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 14px 40px rgba(99,102,241,0.55); }
+    .btn-book-mentor:hover::before { opacity: 1; }
+    .btn-book-mentor:active { transform: scale(0.97); }
+    .btn-book-mentor:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    /* ── Modal ── */
+    .bm-overlay {
+        position: fixed; inset: 0; z-index: 9999;
+        background: rgba(0,0,0,0.75); backdrop-filter: blur(8px);
+        display: flex; align-items: center; justify-content: center; padding: 1rem;
+    }
+    .bm-modal {
+        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+        border: 1px solid rgba(99,102,241,0.25);
+        border-radius: 2rem; width: 100%; max-width: 520px;
+        max-height: 90vh; overflow-y: auto;
+        box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 80px rgba(99,102,241,0.12);
+        animation: modalSlideIn 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+    @keyframes modalSlideIn {
+        from { opacity: 0; transform: scale(0.85) translateY(20px); }
+        to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .bm-modal::-webkit-scrollbar { width: 4px; }
+    .bm-modal::-webkit-scrollbar-track { background: transparent; }
+    .bm-modal::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.4); border-radius: 4px; }
+
+    .bm-input {
+        width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 0.85rem; padding: 0.75rem 1rem;
+        color: #e2e8f0; font-size: 0.9rem; outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        color-scheme: dark;
+    }
+    .bm-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.18); }
+    .bm-label { display: block; font-size: 0.72rem; font-weight: 700; color: #94a3b8;
+        margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.07em; }
+
+    /* Mode selector */
+    .mode-btn {
+        flex: 1; padding: 0.65rem 0.5rem; border-radius: 0.75rem;
+        border: 2px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03);
+        color: #94a3b8; font-size: 0.78rem; font-weight: 700;
+        cursor: pointer; transition: all 0.2s; text-align: center;
+    }
+    .mode-btn.active { border-color: #6366f1; background: rgba(99,102,241,0.15); color: #a5b4fc; }
+    .mode-btn:hover:not(.active) { border-color: rgba(99,102,241,0.3); color: #e2e8f0; }
+
+    /* Status pill on booked mentor */
+    .booked-pill {
+        display: inline-flex; align-items: center; gap: 0.4rem;
+        background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.25);
+        color: #a5b4fc; padding: 0.4rem 1rem; border-radius: 9999px;
+        font-size: 0.75rem; font-weight: 700;
+    }
 </style>
 {% endblock %}
 
@@ -57,6 +130,9 @@
                             <div class="flex flex-wrap gap-5 text-sm font-medium">
                                 <span class="text-blue-400 flex items-center gap-2 font-bold bg-blue-400/10 px-3 py-1 rounded-lg">
                                     <i class="fas fa-chalkboard-teacher"></i> Expert Mentor
+                                </span>
+                                <span class="text-purple-400 flex items-center gap-2 font-bold bg-purple-400/10 px-3 py-1 rounded-lg">
+                                    <i class="fas fa-users"></i> {{ mentor.connection_count }} Connections
                                 </span>
                                 <span class="text-slate-400 flex items-center gap-2">
                                     <i class="fas fa-envelope"></i> {{ mentor.email }}
@@ -121,192 +197,45 @@
                             <span class="text-sm text-slate-300 font-bold">{{ mentor.availability }}</span>
                         </div>
                     </div>
-                    {% endif %}
+                                 <!-- Book Mentor CTA (visible to other users only) -->
+                {% if current_user.id != mentor.id %}
+                <div class="mt-10 flex flex-wrap items-center gap-6 p-6 rounded-[2rem] bg-indigo-500/5 border border-indigo-500/10 relative overflow-hidden group">
+                    <div class="absolute -bottom-10 -right-10 w-24 h-24 bg-indigo-600/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+                    <div class="flex-1">
+                        <h4 class="text-white font-bold text-lg mb-1">Ready to scale up?</h4>
+                        <p class="text-xs text-slate-400">Book a 1:1 session for personalized career guidance.</p>
+                    </div>
+                    <button onclick="openBookModal({
+                        id: {{ mentor.id }},
+                        name: '{{ mentor.name }}',
+                        expertise: '{{ mentor.expertise or 'Expert Mentor' }}',
+                        skills: {{ mentor.get_skills_list() | tojson }}
+                    })" class="btn-book-mentor px-10 py-4 text-lg">
+                        <i class="fas fa-calendar-check mr-2"></i>
+                        Book Mentor
+                    </button>
                 </div>
+                {% endif %}
             </div>
-        </div>
-
-            <!-- Saved Posts Section (Only visible to owner) -->
-            {% if current_user.id == mentor.id and saved_posts %}
-            <div class="mt-16 pt-12 border-t border-white/5">
-                <h2 class="text-2xl font-black text-white mb-8 flex items-center gap-3">
-                    <i class="fas fa-bookmark text-yellow-400"></i>
-                    Saved for Later
-                </h2>
-                <div class="grid grid-cols-1 gap-6">
-                    {% for post in saved_posts %}
-                    <div class="bg-[#0f172a] border border-white/10 rounded-3xl p-6 relative group hover:border-blue-500/30 transition-all hover:scale-[1.01]">
-                        <div class="flex items-center space-x-3 mb-4">
-                            <div class="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-white text-[10px] font-bold shadow-lg shadow-indigo-500/20">
-                                {{ post.author.name[0] }}
-                            </div>
-                            <div>
-                                <span class="text-sm font-bold text-white block">{{ post.author.name }}</span>
-                                <span class="text-[10px] text-gray-500 uppercase font-black tracking-widest">{{ post.created_at.strftime('%b %d, %Y') }}</span>
-                            </div>
-                        </div>
-                        <p class="text-gray-400 text-sm line-clamp-3 mb-6 leading-relaxed">{{ post.content }}</p>
-                        <a href="{{ url_for('post_home') }}#post-{{ post.id }}" class="text-blue-400 text-xs font-black uppercase tracking-widest hover:text-blue-300 flex items-center gap-2 group-hover:translate-x-1 transition-transform">
-                            Explore Full Post <i class="fas fa-arrow-right text-[10px]"></i>
-                        </a>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-    </div>
-
-    <!-- Right Column - Booking & Stats -->
-    <div class="space-y-8">
-        <!-- Book Session Card -->
-        <!-- Book Session Card -->
-        {% if current_user.id != mentor.id %}
-        <div class="card-dark rounded-2xl p-8 hover-lift">
-            <h2 class="text-2xl font-bold text-white mb-6 flex items-center">
-                <i class="fas fa-calendar-plus text-green-400 mr-3 text-2xl"></i>
-                Book Session
-            </h2>
-
-            <form method="POST" action="{{ url_for('book_session', mentor_id=mentor.id) }}" class="space-y-6">
-                <div>
-                    <label for="topic" class="block text-sm font-medium text-gray-300 mb-3">Session Topic *</label>
-                    <input type="text" id="topic" name="topic" required class="input-dark w-full px-4 py-3 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 transition duration-300" placeholder="What would you like to learn?">
-                </div>
-
-                <div class="space-y-4">
-                    <div>
-                        <label for="scheduled_time" class="block text-sm font-medium text-gray-300 mb-3">Date & Time *</label>
-                        <input type="datetime-local" id="scheduled_time" name="scheduled_time" required class="input-dark w-full px-4 py-3 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300">
-                    </div>
-                    <div>
-                        <label for="duration" class="block text-sm font-medium text-gray-300 mb-3">Duration</label>
-                        <select id="duration" name="duration" class="input-dark w-full px-4 py-3 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-500 transition duration-300">
-                            <option value="30">30 minutes</option>
-                            <option value="45">45 minutes</option>
-                            <option value="60" selected>60 minutes</option>
-                            <option value="90">90 minutes</option>
-                        </select>
-                    </div>
-                </div>
-
-                <button type="submit" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold hover:bg-indigo-700 transition transform hover:-translate-y-1 shadow-lg shadow-indigo-500/20">
-                    Complete Booking
-                </button>
-            </form>
-        </div>
-
-        <!-- Live Connection Card -->
-        <div class="card-dark rounded-2xl p-8 hover-lift border border-indigo-500/30 bg-indigo-900/10">
-            <h2 class="text-xl font-bold text-white mb-4 flex items-center">
-                <i class="fas fa-video text-blue-400 mr-3"></i>
-                Peer Live Connection
-            </h2>
-            <p class="text-gray-400 text-sm mb-6">Request an instant live video session via Zoom to connect right now.</p>
-            <button id="connect-btn-{{ mentor.id }}" onclick="requestConnection({{ mentor.id }})" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg flex items-center justify-center">
-                <i class="fas fa-video mr-2"></i> Connect Live (Zoom)
-            </button>
-            <div id="connect-status-{{ mentor.id }}" class="hidden mt-4 text-center text-sm font-medium text-blue-400 animate-pulse">
-                Waiting for response...
-            </div>
-        </div>
-        {% else %}
-        <!-- Self Profile Placeholder -->
-        <div class="card-dark rounded-2xl p-8 bg-indigo-900/20 border border-indigo-500/30">
-            <div class="text-center">
-                <div class="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-indigo-500/40">
-                    <i class="fas fa-user-check text-indigo-400 text-2xl"></i>
-                </div>
-                <h2 class="text-xl font-bold text-white mb-2">This is Your Profile</h2>
-                <p class="text-gray-400 text-sm mb-6">This is how your profile appears to other users on SkillSync. They can use this section to book a mentoring session with you.</p>
-                <div class="flex flex-col gap-3 max-w-xs mx-auto">
-                    <a href="{{ url_for('sessions') }}" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition">
-                        View Your Active Sessions
-                    </a>
-                    <a href="{{ url_for('settings') }}" class="w-full bg-white/5 border border-white/10 text-white py-3 rounded-xl font-bold hover:bg-white/10 transition shadow-lg shadow-white/5 flex items-center justify-center">
-                        <i class="fas fa-cog mr-2"></i> Edit Profile
-                    </a>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Mentor Stats -->
-        <div class="bg-[#0f172a] border border-white/10 rounded-[2.5rem] p-8 shadow-xl">
-            <h3 class="text-xs font-black text-slate-500 uppercase tracking-[0.2em] mb-8 flex items-center justify-between">
-                <span>Mentor Performance</span>
-                <i class="fas fa-chart-line text-blue-400"></i>
-            </h3>
-            
-            <div class="space-y-4" id="mentor-stats-container-{{ mentor.id }}">
-                <div class="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 group hover:bg-white/[0.08] transition-colors">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400">
-                            <i class="fas fa-users"></i>
-                        </div>
-                        <span class="text-slate-400 font-bold text-xs uppercase tracking-wider">Students</span>
-                    </div>
-                    <span class="font-black text-white text-xl" id="stat-students-{{ mentor.id }}">
-                        <span class="inline-block w-8 h-6 bg-white/10 rounded animate-pulse"></span>
-                    </span>
-                </div>
-
-                <div class="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 group hover:bg-white/[0.08] transition-colors">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center text-green-400">
-                            <i class="fas fa-history"></i>
-                        </div>
-                        <span class="text-slate-400 font-bold text-xs uppercase tracking-wider">Experience</span>
-                    </div>
-                    <span class="font-black text-white text-xl" id="stat-exp-{{ mentor.id }}">
-                        <span class="inline-block w-16 h-6 bg-white/10 rounded animate-pulse"></span>
-                    </span>
-                </div>
-
-                <div class="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 group hover:bg-white/[0.08] transition-colors">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center text-yellow-400">
-                            <i class="fas fa-star"></i>
-                        </div>
-                        <span class="text-slate-400 font-bold text-xs uppercase tracking-wider">Rating</span>
-                    </div>
-                    <span class="font-black text-white text-xl" id="stat-rating-{{ mentor.id }}">
-                        <span class="inline-block w-12 h-6 bg-white/10 rounded animate-pulse"></span>
-                    </span>
-                </div>
-
-                <div class="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 group hover:bg-white/[0.08] transition-colors">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400">
-                            <i class="fas fa-video"></i>
-                        </div>
-                        <span class="text-slate-400 font-bold text-xs uppercase tracking-wider">Sessions</span>
-                    </div>
-                    <span class="font-black text-white text-xl" id="stat-meetings-{{ mentor.id }}">
-                        <span class="inline-block w-8 h-6 bg-white/10 rounded animate-pulse"></span>
-                    </span>
-                </div>
-            </div>
-
-            {% if current_user.id == mentor.id %}
-            <a href="{{ url_for('mentor_dashboard') }}"
-               class="mt-8 w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-bold text-sm transition shadow-lg shadow-indigo-500/20">
-                <i class="fas fa-chalkboard-teacher"></i> Mentor Dashboard
-            </a>
-            {% endif %}
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block scripts %}
+{% include "_booking_modal.html" %}
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
 <script>
-    {% if current_user and not current_user.is_mentor or current_user.id %}
-    const now = new Date();
-    const stEl = document.getElementById('scheduled_time');
-    if (stEl) stEl.min = now.toISOString().slice(0, 16);
-    {% endif %}
+    // Real-time toast for booking updates
+    const socket = io();
+    socket.on('booking_accepted', (data) => {
+        if (data.booking && data.booking.student_id == {{ current_user.id }}) {
+            if (typeof showGlobalToast === 'function') {
+                showGlobalToast('🎉 Your booking was accepted! Check My Bookings.', true);
+            }
+        }
+    });
 
-    // Load dynamic stats
+    // Load dynamic stats (kept from original)
     (async function loadMentorStats() {
         try {
             const res = await fetch('/api/mentor/{{ mentor.id }}/stats');
@@ -320,17 +249,19 @@
                 set('stat-exp-{{ mentor.id }}',
                     data.years_experience > 0 ? data.years_experience + ' Year' + (data.years_experience > 1 ? 's' : '') : 'New');
                 set('stat-rating-{{ mentor.id }}',
-                    data.avg_rating > 0 ? data.avg_rating + '/5' : 'No ratings yet');
+                    data.avg_rating > 0 ? data.avg_rating + '/5' : 'No ratings');
                 set('stat-meetings-{{ mentor.id }}', data.total_meetings);
             }
-        } catch (e) {
-            // fallback silently
-            ['stat-students-{{ mentor.id }}','stat-exp-{{ mentor.id }}','stat-rating-{{ mentor.id }}','stat-meetings-{{ mentor.id }}']
-                .forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) el.textContent = '—';
-                });
-        }
+        } catch (e) {}
     })();
+</script>
+{% endblock %}ame = `fixed bottom-6 right-6 z-[9999] flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl font-bold text-sm text-white transition-all duration-300 translate-y-10 opacity-0 ${
+            type === 'success' ? 'bg-green-600' : 'bg-red-600'
+        }`;
+        t.innerHTML = msg;
+        document.body.appendChild(t);
+        setTimeout(() => t.classList.remove('translate-y-10','opacity-0'), 100);
+        setTimeout(() => { t.classList.add('opacity-0'); setTimeout(() => t.remove(), 400); }, 5000);
+    }
 </script>
 {% endblock %}
