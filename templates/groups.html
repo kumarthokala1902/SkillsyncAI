@@ -45,12 +45,19 @@
             <div class="mt-auto pt-4 border-t border-white/10 flex justify-between items-center">
                 <div class="flex items-center text-xs text-gray-400">
                     <span class="text-gray-500 mr-2">By</span>
-                    <span class="font-medium text-gray-300">{{ group.creator.name }}</span>
+                    <a href="{% if group.creator.is_mentor %}{{ url_for('mentor_profile', mentor_id=group.creator.id) }}{% else %}{{ url_for('learner_profile', learner_id=group.creator.id) }}{% endif %}" class="hover:underline">
+                        <span class="font-medium text-gray-300">{{ group.creator.name }}</span>
+                    </a>
                 </div>
                 
-                <button class="text-indigo-400 hover:text-indigo-300 transition-colors px-4 py-2 rounded-xl hover:bg-indigo-500/10 text-sm font-bold flex items-center gap-2">
-                    Join Group
-                </button>
+                <div class="flex gap-2">
+                    <button onclick="openChat('group-{{ group.id }}', '{{ group.name }}', 'fa-users')" class="text-indigo-400 hover:text-indigo-300 transition-colors px-4 py-2 rounded-xl hover:bg-indigo-500/10 text-sm font-bold flex items-center gap-2">
+                        <i class="fas fa-comments"></i> Chat
+                    </button>
+                    <button class="text-indigo-400 hover:text-indigo-300 transition-colors px-4 py-2 rounded-xl hover:bg-indigo-500/10 text-sm font-bold flex items-center gap-2">
+                        Join Group
+                    </button>
+                </div>
             </div>
         </div>
     </div>

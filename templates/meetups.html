@@ -57,9 +57,16 @@
                     <div class="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
                         {{ meetup.organizer.name[0] }}
                     </div>
-                    <span class="text-sm text-gray-400 font-medium whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px]">By {{ meetup.organizer.name }}</span>
+                    <a href="{% if meetup.organizer.is_mentor %}{{ url_for('mentor_profile', mentor_id=meetup.organizer.id) }}{% else %}{{ url_for('learner_profile', learner_id=meetup.organizer.id) }}{% endif %}" class="hover:underline">
+                        <span class="text-sm text-gray-400 font-medium whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px]">By {{ meetup.organizer.name }}</span>
+                    </a>
                 </div>
-                <button class="btn-join inline-block flex-shrink-0" style="max-width: 100px;">RSVP</button>
+                <div class="flex gap-2">
+                    <button onclick="openChat('meetup-{{ meetup.id }}', '{{ meetup.title }}', 'fa-calendar-alt')" class="text-indigo-400 hover:text-indigo-300 transition-colors px-3 py-1.5 rounded-lg hover:bg-indigo-500/10 text-sm font-medium flex items-center gap-2">
+                        <i class="fas fa-comments"></i> Chat
+                    </button>
+                    <button class="btn-join inline-block flex-shrink-0" style="max-width: 100px;">RSVP</button>
+                </div>
             </div>
         </div>
         {% endfor %}
@@ -88,7 +95,7 @@
                 <div>
                     <h3 class="text-lg font-semibold text-gray-200 group-hover:text-white transition-colors">{{ meetup.title }}</h3>
                     <div class="text-gray-400 text-sm flex flex-wrap gap-x-4 mt-1">
-                        <span><i class="fas fa-user mr-1"></i> {{ meetup.organizer.name }}</span>
+                        <span><i class="fas fa-user mr-1"></i> <a href="{% if meetup.organizer.is_mentor %}{{ url_for('mentor_profile', mentor_id=meetup.organizer.id) }}{% else %}{{ url_for('learner_profile', learner_id=meetup.organizer.id) }}{% endif %}" class="hover:underline">{{ meetup.organizer.name }}</a></span>
                         <span><i class="fas fa-map-marker-alt mr-1"></i> {{ meetup.location }}</span>
                     </div>
                 </div>

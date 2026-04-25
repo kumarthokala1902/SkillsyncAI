@@ -1,0 +1,184 @@
+<!-- Chat Sidebar Component -->
+<div id="ss-chat-container" class="fixed right-0 top-0 h-full w-[400px] bg-[#0f172a] border-l border-white/10 shadow-2xl z-[10000] transform translate-x-full transition-transform duration-500 ease-in-out flex flex-col">
+    <!-- Chat Header -->
+    <div class="p-6 border-b border-white/5 flex items-center justify-between bg-indigo-600/5 backdrop-blur-md">
+        <div class="flex items-center gap-3">
+            <div id="chat-icon-container" class="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                <i class="fas fa-comments"></i>
+            </div>
+            <div>
+                <h3 id="chat-title" class="text-white font-bold tracking-tight">Community Chat</h3>
+                <p id="chat-subtitle" class="text-[10px] text-gray-500 uppercase tracking-widest font-black">Live Messaging</p>
+            </div>
+        </div>
+        <button onclick="closeChat()" class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/5 transition-colors">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <!-- Messages Container -->
+    <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]">
+        <!-- Messages will be injected here -->
+        <div class="flex flex-col items-center justify-center h-full opacity-20">
+            <i class="fas fa-comment-dots text-5xl mb-4"></i>
+            <p class="text-sm font-medium">Select a group to start chatting</p>
+        </div>
+    </div>
+
+    <!-- Message Input -->
+    <div class="p-6 border-t border-white/5 bg-indigo-600/5">
+        <form id="chat-form" class="relative group" onsubmit="handleChatSubmit(event)">
+            <input type="text" id="chat-input" 
+                class="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-5 pr-14 text-white text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 transition-all placeholder:text-gray-600"
+                placeholder="Type a message..." autocomplete="off">
+            <button type="submit" 
+                class="absolute right-2 top-2 bottom-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </form>
+    </div>
+</div>
+
+<style>
+    #ss-chat-container.open {
+        transform: translate-x(0);
+    }
+
+    .chat-message {
+        animation: messageFadeIn 0.3s ease-out;
+    }
+
+    @keyframes messageFadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.2);
+    }
+</style>
+
+<script>
+    let currentGroupId = null;
+    let chatUnsubscribe = null;
+
+    function openChat(groupId, title, iconClass = 'fa-comments') {
+        const container = document.getElementById('ss-chat-container');
+        const titleEl = document.getElementById('chat-title');
+        const iconEl = document.getElementById('chat-icon-container');
+        
+        container.classList.add('open');
+        titleEl.textContent = title;
+        iconEl.innerHTML = `<i class="fas ${iconClass}"></i>`;
+        
+        if (currentGroupId === groupId) return;
+        
+        currentGroupId = groupId;
+        loadMessages(groupId);
+    }
+
+    function closeChat() {
+        document.getElementById('ss-chat-container').classList.remove('open');
+        if (chatUnsubscribe) {
+            chatUnsubscribe();
+            chatUnsubscribe = null;
+        }
+        currentGroupId = null;
+    }
+
+    async function loadMessages(groupId) {
+        if (!window._ssFirestore) {
+            console.error('Firestore not initialized');
+            return;
+        }
+
+        const messagesContainer = document.getElementById('chat-messages');
+        messagesContainer.innerHTML = '<div class="flex items-center justify-center h-full"><i class="fas fa-circle-notch fa-spin text-indigo-500"></i></div>';
+
+        // Lazy import of Firestore functions if needed (they are already imported in base.html)
+        const { collection, query, where, orderBy, onSnapshot, limit } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+
+        const q = query(
+            collection(window._ssFirestore, "messages"),
+            where("groupId", "==", groupId),
+            orderBy("timestamp", "asc"),
+            limit(100)
+        );
+
+        if (chatUnsubscribe) chatUnsubscribe();
+
+        chatUnsubscribe = onSnapshot(q, (snapshot) => {
+            messagesContainer.innerHTML = '';
+            if (snapshot.empty) {
+                messagesContainer.innerHTML = '<div class="flex flex-col items-center justify-center h-full opacity-20 text-center"><i class="fas fa-ghost text-4xl mb-2"></i><p class="text-xs">No messages yet. Say hi!</p></div>';
+                return;
+            }
+
+            snapshot.forEach((doc) => {
+                const msg = doc.to_dict ? doc.to_dict() : doc.data();
+                appendMessage(msg);
+            });
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }, (error) => {
+            console.error("Chat error:", error);
+            messagesContainer.innerHTML = `<div class="text-red-500 text-xs text-center p-4">Error loading messages: ${error.message}</div>`;
+        });
+    }
+
+    function appendMessage(msg) {
+        const messagesContainer = document.getElementById('chat-messages');
+        const isMe = msg.senderId === "{{ current_user.id|string }}";
+        
+        const msgHtml = `
+            <div class="flex ${isMe ? 'justify-end' : 'justify-start'} chat-message">
+                <div class="max-w-[80%] ${isMe ? 'bg-indigo-600 text-white rounded-2xl rounded-tr-none' : 'bg-white/5 text-gray-200 rounded-2xl rounded-tl-none border border-white/5'} p-3 shadow-lg">
+                    <p class="text-xs font-black mb-1 opacity-50 uppercase tracking-widest">${isMe ? 'You' : (msg.senderName || 'Anonymous')}</p>
+                    <p class="text-sm">${msg.content}</p>
+                    <p class="text-[9px] mt-1 opacity-40 text-right">${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                </div>
+            </div>
+        `;
+        messagesContainer.insertAdjacentHTML('beforeend', msgHtml);
+    }
+
+    async function handleChatSubmit(event) {
+        event.preventDefault();
+        const input = document.getElementById('chat-input');
+        const content = input.value.trim();
+        if (!content || !currentGroupId) return;
+
+        input.value = '';
+        input.disabled = true;
+
+        try {
+            const response = await fetch('/api/chat/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    groupId: currentGroupId,
+                    content: content,
+                    senderName: "{{ current_user.name }}"
+                })
+            });
+            const data = await response.json();
+            if (!data.success) {
+                console.error("Failed to send message:", data.error);
+            }
+        } catch (e) {
+            console.error("Chat send error:", e);
+        } finally {
+            input.disabled = false;
+            input.focus();
+        }
+    }
+</script>

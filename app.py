@@ -1070,39 +1070,283 @@ def update_course_progress():
 def live_sessions():
     return render_template('live.html')
 
+# ── Semantic Skill Graph ─────────────────────────────────────────────────────
+SKILL_GRAPH = {
+    "aws": ["cloud", "devops", "terraform", "kubernetes", "azure", "gcp", "serverless", "lambda"],
+    "azure": ["cloud", "devops", "aws", "gcp", "microsoft", "terraform"],
+    "gcp": ["cloud", "devops", "aws", "azure", "kubernetes", "bigquery"],
+    "devops": ["aws", "kubernetes", "docker", "ci/cd", "jenkins", "terraform", "linux", "bash"],
+    "kubernetes": ["docker", "devops", "aws", "microservices", "helm", "containers"],
+    "docker": ["kubernetes", "devops", "containers", "microservices", "linux"],
+    "terraform": ["devops", "aws", "azure", "gcp", "iac", "cloud"],
+    "react": ["javascript", "frontend", "nextjs", "typescript", "nodejs", "vue", "html", "css"],
+    "nextjs": ["react", "javascript", "typescript", "frontend", "nodejs", "vercel"],
+    "vue": ["javascript", "frontend", "react", "typescript", "html", "css"],
+    "typescript": ["javascript", "react", "nodejs", "nextjs", "angular"],
+    "javascript": ["typescript", "react", "nodejs", "frontend", "vue", "angular", "html", "css"],
+    "nodejs": ["javascript", "typescript", "backend", "express", "mongodb", "react"],
+    "python": ["ml", "django", "flask", "data science", "ai", "fastapi", "pandas", "numpy"],
+    "django": ["python", "backend", "rest api", "postgresql", "flask"],
+    "flask": ["python", "backend", "rest api", "django", "fastapi"],
+    "fastapi": ["python", "backend", "rest api", "flask", "microservices"],
+    "machine learning": ["python", "ai", "deep learning", "tensorflow", "pytorch", "data science"],
+    "deep learning": ["machine learning", "ai", "tensorflow", "pytorch", "neural networks", "python"],
+    "tensorflow": ["deep learning", "python", "machine learning", "keras", "ai"],
+    "pytorch": ["deep learning", "python", "machine learning", "ai"],
+    "data science": ["python", "machine learning", "pandas", "sql", "tableau", "statistics"],
+    "sql": ["database", "postgresql", "mysql", "data science", "data engineering"],
+    "postgresql": ["sql", "database", "backend", "django", "mysql"],
+    "mongodb": ["database", "nosql", "nodejs", "backend"],
+    "java": ["spring boot", "backend", "dsa", "microservices", "android"],
+    "spring boot": ["java", "backend", "microservices", "rest api"],
+    "kotlin": ["android", "java", "mobile", "jetpack"],
+    "android": ["kotlin", "java", "mobile", "flutter"],
+    "flutter": ["dart", "mobile", "android", "ios", "react native"],
+    "react native": ["flutter", "mobile", "javascript", "ios", "android"],
+    "ios": ["swift", "xcode", "mobile", "objective-c"],
+    "swift": ["ios", "xcode", "apple", "mobile"],
+    "dsa": ["algorithms", "competitive programming", "leetcode", "java", "c++", "python"],
+    "algorithms": ["dsa", "data structures", "competitive programming", "python", "c++"],
+    "blockchain": ["web3", "solidity", "ethereum", "smart contracts", "crypto"],
+    "web3": ["blockchain", "solidity", "ethereum", "react", "javascript"],
+    "cybersecurity": ["networking", "linux", "ethical hacking", "pentesting", "cloud security"],
+    "linux": ["bash", "devops", "cybersecurity", "networking", "shell scripting"],
+    "ui/ux": ["figma", "design", "frontend", "user research", "prototyping"],
+    "figma": ["ui/ux", "design", "prototyping", "frontend"],
+}
+
+def _compute_match_score(candidate, query_skills, current_skills, current_goals):
+    """
+    Compute a 0-100 match score between current_user and a candidate user.
+    Factors:
+      - Skill similarity        40%
+      - Related skill match     15%
+      - Goal alignment          15%
+      - Profile completeness    10%
+      - Availability bonus      10%
+      - Experience bonus        10%
+    """
+    candidate_skills = [s.lower().strip() for s in candidate.get_skills_list()]
+    query_lower = [q.lower().strip() for q in query_skills]
+    
+    # Build related skills set from the query
+    related = set()
+    for q in query_lower:
+        related.update(SKILL_GRAPH.get(q, []))
+        # Also check partial key matches
+        for key, vals in SKILL_GRAPH.items():
+            if q in key or key in q:
+                related.update(vals)
+                related.add(key)
+    
+    # 1. Exact skill match score (40 pts)
+    exact_hits = sum(1 for q in query_lower if any(q == cs or q in cs or cs in q for cs in candidate_skills))
+    skill_score = min(40, (exact_hits / max(len(query_lower), 1)) * 40) if query_lower else 0
+    
+    # 2. Related skill match (15 pts)
+    related_hits = sum(1 for cs in candidate_skills if cs in related)
+    related_score = min(15, related_hits * 5)
+    
+    # 3. Goal alignment (15 pts)
+    cand_goals = [g.lower().strip() for g in candidate.get_goals_list()]
+    goal_hits = sum(1 for q in query_lower if any(q in g or g in q for g in cand_goals))
+    goal_hits += sum(1 for cu in (current_goals or []) if any(cu.lower() in g or g in cu.lower() for g in cand_goals))
+    goal_score = min(15, goal_hits * 5)
+    
+    # 4. Profile completeness (10 pts)
+    completeness = 0
+    if candidate.bio: completeness += 2
+    if candidate.college_name: completeness += 2
+    if candidate.availability: completeness += 2
+    if candidate.skills: completeness += 2
+    if candidate.goals: completeness += 2
+    
+    # 5. Availability bonus (10 pts)
+    avail_score = 8 if candidate.availability else 0
+    
+    # 6. Experience (10 pts)
+    exp = candidate.years_experience or 0
+    exp_score = min(10, exp * 2)
+    
+    # If no query, produce a profile-based base score
+    if not query_lower:
+        base = completeness + avail_score + exp_score
+        return min(100, base + 40)  # provide a reasonable base
+    
+    total = skill_score + related_score + goal_score + completeness + avail_score + exp_score
+    # Normalize to ensure we hit reasonable percentages
+    return min(100, max(10, round(total)))
+
+def _user_to_dict(u, current_user_skills, current_user_goals, query_skills, conn_status_map):
+    """Serialize a user + compute match score for API response."""
+    skills = u.get_skills_list()
+    match_score = _compute_match_score(u, query_skills, current_user_skills, current_user_goals)
+    
+    conn_info = conn_status_map.get(u.id, {})
+    
+    return {
+        "id": u.id,
+        "name": u.name,
+        "initial": u.name[0].upper() if u.name else "?",
+        "role": "mentor" if (u.is_mentor or u.role == 'mentor') else "peer",
+        "college": u.college_name or "SkillSync Academy",
+        "job_role": u.job_role or ("Expert Mentor" if u.is_mentor else "Peer Learner"),
+        "bio": u.bio or "",
+        "skills": skills,
+        "availability": u.availability or "",
+        "is_available": bool(u.availability),
+        "experience": u.years_experience or 0,
+        "is_verified": bool(u.is_verified),
+        "is_mentor": bool(u.is_mentor or u.role == 'mentor'),
+        "expertise": u.expertise or "",
+        "match_score": match_score,
+        "connection_count": u.connection_count,
+        "conn_status": conn_info.get('status', None),
+        "conn_id": conn_info.get('conn_id', None),
+        "is_conn_sender": conn_info.get('is_sender', True),
+        "profile_url": f"/mentor/{u.id}" if (u.is_mentor or u.role == 'mentor') else f"/learner/{u.id}",
+    }
+
 @app.route('/people')
 @login_required
 def people():
-    active_tab = request.args.get('tab', 'students')
-    
-    # Fetch all users except current user
-    all_users = User.query.filter(User.id != current_user.id).all()
-    
-    if active_tab == 'mentors':
-        filtered_users = [u for u in all_users if getattr(u, 'is_mentor', False) or u.role == 'mentor']
-    else:
-        filtered_users = [u for u in all_users if not getattr(u, 'is_mentor', False) and u.role != 'mentor']
-    
-    # Map connection status for each user
+    search_query = request.args.get('q', '')
+    # Connection status map for template use
     connections = PeerConnection.query.filter(
-        (PeerConnection.sender_id == current_user.id) | 
+        (PeerConnection.sender_id == current_user.id) |
         (PeerConnection.receiver_id == current_user.id)
     ).all()
-    
     status_map = {}
     for conn in connections:
         other_id = conn.receiver_id if conn.sender_id == current_user.id else conn.sender_id
-        # We prioritize 'Accepted' then 'Pending'
-        # If multiple exist (though rare in theory), we take the most relevant one
         if other_id not in status_map or conn.status == 'Accepted':
-            # Store both status and who sent it (to handle Acceptance flow)
             status_map[other_id] = {
                 'status': conn.status,
                 'is_sender': conn.sender_id == current_user.id,
                 'conn_id': conn.id
             }
-            
-    return render_template('people.html', users=filtered_users, status_map=status_map, active_tab=active_tab)
+    current_skills = current_user.get_skills_list()
+    return render_template('people.html',
+        status_map=status_map,
+        search_query=search_query,
+        current_user_skills=current_skills,
+    )
+
+# ── Search API: Suggestions (autocomplete) ────────────────────────────────────
+@app.route('/api/search/suggestions')
+@login_required
+def search_suggestions():
+    q = request.args.get('q', '').lower().strip()
+    if not q or len(q) < 1:
+        return jsonify({"suggestions": []})
+
+    # Collect all skills from DB
+    all_users = User.query.filter(User.id != current_user.id, User.skills != '').all()
+    skill_set = set()
+    for u in all_users:
+        for s in u.get_skills_list():
+            skill_set.add(s.strip())
+
+    # Add known graph keys
+    for key in SKILL_GRAPH.keys():
+        skill_set.add(key.title())
+
+    # Filter by prefix / contains
+    matched = sorted([s for s in skill_set if q in s.lower()], key=lambda x: (not x.lower().startswith(q), x))[:8]
+
+    # Add related suggestions from graph
+    related = set()
+    for key, vals in SKILL_GRAPH.items():
+        if q in key:
+            for v in vals[:3]:
+                related.add(v.title())
+    
+    result = list(dict.fromkeys(matched + [r for r in list(related)[:4] if r not in matched]))[:10]
+    return jsonify({"suggestions": result})
+
+# ── Search API: Ranked Users ──────────────────────────────────────────────────
+@app.route('/api/search/users')
+@login_required
+def search_users():
+    q = request.args.get('q', '').strip()
+    user_type = request.args.get('type', 'all')   # all | mentor | peer
+    level = request.args.get('level', '')          # beginner | intermediate | expert
+    available_only = request.args.get('available', '').lower() == 'true'
+    top_rated = request.args.get('top_rated', '').lower() == 'true'
+
+    query_skills = [s.strip() for s in q.split(',') if s.strip()] if q else []
+    current_skills = current_user.get_skills_list()
+    current_goals = current_user.get_goals_list()
+
+    # Build related skill set from query
+    related_keys = set()
+    for qs in [s.lower() for s in query_skills]:
+        related_keys.update(SKILL_GRAPH.get(qs, []))
+        for key, vals in SKILL_GRAPH.items():
+            if qs in key or key in qs:
+                related_keys.update(vals)
+                related_keys.add(key)
+
+    # Base user query
+    users_q = User.query.filter(User.id != current_user.id)
+
+    # Type filter
+    if user_type == 'mentor':
+        users_q = users_q.filter((User.is_mentor == True) | (User.role == 'mentor'))
+    elif user_type == 'peer':
+        users_q = users_q.filter(User.is_mentor == False, User.role != 'mentor')
+
+    # Availability filter
+    if available_only:
+        users_q = users_q.filter(User.availability != '', User.availability != None)
+
+    all_users = users_q.all()
+
+    # Skill-text filter for query
+    if query_skills:
+        def skill_matches(u):
+            u_skills_lower = [s.lower() for s in u.get_skills_list()]
+            u_goals_lower = [g.lower() for g in u.get_goals_list()]
+            combined = u_skills_lower + u_goals_lower + [u.expertise.lower() if u.expertise else ''] + [u.job_role.lower() if u.job_role else '']
+            for qs in [s.lower() for s in query_skills]:
+                if any(qs in c or c in qs for c in combined if c):
+                    return True
+            for rk in related_keys:
+                if any(rk in c or c in rk for c in combined if c):
+                    return True
+            return False
+        all_users = [u for u in all_users if skill_matches(u)]
+
+    # Level filter (based on years_experience)
+    if level == 'beginner':
+        all_users = [u for u in all_users if (u.years_experience or 0) <= 1]
+    elif level == 'intermediate':
+        all_users = [u for u in all_users if 2 <= (u.years_experience or 0) <= 5]
+    elif level == 'expert':
+        all_users = [u for u in all_users if (u.years_experience or 0) > 5]
+
+    # Connection status map
+    connections = PeerConnection.query.filter(
+        (PeerConnection.sender_id == current_user.id) |
+        (PeerConnection.receiver_id == current_user.id)
+    ).all()
+    conn_status_map = {}
+    for conn in connections:
+        other_id = conn.receiver_id if conn.sender_id == current_user.id else conn.sender_id
+        if other_id not in conn_status_map or conn.status == 'Accepted':
+            conn_status_map[other_id] = {
+                'status': conn.status,
+                'is_sender': conn.sender_id == current_user.id,
+                'conn_id': conn.id
+            }
+
+    # Compute match scores and serialize
+    results = [_user_to_dict(u, current_skills, current_goals, query_skills, conn_status_map) for u in all_users]
+
+    # Sort: by match_score desc, then by connection_count desc
+    results.sort(key=lambda x: (-x['match_score'], -x['connection_count']))
+
+    return jsonify({"success": True, "users": results, "query": q, "total": len(results)})
 
 @app.route('/meetups')
 @login_required
@@ -1348,6 +1592,32 @@ def add_startup():
     
     flash('Startup project listed!', 'success')
     return redirect(url_for('startups'))
+
+@app.route('/api/chat/send', methods=['POST'])
+@login_required
+def chat_send():
+    data = request.get_json() or {}
+    group_id = data.get('groupId')
+    content = data.get('content')
+    sender_name = data.get('senderName', current_user.name)
+    
+    if not group_id or not content:
+        return jsonify({'success': False, 'error': 'Missing groupId or content'}), 400
+        
+    import uuid
+    message_id = str(uuid.uuid4())
+    
+    success = fs_svc.sync_message_to_firestore(
+        message_id=message_id,
+        sender_id=str(current_user.id),
+        group_id=str(group_id),
+        content=content,
+        sender_name=sender_name
+    )
+    
+    if success:
+        return jsonify({'success': True, 'messageId': message_id})
+    return jsonify({'success': False, 'error': 'Failed to sync with Firestore'}), 500
 
 @app.route('/startup/delete/<int:startup_id>', methods=['POST'])
 @mentor_required

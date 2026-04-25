@@ -51,7 +51,9 @@
                                 <div class="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center text-blue-400 font-bold">
                                     {{ session.learner.name[0] }}
                                 </div>
-                                <span class="text-white font-medium">{{ session.learner.name }}</span>
+                                <a href="{{ url_for('learner_profile', learner_id=session.learner.id) }}" class="hover:underline">
+                                    <span class="text-white font-medium">{{ session.learner.name }}</span>
+                                </a>
                             </div>
                         </td>
                         <td class="py-4 text-gray-300 font-medium">{{ session.topic }}</td>
@@ -110,7 +112,9 @@
                     </div>
                     <div>
                         <p class="text-xs text-gray-500">Mentor</p>
-                        <p class="text-sm text-white font-medium">{{ session.mentor.name }}</p>
+                        <a href="{{ url_for('mentor_profile', mentor_id=session.mentor.id) }}" class="hover:underline">
+                            <p class="text-sm text-white font-medium">{{ session.mentor.name }}</p>
+                        </a>
                     </div>
                 </div>
                 <div class="space-y-3 mb-6">

@@ -1,473 +1,871 @@
 {% extends "base.html" %}
 
-{% block title %}Explore People - SkillSync{% endblock %}
+{% block title %}Discover People – SkillSync{% endblock %}
 
 {% block extra_css %}
 <style>
-    .people-container {
-        max-width: 1400px;
-        margin: 0 auto;
-    }
-    .mentor-card-premium {
-        background: #0f172a;
-        backdrop-filter: blur(12px);
-        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
-    }
-    .mentor-card-premium:hover {
-        transform: translateY(-8px) scale(1.02);
-        border-color: rgba(99, 102, 241, 0.4) !important;
-        box-shadow: 0 30px 70px rgba(99, 102, 241, 0.15), 0 0 40px rgba(99, 102, 241, 0.05);
-    }
+  /* ── Base Layout ─────────────────────────────────────────────────────── */
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
-    /* ── LinkedIn-style button states ── */
-    .btn-connect {
-        display: inline-flex; align-items: center; gap: 0.4rem;
-        cursor: pointer;
-        transition: all 0.25s ease;
-        white-space: nowrap;
-    }
-    .btn-connect:hover {
-        background: #6366f1;
-        color: #fff !important;
-        border-color: #6366f1 !important;
-        box-shadow: 0 0 20px rgba(99,102,241,0.35);
-    }
+  .discover-page { font-family: 'Inter', sans-serif; max-width: 1400px; margin: 0 auto; padding: 2rem 1.5rem; }
 
-    .btn-pending {
-        display: inline-flex; align-items: center; gap: 0.4rem;
-        padding: 0.45rem 1.1rem;
-        border-radius: 9999px;
-        font-size: 0.78rem; font-weight: 700;
-        background: rgba(255,255,255,0.05);
-        border: 2px solid rgba(255,255,255,0.12);
-        color: #94a3b8;
-        cursor: pointer;
-        transition: all 0.25s ease;
-        white-space: nowrap;
-        position: relative;
-    }
-    .btn-pending:hover {
-        border-color: #ef4444;
-        color: #ef4444;
-        background: rgba(239,68,68,0.08);
-    }
-    .btn-pending:hover .pending-label { display: none; }
-    .btn-pending:hover .withdraw-label { display: inline; }
-    .withdraw-label { display: none; }
+  /* ── Hero Search ─────────────────────────────────────────────────────── */
+  .hero-search-wrap {
+    background: linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(139,92,246,0.05) 100%);
+    border: 1px solid rgba(99,102,241,0.15);
+    border-radius: 2rem;
+    padding: 2.5rem;
+    margin-bottom: 1.75rem;
+    position: relative; overflow: hidden;
+  }
+  .hero-search-wrap::before {
+    content: ''; position: absolute; top: -60px; right: -60px;
+    width: 220px; height: 220px;
+    background: radial-gradient(circle, rgba(99,102,241,0.12), transparent 70%);
+    border-radius: 50%; pointer-events: none;
+  }
+  .search-input-wrap { position: relative; }
+  .search-input {
+    width: 100%; background: rgba(15,23,42,0.8) !important;
+    border: 1.5px solid rgba(99,102,241,0.25) !important;
+    border-radius: 1.2rem !important;
+    padding: 1rem 3rem 1rem 3.5rem !important;
+    color: #e2e8f0 !important; font-size: 1.05rem !important; font-weight: 500 !important;
+    outline: none !important; transition: border-color 0.3s, box-shadow 0.3s;
+    font-family: inherit !important; box-sizing: border-box !important;
+  }
+  .search-input:focus {
+    border-color: rgba(99,102,241,0.6) !important;
+    box-shadow: 0 0 0 4px rgba(99,102,241,0.12), 0 0 30px rgba(99,102,241,0.08);
+  }
+  .search-input::placeholder { color: #64748b; }
+  .search-icon {
+    position: absolute; left: 1rem; top: 50%; transform: translateY(-50%);
+    color: #6366f1; font-size: 1rem; pointer-events: none; z-index: 2;
+  }
+  .search-clear {
+    position: absolute; right: 1rem; top: 50%; transform: translateY(-50%);
+    color: #475569; cursor: pointer; transition: color 0.2s; display: none; z-index: 2;
+  }
+  .search-clear:hover { color: #e2e8f0; }
 
-    .btn-accept {
-        display: inline-flex; align-items: center; gap: 0.4rem;
-        padding: 0.45rem 1rem;
-        border-radius: 9999px;
-        font-size: 0.78rem; font-weight: 700;
-        background: linear-gradient(135deg, #6366f1, #8b5cf6);
-        border: none;
-        color: #fff;
-        cursor: pointer;
-        transition: all 0.25s ease;
-        white-space: nowrap;
-        box-shadow: 0 4px 15px rgba(99,102,241,0.3);
-    }
-    .btn-accept:hover { transform: scale(1.04); filter: brightness(1.1); }
+  /* Autocomplete dropdown */
+  .autocomplete-dropdown {
+    position: absolute; top: calc(100% + 0.5rem); left: 0; right: 0; z-index: 100;
+    background: #1e293b; border: 1px solid rgba(99,102,241,0.2);
+    border-radius: 1rem; overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+    display: none;
+  }
+  .autocomplete-item {
+    padding: 0.75rem 1.25rem; cursor: pointer;
+    transition: background 0.15s; display: flex; align-items: center; gap: 0.75rem;
+    color: #e2e8f0; font-size: 0.9rem; font-weight: 500;
+  }
+  .autocomplete-item:hover { background: rgba(99,102,241,0.12); color: #a5b4fc; }
+  .autocomplete-item .suggest-icon { color: #6366f1; font-size: 0.75rem; width: 16px; }
 
-    .btn-decline {
-        display: inline-flex; align-items: center; gap: 0.4rem;
-        padding: 0.45rem 0.9rem;
-        border-radius: 9999px;
-        font-size: 0.78rem; font-weight: 700;
-        background: transparent;
-        border: 2px solid rgba(255,255,255,0.12);
-        color: #94a3b8;
-        cursor: pointer;
-        transition: all 0.25s ease;
-        white-space: nowrap;
-    }
-    .btn-decline:hover { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,0.08); }
+  /* ── Active Filters Chips ─────────────────────────────────────────────── */
+  .filter-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+  .active-filter {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.3rem 0.8rem; border-radius: 9999px;
+    background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3);
+    color: #a5b4fc; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .active-filter button { background: none; border: none; color: #818cf8; cursor: pointer; padding: 0 0 0 2px; font-size: 0.7rem; }
+  .active-filter button:hover { color: #e2e8f0; }
 
-    .btn-connected {
-        display: inline-flex; align-items: center; gap: 0.4rem;
-        padding: 0.45rem 1.1rem;
-        border-radius: 9999px;
-        font-size: 0.78rem; font-weight: 700;
-        background: rgba(99,102,241,0.08);
-        border: 2px solid rgba(99,102,241,0.3);
-        color: #a5b4fc;
-        cursor: default;
-        white-space: nowrap;
-    }
+  /* ── Smart Filter Bar ─────────────────────────────────────────────────── */
+  .filter-bar {
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.75rem;
+  }
+  .filter-pill {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.45rem 1rem; border-radius: 9999px; cursor: pointer;
+    border: 1.5px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+    color: #94a3b8; font-size: 0.78rem; font-weight: 700;
+    transition: all 0.2s; white-space: nowrap; user-select: none;
+  }
+  .filter-pill:hover { border-color: rgba(99,102,241,0.4); color: #c7d2fe; background: rgba(99,102,241,0.07); }
+  .filter-pill.active {
+    background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.2));
+    border-color: rgba(99,102,241,0.5); color: #a5b4fc;
+    box-shadow: 0 0 16px rgba(99,102,241,0.2);
+  }
+  .filter-pill .pill-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.7;
+    display: none;
+  }
+  .filter-pill.active .pill-dot { display: block; }
 
-    .btn-icon {
-        width: 2rem; height: 2rem;
-        display: flex; align-items: center; justify-content: center;
-        border-radius: 0.6rem;
-        background: rgba(255,255,255,0.05);
-        border: 1px solid rgba(255,255,255,0.08);
-        color: #94a3b8;
-        cursor: pointer;
-        transition: all 0.2s;
-        text-decoration: none;
-        font-size: 0.75rem;
-    }
-    .btn-icon:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  /* ── Results Header ──────────────────────────────────────────────────── */
+  .results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+  .results-count { font-size: 0.82rem; font-weight: 600; color: #64748b; }
+  .results-count span { color: #a5b4fc; font-weight: 800; }
 
-    /* Animated connection state change */
-    @keyframes popIn {
-        0% { transform: scale(0.85); opacity: 0; }
-        60% { transform: scale(1.05); }
-        100% { transform: scale(1); opacity: 1; }
-    }
-    .conn-pop { animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+  /* ── Card Grid ──────────────────────────────────────────────────────── */
+  .people-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; }
+
+  /* ── Peer Card ──────────────────────────────────────────────────────── */
+  .peer-card {
+    background: #0f172a; border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 1.75rem; padding: 1.5rem;
+    transition: all 0.35s cubic-bezier(0.175,0.885,0.32,1.275);
+    position: relative; overflow: hidden; display: flex; flex-direction: column;
+  }
+  .peer-card::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(99,102,241,0.04), transparent);
+    opacity: 0; transition: opacity 0.3s; border-radius: inherit; pointer-events:none;
+  }
+  .peer-card:hover { transform: translateY(-6px) scale(1.01); border-color: rgba(99,102,241,0.3); box-shadow: 0 24px 60px rgba(0,0,0,0.35), 0 0 40px rgba(99,102,241,0.08); }
+  .peer-card:hover::after { opacity: 1; }
+
+  /* ── Recommended Card ─────────────────────────────────────────────────── */
+  .peer-card.recommended {
+    border-color: rgba(99,102,241,0.35);
+    background: linear-gradient(135deg, #0f172a 0%, rgba(30,27,75,0.8) 100%);
+    box-shadow: 0 0 30px rgba(99,102,241,0.08);
+  }
+  .peer-card.recommended::before {
+    content: '✦ Recommended'; position: absolute; top: -1px; right: 1.2rem;
+    font-size: 0.6rem; font-weight: 900; color: #a5b4fc;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    padding: 0.25rem 0.75rem; border-radius: 0 0 0.75rem 0.75rem;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+
+  /* ── Card Header ─────────────────────────────────────────────────────── */
+  .card-header { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1rem; }
+  .card-avatar {
+    position: relative; flex-shrink: 0;
+    width: 3.5rem; height: 3.5rem; border-radius: 1.1rem;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; font-weight: 900; color: white;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+  }
+  .card-avatar .online-dot {
+    position: absolute; bottom: -2px; right: -2px;
+    width: 12px; height: 12px; background: #22c55e;
+    border-radius: 50%; border: 2px solid #0f172a;
+  }
+  .card-avatar .offline-dot {
+    position: absolute; bottom: -2px; right: -2px;
+    width: 12px; height: 12px; background: #475569;
+    border-radius: 50%; border: 2px solid #0f172a;
+  }
+  .card-identity { flex: 1; min-width: 0; }
+  .card-name { font-size: 1rem; font-weight: 800; color: #f1f5f9; line-height: 1.2; margin-bottom: 0.2rem; }
+  .card-role-pill {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    padding: 0.15rem 0.55rem; border-radius: 9999px; font-size: 0.62rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.07em;
+  }
+  .pill-mentor { background: rgba(99,102,241,0.12); color: #818cf8; border: 1px solid rgba(99,102,241,0.25); }
+  .pill-peer { background: rgba(16,185,129,0.1); color: #34d399; border: 1px solid rgba(16,185,129,0.25); }
+  .card-institution { font-size: 0.7rem; color: #64748b; font-weight: 600; margin-top: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* ── Donut Match Score ───────────────────────────────────────────────── */
+  .donut-wrap {
+    position: relative; width: 68px; height: 68px; flex-shrink: 0;
+  }
+  .donut-svg { width: 68px; height: 68px; transform: rotate(-90deg); }
+  .donut-track { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 5; }
+  .donut-fill {
+    fill: none; stroke-width: 5; stroke-linecap: round;
+    stroke-dasharray: 0 175; /* animated via JS */
+    transition: stroke-dasharray 1.2s cubic-bezier(0.4,0,0.2,1);
+  }
+  .donut-fill.score-high { stroke: url(#grad-high); filter: drop-shadow(0 0 5px rgba(99,102,241,0.7)); }
+  .donut-fill.score-mid { stroke: url(#grad-mid); filter: drop-shadow(0 0 4px rgba(99,102,241,0.5)); }
+  .donut-fill.score-low { stroke: rgba(100,116,139,0.5); }
+  .donut-center {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; pointer-events: none;
+  }
+  .donut-pct { font-size: 0.9rem; font-weight: 900; color: #e2e8f0; line-height: 1; }
+  .donut-label { font-size: 0.48rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 1px; }
+
+  /* ── Card Bio ──────────────────────────────────────────────────────── */
+  .card-bio { font-size: 0.78rem; color: #64748b; line-height: 1.5; margin-bottom: 0.75rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+  /* ── Skill Pills ─────────────────────────────────────────────────────── */
+  .skill-pills { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.85rem; }
+  .skill-tag {
+    padding: 0.2rem 0.6rem; border-radius: 0.5rem; font-size: 0.64rem; font-weight: 700;
+    background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.15);
+    color: #a5b4fc; text-transform: uppercase; letter-spacing: 0.05em;
+    transition: all 0.2s;
+  }
+  .skill-tag.highlighted { background: rgba(99,102,241,0.2); border-color: rgba(99,102,241,0.4); color: #c7d2fe; }
+  .skill-tag-more { color: #475569; background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.08); }
+
+  /* ── Card Meta Row ────────────────────────────────────────────────────── */
+  .card-meta { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .meta-item { display: flex; align-items: center; gap: 0.3rem; font-size: 0.68rem; font-weight: 600; color: #64748b; }
+  .meta-item i { font-size: 0.6rem; }
+  .avail-badge { color: #22c55e; }
+  .exp-badge { color: #94a3b8; }
+  .verified-badge { color: #60a5fa; }
+
+  /* ── Card Actions ────────────────────────────────────────────────────── */
+  .card-actions { display: flex; flex-direction: column; gap: 0.5rem; margin-top: auto; }
+  .btn-book-mentor-sm {
+    width: 100%; padding: 0.6rem; border-radius: 0.85rem;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white; font-size: 0.78rem; font-weight: 800;
+    border: none; cursor: pointer; transition: all 0.25s;
+    display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+    box-shadow: 0 4px 15px rgba(99,102,241,0.3);
+  }
+  .btn-book-mentor-sm:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(99,102,241,0.45); filter: brightness(1.1); }
+  .btn-connect-sm {
+    flex: 1; padding: 0.55rem; border-radius: 0.75rem;
+    background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.1);
+    color: #94a3b8; font-size: 0.75rem; font-weight: 700;
+    cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 0.35rem;
+  }
+  .btn-connect-sm:hover { background: rgba(99,102,241,0.12); border-color: rgba(99,102,241,0.4); color: #a5b4fc; }
+  .btn-view-sm {
+    width: 2.2rem; height: 2.2rem;
+    border-radius: 0.65rem; background: rgba(255,255,255,0.05);
+    border: 1.5px solid rgba(255,255,255,0.08);
+    color: #64748b; font-size: 0.75rem;
+    display: flex; align-items: center; justify-content: center;
+    text-decoration: none; transition: all 0.2s; flex-shrink: 0;
+  }
+  .btn-view-sm:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; border-color: rgba(255,255,255,0.2); }
+  .btn-pending-sm {
+    flex: 1; padding: 0.55rem; border-radius: 0.75rem;
+    background: rgba(255,255,255,0.03); border: 1.5px solid rgba(255,255,255,0.07);
+    color: #475569; font-size: 0.75rem; font-weight: 700; cursor: default;
+    display: flex; align-items: center; justify-content: center; gap: 0.35rem;
+  }
+  .btn-connected-sm {
+    flex: 1; padding: 0.55rem; border-radius: 0.75rem;
+    background: rgba(34,197,94,0.08); border: 1.5px solid rgba(34,197,94,0.2);
+    color: #4ade80; font-size: 0.75rem; font-weight: 700; cursor: default;
+    display: flex; align-items: center; justify-content: center; gap: 0.35rem;
+  }
+
+  /* ── Skeleton Loader ─────────────────────────────────────────────────── */
+  .skeleton-card {
+    background: #0f172a; border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 1.75rem; padding: 1.5rem;
+  }
+  @keyframes shimmer {
+    0% { background-position: -600px 0; }
+    100% { background-position: 600px 0; }
+  }
+  .skeleton-line {
+    background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+    background-size: 600px 100%; animation: shimmer 1.5s infinite;
+    border-radius: 0.5rem;
+  }
+
+  /* ── Recommended Section ─────────────────────────────────────────────── */
+  .recommended-section { margin-bottom: 2rem; }
+  .section-label {
+    font-size: 0.7rem; font-weight: 900; color: #6366f1;
+    text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 1rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: rgba(99,102,241,0.15); }
+
+  /* ── Empty State ─────────────────────────────────────────────────────── */
+  .empty-state {
+    text-align: center; padding: 5rem 2rem;
+    background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.08);
+    border-radius: 2rem;
+  }
+  @keyframes floatEmoji { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+  .empty-emoji { font-size: 3.5rem; display: block; margin-bottom: 1rem; animation: floatEmoji 2.5s ease-in-out infinite; }
+
+  /* ── Responsive ──────────────────────────────────────────────────────── */
+  @media (max-width: 640px) {
+    .people-grid { grid-template-columns: 1fr; }
+    .hero-search-wrap { padding: 1.5rem; }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="people-container py-12 px-4">
-    <!-- Header -->
-    <div class="mb-10 text-center">
-        {% if active_tab == 'mentors' %}
-        <h1 class="text-5xl font-extrabold text-white mb-3">Connect with <span class="text-purple-400">Mentors</span></h1>
-        <p class="text-gray-400 text-lg max-w-2xl mx-auto">Find experienced mentors to guide your career trajectory.</p>
-        {% else %}
-        <h1 class="text-5xl font-extrabold text-white mb-3">Connect with <span class="text-indigo-400">Peers</span></h1>
-        <p class="text-gray-400 text-lg max-w-2xl mx-auto">Expand your professional circle. Collaborate and grow with ambitious peers.</p>
-        {% endif %}
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="grad-high" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="50%" style="stop-color:#8b5cf6"/>
+      <stop offset="100%" style="stop-color:#ec4899"/>
+    </linearGradient>
+    <linearGradient id="grad-mid" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#06b6d4"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="discover-page">
+
+  <!-- ── Hero Search ── -->
+  <div class="hero-search-wrap">
+    <div class="mb-5">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 mb-3">
+        <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
+        <span class="text-indigo-400 text-[10px] font-black uppercase tracking-widest">AI-Powered Discovery</span>
+      </div>
+      <h1 class="text-3xl md:text-4xl font-black text-white leading-tight">Find Your Perfect <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">Match</span></h1>
+      <p class="text-slate-400 text-sm mt-1">Search by skill — our engine ranks peers & mentors by compatibility score</p>
     </div>
 
-    <!-- Users List: Grid for Mentors, Rows for Peers -->
-    <div class="{% if active_tab == 'mentors' %}grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6{% else %}flex flex-col gap-4{% endif %}" id="peopleList">
-        {% for user in users %}
-        {% set u_status = status_map.get(user.id) %}
-        
-        {% if active_tab == 'mentors' %}
-        <!-- Mentor Card (Vertical) -->
-        <div class="mentor-card-premium group" id="card-{{ user.id }}" 
-             style="background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 2.2rem; padding: 1.75rem; position: relative; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; flex-direction: column; min-height: 440px;">
-            
-            <button class="absolute top-6 right-6 w-9 h-9 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/10 transition-all z-10">
-                <i class="far fa-bookmark"></i>
-            </button>
+    <div class="search-input-wrap" id="searchWrap">
+      <i class="fas fa-search search-icon"></i>
+      <input type="text" id="searchInput" class="search-input"
+        placeholder="Try: Python, AWS, React, DevOps, DSA…"
+        value="{{ search_query }}"
+        autocomplete="off"
+        spellcheck="false">
+      <i class="fas fa-times search-clear" id="searchClear" onclick="clearSearch()"></i>
 
-            <div class="relative w-20 h-20 mb-6">
-                <div class="w-full h-full rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-3xl font-black shadow-2xl group-hover:scale-105 transition-transform duration-300">
-                    {{ user.name[0] }}
-                </div>
-                <div class="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 border-4 border-[#0f172a] rounded-full"></div>
-            </div>
+      <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
+    </div>
 
-            <div class="flex-1">
-                <div class="mb-4">
-                    <h2 class="text-2xl font-black text-white group-hover:text-indigo-400 transition-colors leading-tight">{{ user.name }}</h2>
-                    <div class="flex items-center gap-2 mt-1.5 text-slate-400">
-                        <i class="fas fa-university text-xs text-indigo-500/60"></i>
-                        <span class="text-xs font-semibold tracking-wide uppercase">{{ user.college_name or 'SkillSync Academy' }}</span>
-                    </div>
-                </div>
-                <p class="text-sm text-slate-400 leading-relaxed mb-6 line-clamp-3">
-                    {{ user.bio or 'Passionate about engineering and solving complex problems with code.' }}
-                </p>
-                <div class="mb-5">
-                    <p class="text-[9px] font-black text-slate-600 tracking-[0.2em] uppercase mb-2">Strong Skills</p>
-                    <div class="flex flex-wrap gap-2">
-                        {% for skill in user.get_skills_list()[:2] %}
-                        <span class="px-3 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-[9px] text-indigo-300 font-bold uppercase tracking-wider">{{ skill }}</span>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
+    <div class="filter-chips" id="activeFilters"></div>
+  </div>
 
-            <div class="flex flex-col gap-3 mt-auto" id="actions-{{ user.id }}">
-                <button onclick="openBookModal({
-                    id: {{ user.id }},
-                    name: '{{ user.name | replace("'", "\\'") }}',
-                    expertise: '{{ (user.expertise or 'Expert Mentor') | replace("'", "\\'") }}',
-                    skills: {{ user.get_skills_list() | tojson }}
-                })"
-                    class="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-sm shadow-lg shadow-indigo-600/20 hover:shadow-indigo-600/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-                    Book Mentor Guide
-                </button>
+  <!-- ── Smart Filter Bar ── -->
+  <div class="filter-bar" id="filterBar">
+    <button class="filter-pill active" data-filter="type" data-value="all" onclick="toggleFilter(this)">
+      <span class="pill-dot"></span> All People
+    </button>
+    <button class="filter-pill" data-filter="type" data-value="mentor" onclick="toggleFilter(this)">
+      <i class="fas fa-chalkboard-teacher text-indigo-400"></i> Mentors Only
+    </button>
+    <button class="filter-pill" data-filter="type" data-value="peer" onclick="toggleFilter(this)">
+      <i class="fas fa-graduation-cap text-emerald-400"></i> Peers Only
+    </button>
+    <div style="width:1px;height:20px;background:rgba(255,255,255,0.08);margin:0 0.25rem;flex-shrink:0"></div>
+    <button class="filter-pill" data-filter="available" data-value="true" data-toggle onclick="toggleFilter(this)">
+      <i class="fas fa-circle text-green-400" style="font-size:0.5rem"></i> Available Now
+    </button>
+    <button class="filter-pill" data-filter="level" data-value="beginner" onclick="toggleFilter(this)">
+      🌱 Beginner
+    </button>
+    <button class="filter-pill" data-filter="level" data-value="intermediate" onclick="toggleFilter(this)">
+      ⚡ Intermediate
+    </button>
+    <button class="filter-pill" data-filter="level" data-value="expert" onclick="toggleFilter(this)">
+      🔥 Expert
+    </button>
+  </div>
 
-                <div class="flex items-center gap-2" id="conn-actions-{{ user.id }}">
-                    {% if not u_status %}
-                    <button onclick="connectUser({{ user.id }}, this)" class="btn-connect flex-1 py-2 rounded-xl border-2 border-slate-800 text-slate-400 hover:border-indigo-500 hover:text-white transition-all text-xs font-bold leading-none" style="height: 42px;">
-                        <i class="fas fa-user-plus mr-1"></i> Connect
-                    </button>
-                    {% elif u_status.status == 'Pending' %}
-                    <button class="btn-pending flex-1 py-2 rounded-xl bg-slate-800/50 text-slate-500 text-xs font-bold cursor-default leading-none" style="height: 42px;" disabled>
-                        <i class="fas fa-clock mr-1"></i> Pending
-                    </button>
-                    {% elif u_status.status == 'Accepted' %}
-                    <span class="flex-1 py-2 rounded-xl bg-green-500/10 text-green-400 text-center text-xs font-bold leading-none flex items-center justify-center" style="height: 42px;">
-                        <i class="fas fa-check mr-1"></i> Connected
-                    </span>
-                    {% endif %}
-                </div>
-            </div>
+  <!-- ── Results Container ── -->
+  <div id="resultsContainer">
+    <!-- Skeleton loading state shown initially -->
+    <div id="skeletonGrid" class="people-grid">
+      {% for _ in range(6) %}
+      <div class="skeleton-card">
+        <div class="flex items-start gap-3 mb-4">
+          <div class="skeleton-line w-14 h-14 rounded-2xl flex-shrink-0"></div>
+          <div class="flex-1">
+            <div class="skeleton-line h-4 w-3/4 mb-2"></div>
+            <div class="skeleton-line h-3 w-1/2 mb-2"></div>
+            <div class="skeleton-line h-3 w-2/3"></div>
+          </div>
+          <div class="skeleton-line w-16 h-16 rounded-full flex-shrink-0"></div>
         </div>
-
-        {% else %}
-        <!-- Peer/Student Horizontal Div (Row) -->
-        <div class="glass-card group flex items-center p-5 rounded-3xl border border-white/5 bg-[#0f172a] hover:bg-white/[0.02] transition-all duration-300" id="card-{{ user.id }}">
-            <div class="flex items-center gap-6 flex-1">
-                <!-- Avatar & Identity -->
-                <div class="relative flex-shrink-0">
-                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xl font-black shadow-lg">
-                        {{ user.name[0] }}
-                    </div>
-                    <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-[#0f172a] rounded-full"></div>
-                </div>
-                
-                <div class="min-w-[200px]">
-                    <h2 class="text-xl font-bold text-white group-hover:text-indigo-400 transition-colors">{{ user.name }}</h2>
-                    <div class="flex items-center gap-2 mt-1 text-slate-500">
-                        <i class="fas fa-university text-[10px]"></i>
-                        <span class="text-[10px] font-bold uppercase tracking-wider">{{ user.college_name or 'Peer Learner' }}</span>
-                    </div>
-                </div>
-
-                <!-- Skills (Center) -->
-                <div class="hidden md:flex flex-wrap gap-2 flex-1 px-8">
-                    {% for skill in user.get_skills_list()[:3] %}
-                    <span class="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[9px] text-slate-400 font-bold uppercase tracking-tight">{{ skill }}</span>
-                    {% endfor %}
-                </div>
-
-                <!-- Actions (Right) -->
-                <div class="flex items-center gap-3" id="conn-actions-{{ user.id }}">
-                    <div class="flex items-center" id="conn-actions-{{ user.id }}">
-                        {% if not u_status %}
-                        <button onclick="connectUser({{ user.id }}, this)" class="btn-connect px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white transition-all text-xs font-bold whitespace-nowrap">
-                            <i class="fas fa-user-plus mr-1"></i> Connect
-                        </button>
-                        {% elif u_status.status == 'Pending' %}
-                        <button class="px-5 py-2.5 rounded-xl bg-slate-800/50 text-slate-500 text-xs font-bold cursor-default whitespace-nowrap" disabled>
-                            <i class="fas fa-clock mr-1"></i> Pending
-                        </button>
-                        {% elif u_status.status == 'Accepted' %}
-                        <span class="px-5 py-2.5 rounded-xl bg-green-500/10 text-green-400 text-xs font-bold whitespace-nowrap">
-                            <i class="fas fa-check mr-1"></i> Connected
-                        </span>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
+        <div class="skeleton-line h-3 w-full mb-2"></div>
+        <div class="skeleton-line h-3 w-4/5 mb-4"></div>
+        <div class="flex gap-2 mb-4">
+          <div class="skeleton-line h-5 w-16 rounded-md"></div>
+          <div class="skeleton-line h-5 w-20 rounded-md"></div>
+          <div class="skeleton-line h-5 w-14 rounded-md"></div>
         </div>
-        {% endif %}
-        {% endfor %}
+        <div class="skeleton-line h-10 w-full rounded-xl mb-2"></div>
+        <div class="skeleton-line h-8 w-full rounded-xl"></div>
+      </div>
+      {% endfor %}
     </div>
 
-    {% if not users %}
-    <div class="text-center py-20 bg-white/5 rounded-[3rem] border border-dashed border-white/10">
-        <i class="fas fa-user-astronaut text-4xl text-gray-600 mb-4 block"></i>
-        <h3 class="text-xl font-bold text-white mb-2">The map is empty</h3>
-        <p class="text-gray-500">Wait for more users to join the mission.</p>
+    <!-- Recommended Section -->
+    <div id="recommendedSection" class="recommended-section hidden">
+      <div class="section-label"><i class="fas fa-star text-yellow-400"></i> Recommended for You</div>
+      <div class="people-grid" id="recommendedGrid"></div>
     </div>
-    {% endif %}
+
+    <!-- All Results -->
+    <div id="allResultsWrap">
+      <div class="results-header">
+        <div class="results-count">Showing <span id="resultsCount">0</span> people</div>
+        <div style="font-size:0.72rem;color:#475569;font-weight:600" id="queryLabel"></div>
+      </div>
+      <div class="people-grid" id="resultsGrid"></div>
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="empty-state hidden">
+      <span class="empty-emoji">🔭</span>
+      <h3 class="text-xl font-black text-white mb-2">No matches found</h3>
+      <p class="text-slate-500 text-sm mb-4">Try a different skill or broaden your filters.</p>
+      <button onclick="clearSearch()" class="px-6 py-2.5 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 text-sm font-bold hover:bg-indigo-600/30 transition">
+        Clear Search
+      </button>
+    </div>
+  </div>
 </div>
 
 {% include "_booking_modal.html" %}
 
 <!-- Toast -->
-<div id="toast" class="fixed bottom-8 right-8 z-[100] transform translate-y-20 opacity-0 transition-all duration-500 pointer-events-none">
-    <div class="glass-card px-6 py-4 rounded-2xl flex items-center gap-4 shadow-2xl bg-[#1e293b]/90 backdrop-blur-xl border border-white/10 min-w-[260px]">
-        <div id="toast-icon" class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"></div>
-        <div>
-            <p id="toast-title" class="text-sm font-bold text-white"></p>
-            <p id="toast-msg" class="text-xs text-gray-400 mt-0.5"></p>
-        </div>
+<div id="toast" class="fixed bottom-8 right-8 z-[200] transform translate-y-20 opacity-0 transition-all duration-500 pointer-events-none">
+  <div class="px-6 py-4 rounded-2xl flex items-center gap-4 shadow-2xl bg-[#1e293b]/95 backdrop-blur-xl border border-white/10 min-w-[260px]">
+    <div id="toast-icon" class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-lg"></div>
+    <div>
+      <p id="toast-title" class="text-sm font-bold text-white"></p>
+      <p id="toast-msg" class="text-xs text-gray-400 mt-0.5"></p>
     </div>
+  </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
 <script>
-// ── Real-time Socket ──────────────────────────────────────────────────────────
-const socket = io();
 const CURRENT_USER_ID = {{ current_user.id }};
+const STATUS_MAP = {{ status_map | tojson }};
+const CIRCUM = 2 * Math.PI * 27; // circumference for r=27
 
-socket.on('connect', () => console.log('🔌 Socket connected'));
+// ── State ────────────────────────────────────────────────────────────────────
+let activeFilters = { type: 'all' };
+let searchQuery = '{{ search_query | e }}';
+let debounceTimer = null;
+let allResults = [];
+let suggestItems = [];
+let activeSuggestIdx = -1;
 
-// Someone accepted MY request → update their card to "Connected"
-socket.on('connection_accepted', (data) => {
-    if (data.sender_id == CURRENT_USER_ID) {
-        showToast(`${data.receiver_name} accepted your connection!`, '🎉', 'success');
-        renderConnected(data.receiver_id);
-    }
+// ── Init ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('searchInput');
+  input.addEventListener('input', onSearchInput);
+  input.addEventListener('keydown', onSearchKeydown);
+  input.addEventListener('focus', () => {
+    if (input.value.length >= 1) showDropdown();
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#searchWrap')) hideDropdown();
+  });
+
+  // Initial load
+  fetchResults();
+
+  // Update clear button
+  updateClearBtn();
 });
 
-// Someone sent ME a request → update their card to show Accept/Decline
-socket.on('new_connection_request', (data) => {
-    if (data.receiver_id == CURRENT_USER_ID) {
-        showToast(`${data.sender_name} sent you a connection request`, '🤝', 'info');
-        renderIncomingRequest(data.sender_id, data.connection_id);
+function updateClearBtn() {
+  const clearBtn = document.getElementById('searchClear');
+  clearBtn.style.display = searchQuery ? 'block' : 'none';
+}
+
+// ── Search Input Handler ──────────────────────────────────────────────────────
+function onSearchInput(e) {
+  searchQuery = e.target.value;
+  updateClearBtn();
+  clearTimeout(debounceTimer);
+
+  if (searchQuery.length >= 1) {
+    fetchSuggestions(searchQuery);
+  } else {
+    hideDropdown();
+  }
+  debounceTimer = setTimeout(fetchResults, 300);
+}
+
+function onSearchKeydown(e) {
+  const dd = document.getElementById('autocompleteDropdown');
+  const items = dd.querySelectorAll('.autocomplete-item');
+  if (!items.length) return;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    activeSuggestIdx = Math.min(activeSuggestIdx + 1, items.length - 1);
+    highlightSuggest(items);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    activeSuggestIdx = Math.max(activeSuggestIdx - 1, -1);
+    highlightSuggest(items);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (activeSuggestIdx >= 0 && items[activeSuggestIdx]) {
+      selectSuggestion(items[activeSuggestIdx].dataset.value);
+    } else {
+      hideDropdown();
+      fetchResults();
     }
-});
-
-// ── State Renderers ───────────────────────────────────────────────────────────
-function renderConnected(userId) {
-    const el = document.getElementById(`conn-actions-${userId}`);
-    if (!el) return;
-    el.innerHTML = `
-        <span class="flex-1 py-2 rounded-xl bg-green-500/10 text-green-400 text-center text-xs font-bold leading-none flex items-center justify-center" style="height: 42px;">
-            <i class="fas fa-check mr-1"></i> Connected
-        </span>
-    `;
+  } else if (e.key === 'Escape') {
+    hideDropdown();
+  }
 }
 
-function renderPending(userId, connId) {
-    const el = document.getElementById(`conn-actions-${userId}`);
-    if (!el) return;
-    el.innerHTML = `
-        <button class="btn-pending flex-1 py-2 rounded-xl bg-slate-800/50 text-slate-500 text-xs font-bold cursor-default leading-none" style="height: 42px;" disabled>
-            <i class="fas fa-clock mr-1"></i> Pending
-        </button>
-    `;
+function highlightSuggest(items) {
+  items.forEach((el, i) => {
+    el.style.background = i === activeSuggestIdx ? 'rgba(99,102,241,0.15)' : '';
+    el.style.color = i === activeSuggestIdx ? '#a5b4fc' : '';
+  });
 }
 
-function renderConnect(userId) {
-    const el = document.getElementById(`conn-actions-${userId}`);
-    if (!el) return;
-    el.innerHTML = `
-        <button onclick="connectUser(${userId}, this)" class="btn-connect flex-1 py-2 rounded-xl border-2 border-slate-800 text-slate-400 hover:border-indigo-500 hover:text-white transition-all text-xs font-bold leading-none" style="height: 42px;">
-            <i class="fas fa-user-plus mr-1"></i> Connect
-        </button>
-    `;
+// ── Autocomplete ──────────────────────────────────────────────────────────────
+async function fetchSuggestions(q) {
+  try {
+    const res = await fetch(`/api/search/suggestions?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    renderSuggestions(data.suggestions || []);
+  } catch {}
 }
 
-function renderIncomingRequest(userId, connId) {
-    const el = document.getElementById(`conn-actions-${userId}`);
-    if (!el) return;
-    el.innerHTML = `
-        <button onclick="acceptConnection(${connId}, ${userId}, this)" class="flex-1 py-2 rounded-xl bg-green-600 text-white text-[10px] font-bold leading-none flex items-center justify-center" style="height: 42px;">
-            <i class="fas fa-check mr-1"></i> Accept
-        </button>
-        <button onclick="declineConnection(${connId}, ${userId}, this)" class="flex-1 py-2 rounded-xl bg-red-600/20 text-red-500 text-[10px] font-bold leading-none flex items-center justify-center" style="height: 42px;">
-            <i class="fas fa-times mr-1"></i> Decline
-        </button>
-    `;
+function renderSuggestions(items) {
+  suggestItems = items;
+  activeSuggestIdx = -1;
+  const dd = document.getElementById('autocompleteDropdown');
+  if (!items.length) { hideDropdown(); return; }
+  dd.innerHTML = items.map(s => `
+    <div class="autocomplete-item" data-value="${s}" onclick="selectSuggestion('${s}')">
+      <i class="fas fa-search suggest-icon"></i>
+      <span>${highlightMatch(s, searchQuery)}</span>
+    </div>
+  `).join('');
+  showDropdown();
 }
 
-// ── API Actions ───────────────────────────────────────────────────────────────
+function highlightMatch(text, query) {
+  if (!query) return text;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx < 0) return text;
+  return text.slice(0, idx) + `<strong class="text-indigo-300">${text.slice(idx, idx + query.length)}</strong>` + text.slice(idx + query.length);
+}
+
+function showDropdown() {
+  document.getElementById('autocompleteDropdown').style.display = 'block';
+}
+function hideDropdown() {
+  document.getElementById('autocompleteDropdown').style.display = 'none';
+}
+function selectSuggestion(val) {
+  searchQuery = val;
+  document.getElementById('searchInput').value = val;
+  hideDropdown();
+  updateClearBtn();
+  fetchResults();
+}
+
+function clearSearch() {
+  searchQuery = '';
+  document.getElementById('searchInput').value = '';
+  updateClearBtn();
+  hideDropdown();
+  fetchResults();
+}
+
+// ── Filters ───────────────────────────────────────────────────────────────────
+function toggleFilter(btn) {
+  const filter = btn.dataset.filter;
+  const value = btn.dataset.value;
+
+  if (btn.dataset.toggle !== undefined) {
+    // Boolean toggle
+    if (btn.classList.contains('active')) {
+      btn.classList.remove('active');
+      delete activeFilters[filter];
+    } else {
+      btn.classList.add('active');
+      activeFilters[filter] = value;
+    }
+  } else {
+    // Radio-style within same filter group
+    document.querySelectorAll(`[data-filter="${filter}"]`).forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeFilters[filter] = value;
+  }
+  fetchResults();
+}
+
+// ── Main Search Fetch ─────────────────────────────────────────────────────────
+async function fetchResults() {
+  showSkeletons();
+
+  const params = new URLSearchParams();
+  if (searchQuery) params.set('q', searchQuery);
+  if (activeFilters.type && activeFilters.type !== 'all') params.set('type', activeFilters.type);
+  if (activeFilters.level) params.set('level', activeFilters.level);
+  if (activeFilters.available) params.set('available', 'true');
+
+  try {
+    const res = await fetch(`/api/search/users?${params}`);
+    const data = await res.json();
+    allResults = data.users || [];
+    renderResults(allResults, data.query || '');
+  } catch (err) {
+    console.error('Search failed', err);
+    showSkeletons(false);
+  }
+}
+
+function showSkeletons(show = true) {
+  document.getElementById('skeletonGrid').style.display = show ? 'grid' : 'none';
+  document.getElementById('recommendedSection').classList.add('hidden');
+  document.getElementById('allResultsWrap').style.display = show ? 'none' : 'block';
+  document.getElementById('emptyState').classList.add('hidden');
+}
+
+function renderResults(users, query) {
+  document.getElementById('skeletonGrid').style.display = 'none';
+  document.getElementById('emptyState').classList.add('hidden');
+
+  if (!users.length) {
+    document.getElementById('allResultsWrap').style.display = 'none';
+    document.getElementById('recommendedSection').classList.add('hidden');
+    document.getElementById('emptyState').classList.remove('hidden');
+    return;
+  }
+
+  // Recommended: top 3 with score >= 50
+  const recommended = users.slice(0, 3).filter(u => u.match_score >= 50);
+
+  if (recommended.length && query) {
+    document.getElementById('recommendedSection').classList.remove('hidden');
+    document.getElementById('recommendedGrid').innerHTML = recommended.map(u => buildCard(u, query, true)).join('');
+  } else {
+    document.getElementById('recommendedSection').classList.add('hidden');
+  }
+
+  // All results (excluding recommended if shown)
+  const rest = (recommended.length && query) ? users.slice(3) : users;
+  document.getElementById('resultsCount').textContent = users.length;
+  document.getElementById('queryLabel').textContent = query ? `Results for "${query}"` : 'All users';
+  document.getElementById('allResultsWrap').style.display = 'block';
+  document.getElementById('resultsGrid').innerHTML = rest.map(u => buildCard(u, query, false)).join('');
+
+  // Animate all donuts
+  requestAnimationFrame(() => animateDonuts());
+
+  // Restore connection buttons
+  initConnectionButtons();
+}
+
+// ── Card Builder ───────────────────────────────────────────────────────────────
+function buildCard(u, query, isRecommended) {
+  const skills = u.skills || [];
+  const queryLower = (query || '').toLowerCase();
+  const skillPills = skills.slice(0, 4).map((s, i) => {
+    const hl = queryLower && (s.toLowerCase().includes(queryLower) || queryLower.includes(s.toLowerCase()));
+    return `<span class="skill-tag${hl ? ' highlighted' : ''}">${s}</span>`;
+  }).join('');
+  const extraSkills = skills.length > 4 ? `<span class="skill-tag skill-tag-more">+${skills.length - 4}</span>` : '';
+
+  const avatarGradient = u.is_mentor
+    ? 'background: linear-gradient(135deg, #f59e0b, #ef4444)'
+    : 'background: linear-gradient(135deg, #6366f1, #8b5cf6)';
+
+  const onlineDot = u.is_available
+    ? '<div class="online-dot"></div>'
+    : '<div class="offline-dot"></div>';
+
+  const roleLabel = u.is_mentor ? 'Mentor' : 'Peer Learner';
+  const rolePillClass = u.is_mentor ? 'pill-mentor' : 'pill-peer';
+  const roleIcon = u.is_mentor ? 'fa-chalkboard-teacher' : 'fa-graduation-cap';
+
+  const verifiedBadge = u.is_verified
+    ? `<span class="meta-item verified-badge"><i class="fas fa-check-circle"></i> Verified</span>` : '';
+  const availBadge = u.is_available
+    ? `<span class="meta-item avail-badge"><i class="fas fa-circle" style="font-size:0.45rem"></i> Available</span>` : '';
+  const expBadge = u.experience > 0
+    ? `<span class="meta-item exp-badge"><i class="fas fa-briefcase"></i> ${u.experience}y exp</span>` : '';
+  const connBadge = u.connection_count > 0
+    ? `<span class="meta-item"><i class="fas fa-users"></i> ${u.connection_count}</span>` : '';
+
+  // Score styling
+  const scoreClass = u.match_score >= 80 ? 'score-high' : u.match_score >= 60 ? 'score-mid' : 'score-low';
+  const pctColor = u.match_score >= 80 ? '#a5b4fc' : u.match_score >= 60 ? '#67e8f9' : '#64748b';
+
+  // Connection buttons
+  const connBtns = buildConnBtns(u);
+
+  // Book button (mentors only)
+  const bookBtn = u.is_mentor ? `
+    <button onclick="openBookModal({id:${u.id},name:'${u.name.replace(/'/g,"\\'")}',expertise:'${(u.expertise||'Expert Mentor').replace(/'/g,"\\'")}',skills:${JSON.stringify(u.skills)}})"
+      class="btn-book-mentor-sm"><i class="fas fa-calendar-check"></i> Book Mentor</button>` : '';
+
+  return `
+  <div class="peer-card${isRecommended ? ' recommended' : ''}" id="card-${u.id}">
+    <div class="card-header">
+      <div class="card-avatar" style="${avatarGradient}">
+        ${u.initial}
+        ${onlineDot}
+      </div>
+      <div class="card-identity">
+        <div class="card-name">${u.name}${u.is_verified ? ' <i class="fas fa-check-circle" style="color:#60a5fa;font-size:0.7rem"></i>' : ''}</div>
+        <span class="card-role-pill ${rolePillClass}"><i class="fas ${roleIcon}"></i> ${roleLabel}</span>
+        <div class="card-institution"><i class="fas fa-university" style="font-size:0.55rem;margin-right:3px"></i>${u.college}</div>
+      </div>
+      <div class="donut-wrap" data-score="${u.match_score}">
+        <svg class="donut-svg" viewBox="0 0 60 60">
+          <circle class="donut-track" cx="30" cy="30" r="27"/>
+          <circle class="donut-fill ${scoreClass}" cx="30" cy="30" r="27" stroke-dasharray="0 ${CIRCUM}"/>
+        </svg>
+        <div class="donut-center">
+          <span class="donut-pct" style="color:${pctColor}">${u.match_score}%</span>
+          <span class="donut-label">Match</span>
+        </div>
+      </div>
+    </div>
+
+    ${u.bio ? `<div class="card-bio">${u.bio}</div>` : ''}
+
+    <div class="skill-pills">${skillPills}${extraSkills}</div>
+
+    <div class="card-meta">
+      ${verifiedBadge}${availBadge}${expBadge}${connBadge}
+    </div>
+
+    <div class="card-actions">
+      ${bookBtn}
+      <div class="flex gap-2" id="conn-actions-${u.id}">
+        ${connBtns}
+        <a href="${u.profile_url}" class="btn-view-sm" title="View Profile"><i class="fas fa-user"></i></a>
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildConnBtns(u) {
+  const status = STATUS_MAP[u.id];
+  if (!status) {
+    return `<button onclick="connectUser(${u.id},this)" class="btn-connect-sm flex-1"><i class="fas fa-user-plus"></i> Connect</button>`;
+  }
+  if (status.status === 'Accepted') {
+    return `<span class="btn-connected-sm flex-1"><i class="fas fa-check"></i> Connected</span>`;
+  }
+  if (status.status === 'Pending') {
+    if (status.is_sender) {
+      return `<span class="btn-pending-sm flex-1"><i class="fas fa-clock"></i> Pending</span>`;
+    } else {
+      return `
+        <button onclick="acceptConnection(${status.conn_id},${u.id},this)" class="btn-connect-sm flex-1" style="background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.3);color:#4ade80">
+          <i class="fas fa-check"></i> Accept
+        </button>
+        <button onclick="declineConnection(${status.conn_id},${u.id},this)" class="btn-view-sm" style="border-color:rgba(239,68,68,0.3);color:#f87171" title="Decline">
+          <i class="fas fa-times"></i>
+        </button>`;
+    }
+  }
+  return `<button onclick="connectUser(${u.id},this)" class="btn-connect-sm flex-1"><i class="fas fa-user-plus"></i> Connect</button>`;
+}
+
+function initConnectionButtons() {
+  // Re-initialize connection status from SERVER STATUS_MAP for fresh renders
+  // (already handled in buildConnBtns above)
+}
+
+// ── Donut Animation ───────────────────────────────────────────────────────────
+function animateDonuts() {
+  document.querySelectorAll('.donut-wrap').forEach(wrap => {
+    const score = parseInt(wrap.dataset.score) || 0;
+    const circle = wrap.querySelector('.donut-fill');
+    if (!circle) return;
+    const dashVal = (score / 100) * CIRCUM;
+    // Small delay for staggered entry
+    setTimeout(() => {
+      circle.style.strokeDasharray = `${dashVal} ${CIRCUM - dashVal}`;
+    }, 100);
+  });
+}
+
+// ── Connection Actions ────────────────────────────────────────────────────────
 async function connectUser(userId, btn) {
-    const origHTML = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    btn.disabled = true;
-
-    try {
-        const res = await fetch(`/api/connect/request/${userId}`, { method: 'POST' });
-        const data = await res.json();
-
-        if (data.success) {
-            renderPending(userId, data.connection_id);
-            showToast('Connection request sent!', '🤝', 'success');
-        } else {
-            btn.innerHTML = origHTML;
-            btn.disabled = false;
-            showToast(data.error || 'Failed to connect', '⚠️', 'error');
-        }
-    } catch {
-        btn.innerHTML = origHTML;
-        btn.disabled = false;
-        showToast('Network error', '❌', 'error');
-    }
-}
-
-async function withdrawConnection(connId, userId, btn) {
-    const origHTML = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    btn.disabled = true;
-
-    try {
-        const res = await fetch(`/api/connect/withdraw/${connId}`, { method: 'POST' });
-        const data = await res.json();
-
-        if (data.success) {
-            renderConnect(userId);
-            showToast('Connection request withdrawn', '↩️', 'info');
-        } else {
-            btn.innerHTML = origHTML;
-            btn.disabled = false;
-            showToast(data.error || 'Failed to withdraw', '⚠️', 'error');
-        }
-    } catch {
-        btn.innerHTML = origHTML;
-        btn.disabled = false;
-        showToast('Network error', '❌', 'error');
-    }
+  const orig = btn.innerHTML;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/connect/request/${userId}`, { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      STATUS_MAP[userId] = { status: 'Pending', is_sender: true, conn_id: data.connection_id };
+      const wrap = document.getElementById(`conn-actions-${userId}`);
+      if (wrap) wrap.innerHTML = `<span class="btn-pending-sm flex-1"><i class="fas fa-clock"></i> Pending</span><a href="#" class="btn-view-sm"><i class="fas fa-user"></i></a>`;
+      showToast('Connection request sent!', '🤝', 'success');
+    } else { btn.innerHTML = orig; btn.disabled = false; showToast(data.error || 'Failed', '⚠️', 'error'); }
+  } catch { btn.innerHTML = orig; btn.disabled = false; showToast('Network error', '❌', 'error'); }
 }
 
 async function acceptConnection(connId, userId, btn) {
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    btn.disabled = true;
-
-    try {
-        const res = await fetch(`/api/connect/accept/${connId}`, { method: 'POST' });
-        const data = await res.json();
-
-        if (data.success) {
-            renderConnected(userId);
-            showToast('Connection accepted! You are now connected.', '🎉', 'success');
-        } else {
-            btn.innerHTML = '<i class="fas fa-check"></i> Accept';
-            btn.disabled = false;
-            showToast(data.error || 'Failed to accept', '⚠️', 'error');
-        }
-    } catch {
-        btn.innerHTML = '<i class="fas fa-check"></i> Accept';
-        btn.disabled = false;
-        showToast('Network error', '❌', 'error');
-    }
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; btn.disabled = true;
+  try {
+    const res = await fetch(`/api/connect/accept/${connId}`, { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      STATUS_MAP[userId] = { status: 'Accepted' };
+      const wrap = document.getElementById(`conn-actions-${userId}`);
+      if (wrap) wrap.innerHTML = `<span class="btn-connected-sm flex-1"><i class="fas fa-check"></i> Connected</span><a href="#" class="btn-view-sm"><i class="fas fa-user"></i></a>`;
+      showToast('Connected! 🎉', '✓', 'success');
+    } else { btn.innerHTML = '<i class="fas fa-check"></i> Accept'; btn.disabled = false; }
+  } catch { btn.innerHTML = '<i class="fas fa-check"></i> Accept'; btn.disabled = false; }
 }
 
 async function declineConnection(connId, userId, btn) {
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    btn.disabled = true;
-
-    try {
-        const res = await fetch(`/api/connect/reject/${connId}`, { method: 'POST' });
-        const data = await res.json();
-
-        if (data.success) {
-            renderConnect(userId);
-            showToast('Request declined', '✗', 'info');
-        } else {
-            btn.innerHTML = '<i class="fas fa-times"></i> Decline';
-            btn.disabled = false;
-            showToast(data.error || 'Failed', '⚠️', 'error');
-        }
-    } catch {
-        btn.innerHTML = '<i class="fas fa-times"></i> Decline';
-        btn.disabled = false;
-        showToast('Network error', '❌', 'error');
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; btn.disabled = true;
+  try {
+    const res = await fetch(`/api/connect/reject/${connId}`, { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      STATUS_MAP[userId] = null;
+      const wrap = document.getElementById(`conn-actions-${userId}`);
+      // Re-render connect button
+      const u = allResults.find(r => r.id === userId);
+      if (wrap && u) wrap.innerHTML = `<button onclick="connectUser(${userId},this)" class="btn-connect-sm flex-1"><i class="fas fa-user-plus"></i> Connect</button><a href="${u.profile_url}" class="btn-view-sm"><i class="fas fa-user"></i></a>`;
     }
+  } catch {}
 }
 
-// ── Toast ─────────────────────────────────────────────────────────────────────
+// ── WebSocket real-time ───────────────────────────────────────────────────────
+const socket = io();
+socket.on('connection_accepted', data => {
+  if (data.sender_id == CURRENT_USER_ID) {
+    STATUS_MAP[data.receiver_id] = { status: 'Accepted' };
+    const wrap = document.getElementById(`conn-actions-${data.receiver_id}`);
+    if (wrap) wrap.innerHTML = `<span class="btn-connected-sm flex-1"><i class="fas fa-check"></i> Connected</span><a href="#" class="btn-view-sm"><i class="fas fa-user"></i></a>`;
+    showToast(`${data.receiver_name} accepted your connection!`, '🎉', 'success');
+  }
+});
+socket.on('new_connection_request', data => {
+  if (data.receiver_id == CURRENT_USER_ID) {
+    STATUS_MAP[data.sender_id] = { status: 'Pending', is_sender: false, conn_id: data.connection_id };
+    const wrap = document.getElementById(`conn-actions-${data.sender_id}`);
+    if (wrap) {
+      wrap.innerHTML = `
+        <button onclick="acceptConnection(${data.connection_id},${data.sender_id},this)" class="btn-connect-sm flex-1" style="background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.3);color:#4ade80"><i class="fas fa-check"></i> Accept</button>
+        <button onclick="declineConnection(${data.connection_id},${data.sender_id},this)" class="btn-view-sm" style="border-color:rgba(239,68,68,0.3);color:#f87171"><i class="fas fa-times"></i></button>`;
+    }
+    showToast(`${data.sender_name} sent you a connection request`, '🤝', 'info');
+  }
+});
+
+// ── Toast ────────────────────────────────────────────────────────────────────
 function showToast(msg, icon = '✓', type = 'success') {
-    const t  = document.getElementById('toast');
-    const ti = document.getElementById('toast-icon');
-    const tt = document.getElementById('toast-title');
-    const tm = document.getElementById('toast-msg');
-
-    const colors = {
-        success: 'bg-green-500/20 text-green-400',
-        error:   'bg-red-500/20 text-red-400',
-        info:    'bg-indigo-500/20 text-indigo-400'
-    };
-
-    ti.className = `w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0 ${colors[type] || colors.info}`;
-    ti.textContent = icon;
-    tt.textContent = type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Info';
-    tm.textContent = msg;
-
-    t.classList.remove('translate-y-20', 'opacity-0');
-    t.classList.add('pointer-events-auto');
-
-    clearTimeout(t._timer);
-    t._timer = setTimeout(() => {
-        t.classList.add('translate-y-20', 'opacity-0');
-        t.classList.remove('pointer-events-auto');
-    }, 3500);
+  const t  = document.getElementById('toast');
+  const ti = document.getElementById('toast-icon');
+  const tt = document.getElementById('toast-title');
+  const tm = document.getElementById('toast-msg');
+  const colors = { success: 'bg-green-500/20 text-green-400', error: 'bg-red-500/20 text-red-400', info: 'bg-indigo-500/20 text-indigo-400' };
+  ti.className = `w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0 ${colors[type] || colors.info}`;
+  ti.textContent = icon;
+  tt.textContent = type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Info';
+  tm.textContent = msg;
+  t.classList.remove('translate-y-20', 'opacity-0');
+  t.classList.add('pointer-events-auto');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.classList.add('translate-y-20', 'opacity-0'); t.classList.remove('pointer-events-auto'); }, 3500);
 }
 </script>
 {% endblock %}

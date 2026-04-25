@@ -272,7 +272,9 @@
                             {{ student.name[0] }}
                         </div>
                         <div class="flex-1 min-w-0">
-                            <p class="font-bold text-white truncate">{{ student.name }}</p>
+                            <a href="{{ url_for('learner_profile', learner_id=student.id) }}" class="hover:underline">
+                                <p class="font-bold text-white truncate">{{ student.name }}</p>
+                            </a>
                             <p class="text-xs text-gray-500 truncate">{{ student.email }}</p>
                             {% if student.skills %}
                             <p class="text-xs text-green-400 mt-0.5 truncate">{{ student.skills[:50] }}</p>
@@ -356,7 +358,9 @@
                             </div>
                             <div class="flex-1">
                                 <div class="flex items-center justify-between mb-1">
-                                    <p class="font-bold text-white">{{ fb.student.name }}</p>
+                                    <a href="{{ url_for('learner_profile', learner_id=fb.student.id) }}" class="hover:underline">
+                                        <p class="font-bold text-white">{{ fb.student.name }}</p>
+                                    </a>
                                     <div class="flex gap-0.5">
                                         {% for i in range(5) %}
                                         <i class="fas fa-star text-sm {{ 'text-yellow-400' if i < fb.rating else 'text-gray-700' }}"></i>
@@ -426,7 +430,9 @@
                         </div>
                         <div class="min-w-0">
                             <p class="text-white font-semibold text-sm truncate">{{ s.topic[:30] }}</p>
-                            <p class="text-gray-500 text-xs">{{ s.learner.name }} · {{ s.scheduled_time.strftime('%b %d') }}</p>
+                            <a href="{{ url_for('learner_profile', learner_id=s.learner.id) }}" class="hover:underline">
+                                <p class="text-gray-500 text-xs">{{ s.learner.name }} · {{ s.scheduled_time.strftime('%b %d') }}</p>
+                            </a>
                         </div>
                     </div>
                     {% endif %}
@@ -1000,7 +1006,7 @@ function renderBookingCard(b) {
                         <span class="text-[10px] bg-white/5 text-gray-500 px-2 py-0.5 rounded-full capitalize">${b.mode}</span>
                     </div>
                     <h4 class="text-white font-bold truncate">${b.topic}</h4>
-                    <p class="text-xs text-gray-400 mt-1">Student: <span class="text-indigo-300">${b.student_name}</span></p>
+                    <p class="text-xs text-gray-400 mt-1">Student: <a href="/learner/${b.student_id}" class="text-indigo-300 hover:underline font-bold">${b.student_name}</a></p>
                     <div class="flex items-center gap-3 mt-3 text-[10px] text-gray-500">
                         <span><i class="fas fa-calendar mr-1"></i>${b.date_display}</span>
                         <span><i class="fas fa-clock mr-1"></i>${b.time_display}</span>

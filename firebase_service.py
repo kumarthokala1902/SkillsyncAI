@@ -137,6 +137,7 @@ def sync_message_to_firestore(
     sender_id: str,
     group_id: str,
     content: str,
+    sender_name: str = "Anonymous"
 ) -> bool:
     """Add a message document to Firestore messages/{messageId}."""
     fs = _get_fs()
@@ -147,6 +148,7 @@ def sync_message_to_firestore(
             {
                 "messageId": message_id,
                 "senderId":  sender_id,
+                "senderName": sender_name,
                 "groupId":   group_id,
                 "content":   content,
                 "timestamp": datetime.now(timezone.utc).isoformat(),

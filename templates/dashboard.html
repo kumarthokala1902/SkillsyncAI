@@ -126,7 +126,9 @@
                                 {{ user.name[0] }}
                             </div>
                             <div>
-                                <h3 class="font-bold text-white text-lg group-hover:text-blue-300 transition duration-300">{{ user.name }}</h3>
+                                <a href="{% if current_user.is_mentor %}{{ url_for('learner_profile', learner_id=user.id) }}{% else %}{{ url_for('mentor_profile', mentor_id=user.id) }}{% endif %}">
+                                    <h3 class="font-bold text-white text-lg group-hover:text-blue-300 transition duration-300 hover:underline">{{ user.name }}</h3>
+                                </a>
                                 <span class="{% if current_user.is_mentor %}bg-green-500/20 text-green-300{% else %}bg-blue-500/20 text-blue-300{% endif %} text-xs px-3 py-1 rounded-full">
                                     {% if current_user.is_mentor %}Learner{% else %}Mentor{% endif %}
                                 </span>
@@ -166,45 +168,61 @@
         </div>
 
         <!-- Skills Progress -->
-        <div class="card-dark rounded-2xl p-8 hover-lift">
-            <div class="flex items-center justify-between mb-8">
-                <h2 class="text-2xl font-bold text-white">
-                    <i class="fas fa-chart-line text-purple-400 mr-4 text-3xl"></i>
-                    Skill Progress Tracker
-                </h2>
-                <span class="glass-effect text-purple-300 text-sm font-medium px-4 py-2 rounded-xl">
-                    {{ skill_progress|length }} Skills
+        <div class="card-dark rounded-2xl p-8 hover-lift border border-white/5">
+            <div class="flex items-center justify-between mb-10">
+                <div>
+                    <h2 class="text-2xl font-bold text-white flex items-center">
+                        <i class="fas fa-chart-pie text-indigo-400 mr-4 text-3xl"></i>
+                        Skill Mastery Profile
+                    </h2>
+                    <p class="text-gray-500 text-sm mt-1 ml-11">Visualizing your growth across {{ skill_progress|length }} key domains</p>
+                </div>
+                <span class="glass-effect text-indigo-300 text-xs font-black uppercase tracking-widest px-4 py-2 rounded-xl border border-indigo-500/20">
+                    {{ skill_progress|length }} Skills Tracked
                 </span>
             </div>
             
-            <div class="space-y-6">
-                {% for skill in skill_progress %}
-                <div class="flex items-center justify-between p-4 rounded-xl glass-effect hover:bg-white/5 transition duration-300">
-                    <div class="flex-1 mr-6">
-                        <div class="flex justify-between items-center mb-3">
-                            <span class="text-lg font-semibold text-white">{{ skill.skill_name }}</span>
-                            <span class="text-lg font-bold text-purple-400">{{ (skill.level * 100)|int }}%</span>
-                        </div>
-                        <div class="w-full bg-white/10 rounded-full h-3">
-                            <div class="bg-gradient-to-r from-purple-500 to-pink-600 h-3 rounded-full transition-all duration-1000 ease-out" 
-                                    style="width: {{ skill.level * 100 }}%"></div>
-                        </div>
+            {% if skill_progress %}
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                <!-- Donut Chart -->
+                <div class="relative h-[320px] flex justify-center items-center">
+                    <canvas id="skillDonutChart"></canvas>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span class="text-5xl font-black text-white" id="overall-mastery-text">0%</span>
+                        <span class="text-[10px] text-gray-500 uppercase tracking-widest font-black mt-1">Total Mastery</span>
                     </div>
-                    <form method="POST" action="{{ url_for('update_progress', skill_id=skill.id) }}" class="ml-4">
-                        <button type="submit" 
-                                class="bg-gradient-to-r from-purple-600 to-pink-700 text-white px-4 py-2 rounded-xl text-sm font-medium hover:from-purple-700 hover:to-pink-800 transition-all duration-300 transform hover:scale-110 shadow-lg">
-                            <i class="fas fa-plus mr-1"></i>10%
-                        </button>
-                    </form>
                 </div>
-                {% else %}
-                <div class="text-center py-8">
-                    <i class="fas fa-chart-line text-gray-600 text-4xl mb-3"></i>
-                    <h3 class="text-xl font-bold text-gray-400 mb-2">No Skills Tracked</h3>
-                    <p class="text-gray-500">Add skills to your profile to start tracking.</p>
+
+                <!-- Interactive Skill List -->
+                <div class="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                    {% for skill in skill_progress %}
+                    <div class="flex items-center justify-between p-4 rounded-2xl glass-effect hover:bg-white/5 border border-white/5 transition-all duration-300 group">
+                        <div class="flex items-center gap-4">
+                            <div class="w-2 h-10 rounded-full" style="background: hsl({{ loop.index0 * 60 }}, 70%, 60%)"></div>
+                            <div>
+                                <p class="text-white font-bold text-sm">{{ skill.skill_name }}</p>
+                                <p class="text-xs text-gray-400">{{ (skill.level * 100)|int }}% Progress</p>
+                            </div>
+                        </div>
+                        <form method="POST" action="{{ url_for('update_progress', skill_id=skill.id) }}">
+                            <button type="submit" 
+                                    class="w-10 h-10 flex border border-indigo-500/30 items-center justify-center bg-indigo-500/10 text-indigo-400 rounded-xl hover:bg-indigo-500 hover:text-white transition-all duration-300 transform group-hover:scale-110 active:scale-95 shadow-lg shadow-indigo-500/10">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </form>
+                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
             </div>
+            {% else %}
+            <div class="text-center py-16 opacity-50">
+                <div class="w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <i class="fas fa-chart-line text-3xl"></i>
+                </div>
+                <h3 class="text-xl font-bold text-gray-400 mb-2">No Skills Tracked</h3>
+                <p class="text-gray-500 max-w-xs mx-auto">Add skills to your profile to visualize your learning path and mastery.</p>
+            </div>
+            {% endif %}
         </div>
     </div>
 
@@ -295,4 +313,75 @@
 <footer class="mt-16 text-center text-gray-500 text-sm pb-8">
     <p>&copy; 2024 SkillSync. Building the future of education.</p>
 </footer>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const skillLabels = [];
+        const skillLevels = [];
+        const skillColors = [];
+        
+        // Extract data from the skill_progress objects
+        {% for skill in skill_progress %}
+            skillLabels.push("{{ skill.skill_name }}");
+            skillLevels.push({{ (skill.level * 100)|int }});
+            skillColors.push(`hsl({{ loop.index0 * 60 }}, 70%, 60%)`);
+        {% endfor %}
+
+        const totalMastery = skillLevels.length > 0 
+            ? Math.round(skillLevels.reduce((a, b) => a + b, 0) / skillLevels.length) 
+            : 0;
+        
+        document.getElementById('overall-mastery-text').textContent = totalMastery + '%';
+
+        const ctx = document.getElementById('skillDonutChart').getContext('2d');
+        if (ctx) {
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: skillLabels,
+                    datasets: [{
+                        data: skillLevels,
+                        backgroundColor: skillColors,
+                        borderWidth: 0,
+                        hoverOffset: 20,
+                        borderRadius: 10,
+                        spacing: 5
+                    }]
+                },
+                options: {
+                    cutout: '85%',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: true,
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            titleFont: { size: 14, weight: 'bold' },
+                            bodyFont: { size: 13 },
+                            padding: 12,
+                            cornerRadius: 12,
+                            displayColors: true,
+                            callbacks: {
+                                label: function(context) {
+                                    return ` Mastery: ${context.raw}%`;
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        animateScale: true,
+                        animateRotate: true,
+                        duration: 2000,
+                        easing: 'easeOutQuart'
+                    }
+                }
+            });
+        }
+    });
+</script>
 {% endblock %}
