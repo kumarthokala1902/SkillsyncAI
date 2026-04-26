@@ -38,7 +38,7 @@ def init_firebase():
         import firebase_admin
         from firebase_admin import credentials, firestore, auth
 
-        service_account_path = os.environ.get("FIREBASE_SERVICE_ACCOUNT_KEY", "./service-account.json")
+        service_account_path = os.environ.get("FIREBASE_SERVICE_ACCOUNT_KEY", "/app/service-account.json")
 
         # Support both a file path AND an inline JSON string (useful for
         # container / cloud environments where secrets are injected as env vars)
@@ -48,12 +48,12 @@ def init_firebase():
         elif os.path.isfile(service_account_path):
             cred = credentials.Certificate(service_account_path)
         else:
-            logger.warning(
+            logger.error(
                 "Firebase service account not found at '%s'. "
-                "Firestore sync is DISABLED. Set FIREBASE_SERVICE_ACCOUNT_KEY to enable it.",
+                "Firestore sync is REQUIRED. Set FIREBASE_SERVICE_ACCOUNT_KEY to enable it.",
                 service_account_path,
             )
-            return False
+            raise ValueError(f"Missing Firebase credentials at {service_account_path}")
 
         # Avoid double-initialisation if multiple calls happen
         if not firebase_admin._apps:
@@ -65,15 +65,15 @@ def init_firebase():
         logger.info("✅ Firebase Admin SDK initialised – Firestore sync ENABLED")
         return True
 
-    except ImportError:
-        logger.warning(
+    except ImportError as exc:
+        logger.error(
             "firebase-admin package not installed. Run: pip install firebase-admin. "
-            "Firestore sync is DISABLED."
+            "Firestore sync is REQUIRED."
         )
+        raise RuntimeError("firebase-admin package is missing") from exc
     except Exception as exc:
         logger.error("Firebase initialisation failed: %s", exc)
-
-    return False
+        raise RuntimeError(f"Firebase initialisation failed: {exc}") from exc
 
 
 # ── Client-side config (safe to expose to the browser JS) ──────────────────

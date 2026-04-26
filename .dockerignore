@@ -1,0 +1,31 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+env/
+ENV/
+.Python
+.pytest_cache/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+instance/
+
+# IDEs
+.idea/
+.vscode/
+
+# Local env vars
+.env
+
+# DO NOT ignore service-account.json 
+# We explicitly want it to be copied if it's available locally
+!service-account.json
