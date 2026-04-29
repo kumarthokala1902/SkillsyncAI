@@ -41,11 +41,11 @@
                     <div class="text-2xl">{{ meetup.date_time.strftime('%d') }}</div>
                 </div>
                 <div class="flex-1">
-                    <h3 class="text-xl font-bold text-white mb-1 line-clamp-2">{{ meetup.title }}</h3>
+                    <a href="{{ url_for('meetup_detail', meetup_id=meetup.id) }}" class="text-xl font-bold text-white mb-1 line-clamp-2 hover:text-indigo-400 transition-colors block">{{ meetup.title }}</a>
                     <p class="text-gray-400 text-sm flex items-center gap-2 mb-2">
                         <i class="fas fa-clock"></i> {{ meetup.date_time.strftime('%I:%M %p') }}
                         <span class="mx-1">•</span>
-                        <i class="fas fa-map-marker-alt"></i> {{ meetup.location }}
+                        <i class="fas fa-map-marker-alt"></i> <span class="break-all line-clamp-1" title="{{ meetup.location }}">{{ meetup.location }}</span>
                     </p>
                 </div>
             </div>
@@ -65,7 +65,7 @@
                     <button onclick="openChat('meetup-{{ meetup.id }}', '{{ meetup.title }}', 'fa-calendar-alt')" class="text-indigo-400 hover:text-indigo-300 transition-colors px-3 py-1.5 rounded-lg hover:bg-indigo-500/10 text-sm font-medium flex items-center gap-2">
                         <i class="fas fa-comments"></i> Chat
                     </button>
-                    <button class="btn-join inline-block flex-shrink-0" style="max-width: 100px;">RSVP</button>
+                    <a href="{{ url_for('meetup_detail', meetup_id=meetup.id) }}" class="btn-join inline-block flex-shrink-0" style="max-width: 100px; line-height: 24px;">RSVP</a>
                 </div>
             </div>
         </div>
@@ -93,14 +93,14 @@
                     <span class="text-lg font-bold">{{ meetup.date_time.strftime('%d') }}</span>
                 </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-200 group-hover:text-white transition-colors">{{ meetup.title }}</h3>
+                    <a href="{{ url_for('meetup_detail', meetup_id=meetup.id) }}" class="text-lg font-semibold text-gray-200 hover:text-indigo-400 transition-colors block">{{ meetup.title }}</a>
                     <div class="text-gray-400 text-sm flex flex-wrap gap-x-4 mt-1">
                         <span><i class="fas fa-user mr-1"></i> <a href="{% if meetup.organizer.is_mentor %}{{ url_for('mentor_profile', mentor_id=meetup.organizer.id) }}{% else %}{{ url_for('learner_profile', learner_id=meetup.organizer.id) }}{% endif %}" class="hover:underline">{{ meetup.organizer.name }}</a></span>
-                        <span><i class="fas fa-map-marker-alt mr-1"></i> {{ meetup.location }}</span>
+                        <span class="flex-1 min-w-0 flex"><i class="fas fa-map-marker-alt mr-1 mt-0.5"></i> <span class="break-all line-clamp-1" title="{{ meetup.location }}">{{ meetup.location }}</span></span>
                     </div>
                 </div>
             </div>
-            <button class="btn-join-outline flex-shrink-0">View Details</button>
+            <a href="{{ url_for('meetup_detail', meetup_id=meetup.id) }}" class="btn-join-outline flex-shrink-0">View Details</a>
         </div>
         {% endfor %}
     </div>

@@ -77,13 +77,14 @@
             {% if acount %}<span class="ml-1 bg-green-500/20 text-green-300 text-xs px-1.5 py-0.5 rounded-full">{{acount}}</span>{% endif %}
         </button>
         <button class="tab-btn" onclick="switchTab('past', this)">Past</button>
+        <button class="tab-btn" onclick="switchTab('today', this)">Today</button>
     </div>
 
     <!-- Bookings List -->
     <div id="bookingsList" class="space-y-4">
         {% if bookings %}
             {% for b in bookings %}
-            <div class="booking-card" data-status="{{ b.status }}" id="booking-card-{{ b.id }}">
+            <div class="booking-card" data-status="{{ b.status }}" data-date="{{ b.date.strftime('%Y-%m-%d') }}" id="booking-card-{{ b.id }}">
                 <div class="flex items-start justify-between gap-4 flex-wrap">
                     <!-- Left info -->
                     <div class="flex-1 min-w-0">
@@ -112,7 +113,12 @@
                             <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-black">
                                 {{ b.mentor.name[0] }}
                             </div>
-                            <span class="text-sm text-gray-400">with <span class="text-white font-semibold">{{ b.mentor.name }}</span></span>
+                            <span class="text-sm text-gray-400 flex items-center gap-1">with 
+                                <span class="text-white font-semibold">{{ b.mentor.name }}</span>
+                                {% if b.mentor.is_verified %}
+                                <i class="fas fa-check-circle text-blue-400 text-[10px]" title="Verified"></i>
+                                {% endif %}
+                            </span>
                         </div>
 
                         <div class="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
@@ -222,13 +228,18 @@ function switchTab(name, btn) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
 
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
     const cards = document.querySelectorAll('#bookingsList .booking-card');
     let visible = 0;
     cards.forEach(card => {
         const s = card.dataset.status;
+        const d = card.dataset.date;
         let show;
         if (name === 'all') show = true;
         else if (name === 'past') show = ['rejected','cancelled','completed'].includes(s);
+        else if (name === 'today') show = d === todayStr;
         else show = s === name;
         card.style.display = show ? '' : 'none';
         if (show) visible++;

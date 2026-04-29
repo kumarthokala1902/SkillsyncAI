@@ -55,6 +55,33 @@
     .modal-scroll-body::-webkit-scrollbar-thumb:hover {
         background: rgba(99,102,241,0.7);
     }
+    
+    /* Match Score Donut */
+    .donut-wrap { position: relative; width: 50px; height: 50px; flex-shrink: 0; }
+    .donut-svg { width: 50px; height: 50px; transform: rotate(-90deg); }
+    .donut-track { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 4; }
+    .donut-fill {
+        fill: none; stroke-width: 4; stroke-linecap: round;
+        stroke-dasharray: 0 157; /* circumference for r=25 */
+        transition: stroke-dasharray 1.2s cubic-bezier(0.4,0,0.2,1);
+    }
+    .donut-fill.score-high { stroke: #6366f1; filter: drop-shadow(0 0 5px rgba(99,102,241,0.5)); }
+    .donut-fill.score-mid { stroke: #8b5cf6; }
+    .donut-fill.score-low { stroke: #64748b; }
+    .donut-center {
+        position: absolute; inset: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; pointer-events: none;
+    }
+    .donut-pct { font-size: 0.7rem; font-weight: 800; color: #e2e8f0; line-height: 1; }
+    .donut-label { font-size: 0.4rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-top: 1px; }
+
+    /* Skeleton Shimmer */
+    @keyframes shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+    .skeleton {
+        background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+        background-size: 400px 100%;
+        animation: shimmer 1.5s infinite linear;
+    }
 </style>
 {% endblock %}
 
@@ -72,71 +99,31 @@
         <div class="flex gap-4 w-full md:w-auto">
             <div class="relative flex-1 md:w-80">
                 <i class="fas fa-search" style="position:absolute;left:1rem;top:50%;transform:translateY(-50%);color:#6366f1;font-size:0.9rem;pointer-events:none;z-index:2;"></i>
-                <input type="text" placeholder="Search by skills (e.g. Python, React)..." style="padding-left:2.75rem !important;box-sizing:border-box;" class="w-full bg-white/5 border border-white/10 rounded-2xl pr-6 py-4 text-sm focus:outline-none focus:border-indigo-500/50 transition backdrop-blur-sm text-white">
+                <input type="text" id="peerSearchInput" placeholder="Search by skills (e.g. Python, React)..." style="padding-left:2.75rem !important;box-sizing:border-box;" class="w-full bg-white/5 border border-white/10 rounded-2xl pr-6 py-4 text-sm focus:outline-none focus:border-indigo-500/50 transition backdrop-blur-sm text-white">
             </div>
         </div>
     </div>
 
     <!-- Student Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {% for student in students %}
-        <div class="student-card p-4 flex flex-col h-full bg-[#1e293b]/40 min-h-[220px]">
-            <!-- Profile Header -->
-            <div class="flex items-start justify-between mb-6">
-            <div class="relative">
-                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-lg font-bold text-white shadow-lg">
-                        {{ student.name[0] }}
-                    </div>
-                    <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-[#0f172a] rounded-full"></div>
-                </div>
-                <div class="h-8 w-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition cursor-pointer">
-                    <i class="far fa-bookmark"></i>
-                </div>
-            </div>
-
-            <!-- Info -->
-            <div class="flex-1">
-                <h3 class="text-lg font-bold text-white mb-0.5">{{ student.name }}</h3>
-                <p class="text-[10px] text-gray-500 font-medium mb-3 flex items-center gap-1.5">
-                    <i class="fas fa-university text-indigo-400"></i> {{ student.college_name or "SkillSync Academy" }}
-                </p>
-                
-                <p class="text-xs text-gray-400 line-clamp-2 mb-4 leading-relaxed">
-                    {{ student.bio or "Passionate about learning new technologies and collaborating on innovative projects." }}
-                </p>
-
-                <!-- Skills -->
-                <div class="mb-4">
-                    <p class="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">Strong Skills</p>
-                    <div class="flex flex-wrap gap-2">
-                        {% for skill in student.skills.split(',') %}
-                            {% if skill.strip() %}
-                            <span class="skill-badge">{{ skill.strip() }}</span>
-                            {% endif %}
-                        {% endfor %}
-                    </div>
-                </div>
-                
-
-            </div>
-
-            <!-- Actions -->
-            <button onclick="openBookingModal('{{ student.id }}', '{{ student.name }}')" class="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-all shadow-xl shadow-indigo-600/20 active:scale-95">
-                Book Peer Session
-            </button>
-        </div>
-        {% endfor %}
+    <div id="peerGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <!-- Initially empty, filled by JS -->
     </div>
 
-    {% if not students %}
-    <div class="text-center py-20">
+    <!-- Load More -->
+    <div id="loadMoreWrap" class="text-center mt-12 hidden">
+        <button onclick="loadMore()" class="px-8 py-3 rounded-2xl bg-white/5 border border-white/10 text-white font-bold text-sm hover:bg-white/10 transition">
+            Load More Peers <i class="fas fa-chevron-down ml-2"></i>
+        </button>
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="hidden text-center py-20">
         <div class="w-20 h-20 bg-white/5 rounded-3xl flex items-center justify-center mx-auto mb-6">
             <i class="fas fa-user-friends text-3xl text-gray-600"></i>
         </div>
         <h3 class="text-xl font-bold text-white mb-2">No Peers Found</h3>
-        <p class="text-gray-500">Be the first to join the learning revolution!</p>
+        <p class="text-gray-500">Try adjusting your search or check back later!</p>
     </div>
-    {% endif %}
 </div>
 
 <!-- Booking Modal -->
@@ -252,17 +239,167 @@
 
 <script>
     const socket = io();
+    const CIRCUM = 2 * Math.PI * 23.5; // circumference for r=23.5
+    
+    let allPeers = [];
+    let displayedPeers = [];
+    let currentPage = 1;
+    const ITEMS_PER_PAGE = 8;
+    let searchQuery = '';
+    let debounceTimer = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const searchInput = document.getElementById('peerSearchInput');
+        searchInput.addEventListener('input', (e) => {
+            searchQuery = e.target.value;
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(fetchPeers, 300);
+        });
+
+        // Initial fetch
+        fetchPeers();
+    });
+
+    async function fetchPeers() {
+        showSkeletons();
+        try {
+            const params = new URLSearchParams({ type: 'peer' });
+            if (searchQuery) params.set('q', searchQuery);
+            
+            const res = await fetch(`/api/search/users?${params}`);
+            const data = await res.json();
+            allPeers = data.users || [];
+            currentPage = 1;
+            renderPeers();
+        } catch (err) {
+            console.error('Fetch failed', err);
+        }
+    }
+
+    function showSkeletons() {
+        const grid = document.getElementById('peerGrid');
+        grid.innerHTML = Array(4).fill(0).map(() => `
+            <div class="student-card p-4 flex flex-col h-full bg-[#1e293b]/40 animate-pulse">
+                <div class="flex justify-between mb-6">
+                    <div class="w-12 h-12 rounded-xl skeleton"></div>
+                    <div class="w-8 h-8 rounded-xl skeleton"></div>
+                </div>
+                <div class="flex-1 space-y-3">
+                    <div class="h-4 w-3/4 skeleton rounded"></div>
+                    <div class="h-3 w-1/2 skeleton rounded"></div>
+                    <div class="h-10 w-full skeleton rounded"></div>
+                </div>
+                <div class="mt-4 h-10 w-full skeleton rounded-2xl"></div>
+            </div>
+        `).join('');
+        document.getElementById('loadMoreWrap').classList.add('hidden');
+        document.getElementById('emptyState').classList.add('hidden');
+    }
+
+    function renderPeers() {
+        const grid = document.getElementById('peerGrid');
+        const empty = document.getElementById('emptyState');
+        const loadMoreBtn = document.getElementById('loadMoreWrap');
+
+        if (allPeers.length === 0) {
+            grid.innerHTML = '';
+            empty.classList.remove('hidden');
+            loadMoreBtn.classList.add('hidden');
+            return;
+        }
+
+        empty.classList.add('hidden');
+        displayedPeers = allPeers.slice(0, currentPage * ITEMS_PER_PAGE);
+        grid.innerHTML = displayedPeers.map(p => buildPeerCard(p)).join('');
+
+        if (allPeers.length > displayedPeers.length) {
+            loadMoreBtn.classList.remove('hidden');
+        } else {
+            loadMoreBtn.classList.add('hidden');
+        }
+
+        // Animate donuts
+        requestAnimationFrame(() => animateDonuts());
+    }
+
+    function loadMore() {
+        currentPage++;
+        renderPeers();
+    }
+
+    function buildPeerCard(p) {
+        const skills = Array.isArray(p.skills) ? p.skills : (p.skills || '').split(',').filter(s => s.trim());
+        const skillPills = skills.slice(0, 3).map(s => `<span class="skill-badge">${s.trim()}</span>`).join('');
+        const scoreClass = p.match_score >= 80 ? 'score-high' : p.match_score >= 50 ? 'score-mid' : 'score-low';
+        
+        return `
+        <div class="student-card p-4 flex flex-col h-full bg-[#1e293b]/40 min-h-[220px]">
+            <div class="flex items-start justify-between mb-6">
+                <div class="relative">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-lg font-bold text-white shadow-lg">
+                        ${p.initial || p.name[0]}
+                    </div>
+                    ${p.is_available ? '<div class="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-[#0f172a] rounded-full"></div>' : ''}
+                </div>
+                <div class="donut-wrap" data-score="${p.match_score}">
+                    <svg class="donut-svg" viewBox="0 0 50 50">
+                        <circle class="donut-track" cx="25" cy="25" r="23.5"/>
+                        <circle class="donut-fill ${scoreClass}" cx="25" cy="25" r="23.5" stroke-dasharray="0 ${CIRCUM}"/>
+                    </svg>
+                    <div class="donut-center">
+                        <span class="donut-pct">${p.match_score}%</span>
+                        <span class="donut-label">Match</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-1">
+                <h3 class="text-lg font-bold text-white mb-0.5 flex items-center gap-1">
+                    ${p.name}
+                    ${p.is_verified ? '<i class="fas fa-check-circle text-blue-400 text-sm" title="Verified"></i>' : ''}
+                </h3>
+                <p class="text-[10px] text-gray-500 font-medium mb-3 flex items-center gap-1.5">
+                    <i class="fas fa-university text-indigo-400"></i> ${p.college || "SkillSync Academy"}
+                </p>
+                
+                <p class="text-xs text-gray-400 line-clamp-2 mb-4 leading-relaxed">
+                    ${p.bio || "Passionate about learning new technologies and collaborating on innovative projects."}
+                </p>
+
+                <div class="mb-4">
+                    <div class="flex flex-wrap gap-2">
+                        ${skillPills}
+                        ${skills.length > 3 ? `<span class="skill-badge text-gray-500">+${skills.length - 3}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="openBookingModal('${p.id}', '${p.name.replace(/'/g, "\\'")}')" class="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-all shadow-xl shadow-indigo-600/20 active:scale-95">
+                Book Peer Session
+            </button>
+        </div>`;
+    }
+
+    function animateDonuts() {
+        document.querySelectorAll('.donut-wrap').forEach(wrap => {
+            const score = parseInt(wrap.dataset.score) || 0;
+            const circle = wrap.querySelector('.donut-fill');
+            if (!circle) return;
+            const dashVal = (score / 100) * CIRCUM;
+            setTimeout(() => {
+                circle.style.strokeDasharray = `${dashVal} ${CIRCUM - dashVal}`;
+            }, 100);
+        });
+    }
 
     socket.on('connect', () => {
         console.log('Connected to real-time server');
     });
 
     socket.on('new_peer_request', (data) => {
-        // Notification logic for User B
         const currentUserId = "{{ current_user.id }}";
         if (data.receiver_id == currentUserId) {
             showToast(`New Peer Request from ${data.sender_name}!`, 'success');
-            // Normally you would update an notification badge here
         }
     });
 
@@ -359,7 +496,6 @@
     }
 
     function showToast(message, type) {
-        // Build a sleek toast
         const toast = document.createElement('div');
         toast.className = `fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-2xl z-50 font-bold text-white transform transition-all duration-300 translate-y-10 opacity-0 flex items-center gap-3`;
         if (type === 'success') {
@@ -371,13 +507,10 @@
         }
         
         document.body.appendChild(toast);
-        
-        // Animate in
         setTimeout(() => {
             toast.classList.remove('translate-y-10', 'opacity-0');
         }, 100);
 
-        // Animate out
         setTimeout(() => {
             toast.classList.add('translate-y-10', 'opacity-0');
             setTimeout(() => toast.remove(), 300);

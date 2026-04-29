@@ -55,7 +55,12 @@
                     </div>
                     <div>
                         <p class="text-gray-400 text-sm font-medium uppercase tracking-wider mb-1">Username</p>
-                        <p class="text-white text-xl font-bold mb-3" id="profile-username">{{ current_user.name }}</p>
+                        <p class="text-white text-xl font-bold mb-3 flex items-center gap-1" id="profile-username">
+                            {{ current_user.name }}
+                            {% if current_user.is_verified %}
+                            <i class="fas fa-check-circle text-blue-400 text-sm" title="Verified {{ current_user.verified_role or 'Account' }}"></i>
+                            {% endif %}
+                        </p>
                         
                         <div class="flex gap-4">
                             <div>
@@ -89,6 +94,24 @@
                                 <label class="block text-gray-400 text-sm font-medium mb-2">Update Username</label>
                                 <input type="text" id="input-username" class="w-full transition" placeholder="New Username" value="{{ current_user.name }}">
                             </div>
+                            
+                            <div>
+                                <label class="block text-gray-400 text-sm font-medium mb-2">Bio / About Me</label>
+                                <textarea id="input-bio" rows="3" class="w-full transition resize-none" placeholder="Tell the community about yourself...">{{ current_user.bio }}</textarea>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-gray-400 text-sm font-medium mb-2">Skills (comma separated)</label>
+                                <input type="text" id="input-skills" class="w-full transition" placeholder="e.g. Python, React, System Design" value="{{ current_user.skills }}">
+                            </div>
+
+                            {% if current_user.is_mentor %}
+                            <div>
+                                <label class="block text-gray-400 text-sm font-medium mb-2">Years of Experience</label>
+                                <input type="number" id="input-experience" class="w-full transition" placeholder="e.g. 5" min="0" value="{{ current_user.years_experience or '' }}">
+                            </div>
+                            {% endif %}
+
                             <div>
                                 <label class="block text-gray-400 text-sm font-medium mb-2">Update Password</label>
                                 <input type="password" id="input-password" class="w-full transition" placeholder="Leave blank to keep current">
@@ -282,7 +305,16 @@
         e.preventDefault();
         const username = document.getElementById('input-username').value.trim();
         const password = document.getElementById('input-password').value.trim();
-        const payload = { username, password };
+        const bio = document.getElementById('input-bio').value.trim();
+        const skills = document.getElementById('input-skills').value.trim();
+        
+        const payload = { username, password, bio, skills };
+        
+        {% if current_user.is_mentor %}
+        const experience = document.getElementById('input-experience').value.trim();
+        if (experience) payload.years_experience = experience;
+        {% endif %}
+        
         {% if not current_user.is_mentor %}
         payload.college_name = document.getElementById('college_name').value.trim();
         payload.college_code = document.getElementById('college_code').value.trim();

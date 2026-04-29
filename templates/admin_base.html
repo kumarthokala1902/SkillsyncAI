@@ -68,16 +68,12 @@
                         <i class="fas fa-briefcase text-lg"></i> Careers
                     </a>
 
-                    <a href="{{ url_for('admin_startups') }}" class="nav-link flex items-center gap-4 px-4 py-3 rounded-xl text-slate-400 font-bold text-sm {% if request.endpoint == 'admin_startups' %}active text-white{% endif %}">
-                        <i class="fas fa-rocket text-lg"></i> Startups
+                    <a href="{{ url_for('admin_challenges') }}" class="nav-link flex items-center gap-4 px-4 py-3 rounded-xl text-slate-400 font-bold text-sm {% if request.endpoint in ['admin_challenges', 'admin_submissions'] %}active text-white{% endif %}">
+                        <i class="fas fa-code text-lg"></i> Challenges
                     </a>
 
                     <a href="{{ url_for('admin_applications') }}" class="nav-link flex items-center gap-4 px-4 py-3 rounded-xl text-slate-400 font-bold text-sm {% if request.endpoint == 'admin_interactions' %}active text-white{% endif %}">
                         <i class="fas fa-handshake text-lg"></i> Applications
-                    </a>
-
-                    <a href="{{ url_for('admin_trending') }}" class="nav-link flex items-center gap-4 px-4 py-3 rounded-xl text-slate-400 font-bold text-sm {% if request.endpoint == 'admin_trending' %}active text-white{% endif %}">
-                        <i class="fas fa-chart-line text-lg"></i> Trending
                     </a>
                 </nav>
 

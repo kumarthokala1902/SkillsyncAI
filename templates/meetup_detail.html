@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}{{ meetup.title }} - SkillSync{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-8">
+    <a href="{{ url_for('meetups') }}" class="text-indigo-400 hover:text-indigo-300 flex items-center gap-2 mb-6 transition-colors">
+        <i class="fas fa-arrow-left"></i> Back to Meetups
+    </a>
+
+    <div class="bg-gray-800/50 border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-sm">
+        {% if meetup.banner_url %}
+        <div class="h-64 w-full bg-gray-900 relative">
+            <img src="{{ meetup.banner_url }}" class="w-full h-full object-cover opacity-60" alt="{{ meetup.title }}">
+            <div class="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent"></div>
+        </div>
+        {% else %}
+        <div class="h-32 w-full bg-gradient-to-r from-indigo-900 to-purple-900"></div>
+        {% endif %}
+
+        <div class="p-8">
+            <div class="flex flex-col md:flex-row md:items-start justify-between gap-6">
+                <div class="flex-1">
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="px-3 py-1 bg-indigo-500/20 text-indigo-400 rounded-full text-xs font-bold uppercase tracking-wider border border-indigo-500/30">
+                            {{ meetup.date_time.strftime('%b %d, %Y') }}
+                        </span>
+                        <span class="text-gray-400 text-sm font-medium"><i class="fas fa-clock mr-1"></i> {{ meetup.date_time.strftime('%I:%M %p') }}</span>
+                    </div>
+                    
+                    <h1 class="text-3xl font-extrabold text-white mb-4">{{ meetup.title }}</h1>
+                    
+                    <div class="flex items-start gap-3 mb-6 bg-white/5 p-4 rounded-xl border border-white/10">
+                        <i class="fas fa-map-marker-alt text-indigo-400 mt-1 text-lg"></i>
+                        <p class="text-gray-300 break-all flex-1">{{ meetup.location }}</p>
+                    </div>
+                    
+                    <div class="prose prose-invert prose-indigo max-w-none">
+                        <h3 class="text-xl font-bold text-white mb-3">About this Meetup</h3>
+                        <p class="text-gray-300 whitespace-pre-line leading-relaxed">{{ meetup.description }}</p>
+                    </div>
+                </div>
+
+                <div class="w-full md:w-80 flex-shrink-0 flex flex-col gap-4">
+                    <div class="bg-gray-900/80 p-5 rounded-xl border border-white/10">
+                        <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Organizer</h4>
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                                {{ meetup.organizer.name[0] }}
+                            </div>
+                            <div>
+                                <div class="font-bold text-white">{{ meetup.organizer.name }}</div>
+                                <a href="{% if meetup.organizer.is_mentor %}{{ url_for('mentor_profile', mentor_id=meetup.organizer.id) }}{% else %}{{ url_for('learner_profile', learner_id=meetup.organizer.id) }}{% endif %}" class="text-indigo-400 text-sm hover:underline">View Profile</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-900/80 p-5 rounded-xl border border-white/10 space-y-4">
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-gray-400">Attendees</span>
+                            <span class="font-bold text-white">{{ rsvp_count }} / {{ meetup.max_participants }}</span>
+                        </div>
+                        
+                        <div class="w-full bg-gray-800 rounded-full h-2">
+                            <div class="bg-indigo-500 h-2 rounded-full" style="width: {{ (rsvp_count / meetup.max_participants * 100) | min(100) }}%"></div>
+                        </div>
+
+                        <form action="{{ url_for('meetup_rsvp', meetup_id=meetup.id) }}" method="POST">
+                            {% if current_rsvp and current_rsvp.status == 'Attending' %}
+                                <button type="submit" class="w-full py-3 rounded-xl font-bold transition-all bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/30 flex items-center justify-center gap-2">
+                                    <i class="fas fa-check-circle"></i> You're Attending
+                                </button>
+                            {% else %}
+                                <button type="submit" class="w-full py-3 rounded-xl font-bold transition-all bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg flex items-center justify-center gap-2" {% if rsvp_count >= meetup.max_participants %}disabled{% endif %}>
+                                    {% if rsvp_count >= meetup.max_participants %}
+                                        Meetup Full
+                                    {% else %}
+                                        <i class="fas fa-calendar-plus"></i> RSVP Now
+                                    {% endif %}
+                                </button>
+                            {% endif %}
+                        </form>
+
+                        <button onclick="openChat('meetup-{{ meetup.id }}', '{{ meetup.title }}', 'fa-calendar-alt')" class="w-full py-3 rounded-xl font-bold transition-all bg-white/5 hover:bg-white/10 text-white border border-white/10 flex items-center justify-center gap-2">
+                            <i class="fas fa-comments text-indigo-400"></i> Open Meetup Chat
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -23,6 +23,26 @@ fb_auth = None
 firebase_enabled = False
 
 
+def _resolve_service_account_path() -> str:
+    """
+    Resolves the Firebase service account path using this priority order:
+      1. FIREBASE_SERVICE_ACCOUNT_KEY env var (if set — can be a path OR raw JSON)
+      2. service-account.json next to this file  (local development)
+      3. /app/service-account.json              (Docker / production container)
+    """
+    env_val = os.environ.get("FIREBASE_SERVICE_ACCOUNT_KEY", "").strip()
+    if env_val:
+        return env_val  # could be a file path or inline JSON
+
+    # Auto-detect: check local path first
+    local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "service-account.json")
+    if os.path.isfile(local_path):
+        return local_path
+
+    # Fallback to Docker / container path
+    return "/app/service-account.json"
+
+
 def init_firebase():
     """
     Call once at application startup (inside an app context is fine).
@@ -38,7 +58,7 @@ def init_firebase():
         import firebase_admin
         from firebase_admin import credentials, firestore, auth
 
-        service_account_path = os.environ.get("FIREBASE_SERVICE_ACCOUNT_KEY", "/app/service-account.json")
+        service_account_path = _resolve_service_account_path()
 
         # Support both a file path AND an inline JSON string (useful for
         # container / cloud environments where secrets are injected as env vars)

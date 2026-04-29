@@ -58,9 +58,9 @@
 
         /* Global Form Styles */
         input, textarea, select {
-            background-color: #ffffff !important;
-            color: #111827 !important;
-            border: 1px solid #e5e7eb !important;
+            background-color: #0f172a !important;
+            color: #f8fafc !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
             border-radius: 12px !important;
             padding: 12px 16px !important;
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
@@ -118,7 +118,7 @@
         </a>
         
         <!-- Scrollable Navigation Area -->
-        <div class="flex-1 overflow-y-auto custom-scrollbar">
+        <div id="sidebar-scroll-container" class="flex-1 overflow-y-auto custom-scrollbar">
             <div class="sidebar-section-label">Platform</div>
         <a href="{{ url_for('post_home') }}" class="sidebar-link {% if request.path == url_for('post_home') %}active{% endif %}">
             <i class="fas fa-home"></i>
@@ -162,12 +162,15 @@
         </a>
         {% endif %}
 
-        <div class="sidebar-section-label">Startup Careers</div>
+        <div class="sidebar-section-label">Challenges & Growth</div>
+        <a href="{{ url_for('challenges') }}" class="sidebar-link {% if request.path == url_for('challenges') %}active{% endif %}">
+            <i class="fas fa-code text-indigo-400"></i><span>Daily Challenges</span>
+        </a>
+        <a href="{{ url_for('leaderboard') }}" class="sidebar-link {% if request.path == url_for('leaderboard') %}active{% endif %}">
+            <i class="fas fa-trophy text-yellow-500"></i><span>Leaderboard</span>
+        </a>
         <a href="{{ url_for('careers') }}" class="sidebar-link {% if request.path == url_for('careers') %}active{% endif %}">
             <i class="fas fa-briefcase"></i><span>Careers</span>
-        </a>
-        <a href="{{ url_for('startups') }}" class="sidebar-link {% if request.path == url_for('startups') %}active{% endif %}">
-            <i class="fas fa-rocket"></i><span>Startups</span>
         </a>
         <a href="{{ url_for('live_sessions') }}" class="sidebar-link {% if request.path == url_for('live_sessions') %}active{% endif %}" style="color: #fca5a5; background: rgba(248, 113, 113, 0.05); border: 1px solid rgba(248, 113, 113, 0.1);">
             <i class="fas fa-broadcast-tower"></i><span class="font-bold uppercase tracking-wider text-xs"> Live</span>
@@ -183,6 +186,7 @@
             <span>Groups</span>
         </a>
 
+        {% if not (current_user.role == 'mentor' or current_user.is_mentor) %}
         <div class="sidebar-section-label">Sessions</div>
         <a href="{{ url_for('sessions') }}" class="sidebar-link {% if request.path == url_for('sessions') %}active{% endif %}">
             <i class="fas fa-calendar-alt"></i>
@@ -196,6 +200,7 @@
             <i class="fas fa-calendar-check text-indigo-400"></i>
             <span>My Bookings</span>
         </a>
+        {% endif %}
 
         {% if current_user.role == 'mentor' or current_user.is_mentor %}
         <div class="sidebar-section-label" style="color:rgba(96,165,250,0.8);">Mentor Hub</div>
@@ -273,6 +278,11 @@
         <div class="top-bar">
             <div class="mr-auto"></div>
             <div class="flex items-center space-x-3">
+                <div class="hidden md:flex items-center gap-3 px-3 py-1 bg-gray-800/50 border border-gray-700/50 rounded-full mr-2">
+                    <span class="text-xs font-bold text-yellow-400 flex items-center gap-1" title="XP"><i class="fas fa-star"></i> {{ gamification.xp if gamification else 0 }}</span>
+                    <span class="w-px h-3 bg-gray-600"></span>
+                    <span class="text-xs font-bold text-yellow-500 flex items-center gap-1" title="Coins"><i class="fas fa-coins"></i> {{ gamification.coins if gamification else 0 }}</span>
+                </div>
                 <span class="text-gray-400 text-sm flex items-center gap-1">
                     👋 Hey, {{ current_user.name }}!
                     {% if current_user.is_verified %}
@@ -359,7 +369,12 @@
                 <div class="flex-1">
                     <div class="flex justify-between items-start mb-6">
                         <div>
-                            <h2 class="text-3xl font-black text-white tracking-tight mb-2">{{ current_user.name }}</h2>
+                            <h2 class="text-3xl font-black text-white tracking-tight mb-2 flex items-center gap-2">
+                                {{ current_user.name }}
+                                {% if current_user.is_verified %}
+                                <i class="fas fa-check-circle text-blue-400 text-xl" title="Verified {{ current_user.verified_role or 'Account' }}"></i>
+                                {% endif %}
+                            </h2>
                             <div class="flex flex-wrap gap-4 text-sm font-medium">
                                 <span class="text-emerald-400 flex items-center gap-1.5">
                                     <i class="fas fa-graduation-cap"></i> {{ 'Mentor' if current_user.is_mentor else 'Learner' }}
@@ -586,6 +601,8 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
         import { getFirestore, collection, onSnapshot, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+        import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+        
         // Emitted from server-side context processor – no secrets in JS
         const firebaseConfig = {
             apiKey:            "{{ firebase_config.apiKey }}",
@@ -598,6 +615,16 @@
         };
         window._ssFirebaseApp = initializeApp(firebaseConfig);
         window._ssFirestore   = getFirestore(window._ssFirebaseApp);
+        
+        const auth = getAuth(window._ssFirebaseApp);
+        
+        window._ssAuthPromise = signInAnonymously(auth)
+            .then(() => console.log("Firebase authenticated anonymously"))
+            .catch((error) => {
+                console.error("Firebase auth error:", error);
+                throw error;
+            });
+
         // Expose utilities for page-level scripts
         window._fsUtils = { collection, onSnapshot, query, orderBy, limit };
     </script>
@@ -672,6 +699,18 @@
                     } else {
                         nav.classList.remove('scrolled');
                     }
+                });
+            }
+
+            // Sidebar scroll state persistence
+            const sidebarScroll = document.getElementById('sidebar-scroll-container');
+            if (sidebarScroll) {
+                const savedPos = sessionStorage.getItem('sidebarScrollPos');
+                if (savedPos !== null) {
+                    sidebarScroll.scrollTop = parseInt(savedPos, 10);
+                }
+                sidebarScroll.addEventListener('scroll', () => {
+                    sessionStorage.setItem('sidebarScrollPos', sidebarScroll.scrollTop);
                 });
             }
         });

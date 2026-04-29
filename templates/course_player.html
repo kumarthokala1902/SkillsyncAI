@@ -16,38 +16,40 @@
 
 {% block content %}
 <div class="max-w-[1600px] mx-auto">
-    <div class="flex flex-col lg:flex-row player-container bg-[#0f172a] rounded-3xl overflow-hidden shadow-2xl border border-white/5">
+    <div class="flex flex-col player-container bg-[#0f172a] rounded-3xl overflow-hidden shadow-2xl border border-white/5">
         
-        <!-- Main Video Area -->
-        <div class="flex-1 flex flex-col min-w-0">
-            <!-- Course Header -->
-            <div class="px-8 py-4 border-b border-white/5 flex items-center justify-between bg-[#1e293b]/50 backdrop-blur-md">
-                <div class="flex items-center gap-4">
-                    <a href="{{ url_for('recordings') }}" class="text-gray-400 hover:text-white transition">
-                        <i class="fas fa-chevron-left"></i>
-                    </a>
-                    <div>
-                        <h1 class="text-white font-bold text-lg truncate max-w-md">{{ course.title }}</h1>
-                        <p class="text-xs text-gray-400">{{ course.instructor }}</p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-6">
-                    <div class="hidden sm:flex flex-col items-end">
-                        <span class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Course Progress</span>
-                        <div class="flex items-center gap-3 mt-1">
-                            <div class="w-32 h-1.5 bg-white/5 rounded-full overflow-hidden">
-                                <div id="progress-bar-fill" class="h-full bg-indigo-500 transition-all duration-500" style="width: 0%"></div>
-                            </div>
-                            <span id="progress-percent" class="text-xs font-bold text-indigo-400">0%</span>
-                        </div>
-                    </div>
-                    <button onclick="openFeedback()" class="px-4 py-2 bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 rounded-xl text-xs font-bold hover:bg-indigo-500/20 transition">
-                        Give Feedback
-                    </button>
+        <!-- Course Header (Full Width) -->
+        <div class="px-6 lg:px-8 py-4 border-b border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between bg-[#1e293b]/50 backdrop-blur-md shrink-0 gap-4">
+            <div class="flex items-center gap-4 min-w-0">
+                <a href="{{ url_for('recordings') }}" class="text-gray-400 hover:text-white transition flex-shrink-0">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+                <div class="min-w-0">
+                    <h1 class="text-white font-bold text-lg truncate">{{ course.title }}</h1>
+                    <p class="text-xs text-gray-400 truncate">{{ course.instructor }}</p>
                 </div>
             </div>
+            <div class="flex items-center gap-4 lg:gap-6 flex-shrink-0">
+                <div class="hidden sm:flex flex-col items-end">
+                    <span class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Course Progress</span>
+                    <div class="flex items-center gap-3 mt-1">
+                        <div class="w-24 lg:w-32 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                            <div id="progress-bar-fill" class="h-full bg-indigo-500 transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                        <span id="progress-percent" class="text-xs font-bold text-indigo-400">0%</span>
+                    </div>
+                </div>
+                <button onclick="openFeedback()" class="px-4 py-2 bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 rounded-xl text-xs font-bold hover:bg-indigo-500/20 transition whitespace-nowrap">
+                    Give Feedback
+                </button>
+            </div>
+        </div>
 
-            <!-- YouTube Player -->
+        <!-- Content Split Area -->
+        <div class="flex-1 flex flex-col lg:flex-row min-h-0">
+            <!-- Main Video Area -->
+            <div class="flex-1 flex flex-col min-w-0">
+                <!-- YouTube Player -->
             <div class="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
                 <div id="player" class="w-full h-full"></div>
                 <!-- Loading Overlay -->
@@ -209,6 +211,7 @@
                     </div>
                 </div>
                 {% endfor %}
+            </div>
             </div>
         </div>
     </div>

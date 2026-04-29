@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}{{ group.name }} - SkillSync{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto py-8">
+    <a href="{{ url_for('groups') }}" class="text-indigo-400 hover:text-indigo-300 flex items-center gap-2 mb-6 transition-colors">
+        <i class="fas fa-arrow-left"></i> Back to Groups
+    </a>
+
+    <div class="bg-gray-800/50 border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-sm">
+        <div class="h-64 w-full bg-gradient-to-r from-indigo-900 to-purple-900 relative">
+            {% if group.banner_url %}
+            <img src="{{ group.banner_url }}" class="w-full h-full object-cover opacity-60" alt="{{ group.name }}">
+            {% endif %}
+            <div class="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent"></div>
+        </div>
+
+        <div class="px-8 pb-8">
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 -mt-12 relative z-10 mb-8">
+                <div class="flex items-end gap-6">
+                    <div class="w-24 h-24 bg-gray-900 rounded-2xl flex items-center justify-center border-4 border-[#171923] shadow-xl">
+                        <i class="fas fa-users text-4xl text-indigo-400"></i>
+                    </div>
+                    <div class="mb-2">
+                        <h1 class="text-3xl font-extrabold text-white mb-2">{{ group.name }}</h1>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-black px-3 py-1 bg-indigo-500/10 text-indigo-400 rounded-lg border border-indigo-500/20 uppercase tracking-widest">
+                                {{ group.category }}
+                            </span>
+                            <span class="text-[10px] font-bold px-3 py-1 bg-white/5 text-gray-400 rounded-lg border border-white/10 uppercase">
+                                {{ group.mode }}
+                            </span>
+                            {% if group.location %}
+                            <span class="text-[10px] font-bold px-3 py-1 bg-white/5 text-gray-400 rounded-lg border border-white/10 uppercase break-all flex items-center gap-1">
+                                <i class="fas fa-map-marker-alt"></i> {{ group.location }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col md:flex-row gap-8">
+                <div class="flex-1 space-y-8">
+                    <div class="prose prose-invert prose-indigo max-w-none">
+                        <h3 class="text-xl font-bold text-white mb-3">About this Group</h3>
+                        <p class="text-gray-300 whitespace-pre-line leading-relaxed">{{ group.description }}</p>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xl font-bold text-white mb-4">Members ({{ members_count }})</h3>
+                        <div class="flex flex-wrap gap-2">
+                            {% for member in group.members %}
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm shadow-lg" title="{{ member.user.name }}">
+                                    {{ member.user.name[0] }}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-full md:w-80 flex-shrink-0 flex flex-col gap-4">
+                    <div class="bg-gray-900/80 p-5 rounded-xl border border-white/10 space-y-4">
+                        <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Group Actions</h4>
+                        
+                        <form action="{{ url_for('group_join', group_id=group.id) }}" method="POST">
+                            {% if is_member %}
+                                <button type="submit" class="w-full py-3 rounded-xl font-bold transition-all bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/30 flex items-center justify-center gap-2">
+                                    <i class="fas fa-check-circle"></i> You're a Member
+                                </button>
+                            {% else %}
+                                <button type="submit" class="w-full py-3 rounded-xl font-bold transition-all bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg flex items-center justify-center gap-2">
+                                    <i class="fas fa-user-plus"></i> Join Group
+                                </button>
+                            {% endif %}
+                        </form>
+
+                        <button onclick="openChat('group-{{ group.id }}', '{{ group.name }}', 'fa-users')" class="w-full py-3 rounded-xl font-bold transition-all bg-white/5 hover:bg-white/10 text-white border border-white/10 flex items-center justify-center gap-2" {% if not is_member %}disabled title="Join group to chat"{% endif %}>
+                            <i class="fas fa-comments text-indigo-400"></i> Open Group Chat
+                        </button>
+                    </div>
+
+                    <div class="bg-gray-900/80 p-5 rounded-xl border border-white/10">
+                        <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Created By</h4>
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                                {{ group.creator.name[0] }}
+                            </div>
+                            <div>
+                                <div class="font-bold text-white">{{ group.creator.name }}</div>
+                                <a href="{% if group.creator.is_mentor %}{{ url_for('mentor_profile', mentor_id=group.creator.id) }}{% else %}{{ url_for('learner_profile', learner_id=group.creator.id) }}{% endif %}" class="text-indigo-400 text-sm hover:underline">View Profile</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

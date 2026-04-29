@@ -12,12 +12,12 @@ load_dotenv()
 
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, abort, g
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import (db, User, SkillProgress, MentorSession, MentorBooking, Post, Poll, Meetup, Career, Startup, Group,
+from models import (db, User, SkillProgress, MentorSession, MentorBooking, Post, Poll, Meetup, Career, Group,
                     PostLike, PostComment, PostSave, PostView, PeerConnection, PeerRequest, PeerSession, Notification,
                     AIConversation, AIMessage, LearningPath, MockInterview, CourseProgress,
                     CourseCategory, Course, SkillQuestion, VerificationRequest,
-                    CareerApplication, StartupConnection,
-                    LiveMeeting, MeetingParticipant, SkillTest, TestResult, MentorFeedback)
+                    CareerApplication, CodingChallenge, ChallengeSubmission, GamificationProfile,
+                    LiveMeeting, MeetingParticipant, SkillTest, TestResult, MentorFeedback, MeetupRSVP, GroupMember)
 from flask_socketio import SocketIO, emit
 from youtube_utils import parse_roadmap_md, get_playlist_videos, get_single_video_as_list
 from ai_engine import SkillMatcher
@@ -78,6 +78,17 @@ def mentor_required(f):
 @app.context_processor
 def inject_firebase_config():
     return {"firebase_config": get_client_config()}
+
+@app.context_processor
+def inject_gamification():
+    if current_user.is_authenticated:
+        profile = GamificationProfile.query.filter_by(user_id=current_user.id).first()
+        if not profile:
+            profile = GamificationProfile(user_id=current_user.id)
+            db.session.add(profile)
+            db.session.commit()
+        return {"gamification": profile}
+    return {}
 
 @app.template_filter('slugify')
 def slugify_filter(s):
@@ -216,7 +227,7 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        # Role-based redirect
+        # Role-based redirect for already-logged-in users
         if current_user.role in ('mentor',) or current_user.is_mentor:
             return redirect(url_for('mentor_dashboard'))
         return redirect(url_for('dashboard'))
@@ -224,6 +235,8 @@ def login():
     if request.method == 'POST':
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '')
+        # Role selected on the frontend login form
+        login_role = request.form.get('login_role', 'student').strip().lower()
 
         if not email or not password:
             flash('Email and password are required.', 'error')
@@ -245,13 +258,10 @@ def login():
                 else:
                     error_msg = response_data.get('error', {}).get('message', '')
                     if 'INVALID_LOGIN_CREDENTIALS' in error_msg or 'INVALID_PASSWORD' in error_msg or 'EMAIL_NOT_FOUND' in error_msg:
-                        # Definitive Firebase rejection — try local fallback below
                         pass
                     else:
-                        # Transient Firebase error — fall through to local auth
                         pass
             except Exception as e:
-                # Network / timeout — fall through to local auth
                 print(f'Firebase login network error: {e}')
 
         # ── 2. Local password fallback ──────────────────────────────────
@@ -267,23 +277,39 @@ def login():
                 flash('Invalid email or password.', 'error')
                 return render_template('login.html')
 
-        # ── 3. Login ─────────────────────────────────────────────────────
+        # ── 3. Role validation (secure backend check) ───────────────────
+        user_is_mentor = bool(user.is_mentor or user.role == 'mentor')
+
+        if login_role == 'mentor' and not user_is_mentor:
+            flash(
+                '⚠️ This account is registered as a Student. Please use Student Login.',
+                'error'
+            )
+            return redirect(url_for('login', role='student'))
+
+        if login_role == 'student' and user_is_mentor:
+            flash(
+                '⚠️ This account is registered as a Mentor. Please use Mentor Login.',
+                'error'
+            )
+            return redirect(url_for('login', role='mentor'))
+
+        # ── 4. Block suspended accounts ─────────────────────────────────
         if getattr(user, 'is_blocked', False):
             flash('Your account has been suspended. Contact an administrator.', 'error')
             return redirect(url_for('login'))
 
+        # ── 5. Authenticate ─────────────────────────────────────────────
         login_user(user)
         fs_svc.sync_user_to_firestore(user)
         flash(f'Welcome back, {user.name}! 🔥', 'success')
 
-        # Role-based post-login redirect
-        next_page = request.args.get('next')
-        if next_page:
-            return redirect(next_page)
-        if user.role in ('mentor',) or user.is_mentor:
+        # Strict role-based post-login redirect (ignores `next` to prevent hijacking)
+        if user_is_mentor:
             return redirect(url_for('mentor_dashboard'))
         return redirect(url_for('dashboard'))
 
+    # Restore role tab from URL param on GET
     return render_template('login.html')
 
 
@@ -297,6 +323,9 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
+    # Hard redirect: mentors must use /mentor/dashboard (prevents URL manipulation)
+    if current_user.is_mentor or current_user.role == 'mentor':
+        return redirect(url_for('mentor_dashboard'))
     try:
         # Get all users based on current user role
         if current_user.is_mentor:
@@ -608,6 +637,17 @@ def update_profile():
         current_user.college_code = college_code
     if college_name is not None:
         current_user.college_name = college_name
+        
+    bio = data.get('bio')
+    skills = data.get('skills')
+    years_experience = data.get('years_experience')
+    
+    if bio is not None:
+        current_user.bio = bio
+    if skills is not None:
+        current_user.skills = skills
+    if years_experience is not None and str(years_experience).isdigit():
+        current_user.years_experience = int(years_experience)
         
     # Also push to firestore if needed, but the periodic sync handles it usually.
     # We will trigger the sync:
@@ -1368,17 +1408,72 @@ def career_detail(career_id):
     career = Career.query.get_or_404(career_id)
     return render_template('career_detail.html', career=career)
 
-@app.route('/startups')
+@app.route('/challenges')
 @login_required
-def startups():
-    all_startups = Startup.query.order_by(Startup.created_at.desc()).all()
-    return render_template('startups.html', startups=all_startups)
+def challenges():
+    all_challenges = CodingChallenge.query.filter_by(is_active=True).order_by(CodingChallenge.created_at.desc()).all()
+    user_submissions = {sub.challenge_id: sub for sub in current_user.challenge_submissions}
+    return render_template('challenges.html', challenges=all_challenges, submissions=user_submissions)
 
 @app.route('/groups')
 @login_required
 def groups():
     all_groups = Group.query.order_by(Group.created_at.desc()).all()
     return render_template('groups.html', groups=all_groups)
+
+@app.route('/meetup/<int:meetup_id>')
+@login_required
+def meetup_detail(meetup_id):
+    meetup = Meetup.query.get_or_404(meetup_id)
+    current_rsvp = MeetupRSVP.query.filter_by(meetup_id=meetup_id, user_id=current_user.id).first()
+    rsvp_count = MeetupRSVP.query.filter_by(meetup_id=meetup_id, status='Attending').count()
+    return render_template('meetup_detail.html', meetup=meetup, current_rsvp=current_rsvp, rsvp_count=rsvp_count)
+
+@app.route('/meetup/<int:meetup_id>/rsvp', methods=['POST'])
+@login_required
+def meetup_rsvp(meetup_id):
+    meetup = Meetup.query.get_or_404(meetup_id)
+    rsvp = MeetupRSVP.query.filter_by(meetup_id=meetup_id, user_id=current_user.id).first()
+    
+    if rsvp:
+        if rsvp.status == 'Attending':
+            rsvp.status = 'Not Attending'
+            flash('You have cancelled your RSVP.', 'info')
+        else:
+            rsvp.status = 'Attending'
+            flash('You have successfully RSVP\'d!', 'success')
+    else:
+        new_rsvp = MeetupRSVP(meetup_id=meetup_id, user_id=current_user.id, status='Attending')
+        db.session.add(new_rsvp)
+        flash('You have successfully RSVP\'d!', 'success')
+        
+    db.session.commit()
+    return redirect(url_for('meetup_detail', meetup_id=meetup_id))
+
+@app.route('/group/<int:group_id>')
+@login_required
+def group_detail(group_id):
+    group = Group.query.get_or_404(group_id)
+    is_member = GroupMember.query.filter_by(group_id=group_id, user_id=current_user.id).first() is not None
+    members_count = GroupMember.query.filter_by(group_id=group_id).count()
+    return render_template('group_detail.html', group=group, is_member=is_member, members_count=members_count)
+
+@app.route('/group/<int:group_id>/join', methods=['POST'])
+@login_required
+def group_join(group_id):
+    group = Group.query.get_or_404(group_id)
+    member = GroupMember.query.filter_by(group_id=group_id, user_id=current_user.id).first()
+    
+    if member:
+        db.session.delete(member)
+        flash('You have left the group.', 'info')
+    else:
+        new_member = GroupMember(group_id=group_id, user_id=current_user.id)
+        db.session.add(new_member)
+        flash('You have successfully joined the group!', 'success')
+        
+    db.session.commit()
+    return redirect(url_for('group_detail', group_id=group_id))
 
 @app.route('/api/groups/add', methods=['POST'])
 @login_required
@@ -1456,11 +1551,53 @@ def add_meetup_user():
     
     return redirect(url_for('meetups'))
 
-@app.route('/startup/<int:startup_id>')
+@app.route('/challenge/<int:challenge_id>', methods=['GET', 'POST'])
 @login_required
-def startup_detail(startup_id):
-    startup = Startup.query.get_or_404(startup_id)
-    return render_template('startup_detail.html', startup=startup)
+def challenge_detail(challenge_id):
+    challenge = CodingChallenge.query.get_or_404(challenge_id)
+    existing_sub = ChallengeSubmission.query.filter_by(challenge_id=challenge_id, user_id=current_user.id).first()
+    
+    if request.method == 'POST':
+        if existing_sub and existing_sub.status != 'Rejected':
+            flash('You have already submitted a solution for this challenge.', 'warning')
+            return redirect(url_for('challenge_detail', challenge_id=challenge_id))
+            
+        submitted_code = request.form.get('code')
+        language = request.form.get('language', 'python')
+        time_taken_seconds = request.form.get('time_taken_seconds', 0, type=int)
+        
+        if not submitted_code:
+            flash('Please enter your code before submitting.', 'error')
+            return redirect(url_for('challenge_detail', challenge_id=challenge_id))
+            
+        if existing_sub:
+            existing_sub.submitted_code = submitted_code
+            existing_sub.language = language
+            existing_sub.time_taken_seconds = time_taken_seconds
+            existing_sub.status = 'Pending'
+            existing_sub.submitted_at = datetime.utcnow()
+        else:
+            sub = ChallengeSubmission(
+                challenge_id=challenge_id,
+                user_id=current_user.id,
+                submitted_code=submitted_code,
+                language=language,
+                time_taken_seconds=time_taken_seconds
+            )
+            db.session.add(sub)
+        db.session.commit()
+        
+        # Notify Admin (Optional)
+        flash('Solution submitted successfully! Awaiting review.', 'success')
+        return redirect(url_for('challenge_detail', challenge_id=challenge_id))
+        
+    return render_template('challenge_detail.html', challenge=challenge, submission=existing_sub)
+
+@app.route('/leaderboard')
+@login_required
+def leaderboard():
+    profiles = GamificationProfile.query.order_by(GamificationProfile.xp.desc(), GamificationProfile.coins.desc()).limit(50).all()
+    return render_template('leaderboard.html', profiles=profiles)
 
 # ── Careers Engagement ────────────────────────────────────────────────────────
 
@@ -1534,64 +1671,7 @@ def delete_career(career_id):
     flash('Post deleted successfully.', 'success')
     return redirect(url_for('careers'))
 
-# ── Startup Engagement ────────────────────────────────────────────────────────
-
-@app.route('/startup/connect/<int:startup_id>', methods=['POST'])
-@login_required
-def connect_startup(startup_id):
-    startup = Startup.query.get_or_404(startup_id)
-    
-    # Prevent duplicate connections
-    existing = StartupConnection.query.filter_by(startup_id=startup_id, user_id=current_user.id).first()
-    if existing:
-        flash('Connection request already sent.', 'info')
-        return redirect(url_for('startup_detail', startup_id=startup_id))
-    
-    conn = StartupConnection(
-        startup_id=startup_id,
-        user_id=current_user.id,
-        status='Pending',
-        message=request.form.get('message', 'I am interested in connecting with your startup.')
-    )
-    db.session.add(conn)
-    
-    # Notify Founder
-    create_notification(
-        user_id=startup.founder_id,
-        title='New Startup Connection',
-        message=f'{current_user.name} wants to connect with "{startup.name}"',
-        type='startup',
-        link=url_for('startup_detail', startup_id=startup_id)
-    )
-    
-    db.session.commit()
-    flash('Connection request sent to founder!', 'success')
-    return redirect(url_for('startup_detail', startup_id=startup_id))
-
-@app.route('/startup/add', methods=['POST'])
-@mentor_required
-def add_startup():
-    name = request.form.get('name')
-    industry = request.form.get('industry')
-    domain = request.form.get('domain')
-    description = request.form.get('description')
-    stage = request.form.get('funding_stage')
-    website = request.form.get('website')
-    
-    new_startup = Startup(
-        name=name,
-        industry=industry,
-        domain=domain,
-        description=description,
-        funding_stage=stage,
-        website=website,
-        founder_id=current_user.id
-    )
-    db.session.add(new_startup)
-    db.session.commit()
-    
-    flash('Startup project listed!', 'success')
-    return redirect(url_for('startups'))
+# ── Startup Engagement removed, replaced by Challenges ───────────────
 
 @app.route('/api/chat/send', methods=['POST'])
 @login_required
@@ -1619,17 +1699,7 @@ def chat_send():
         return jsonify({'success': True, 'messageId': message_id})
     return jsonify({'success': False, 'error': 'Failed to sync with Firestore'}), 500
 
-@app.route('/startup/delete/<int:startup_id>', methods=['POST'])
-@mentor_required
-def delete_startup(startup_id):
-    startup = Startup.query.get_or_404(startup_id)
-    if current_user.role != 'admin' and startup.founder_id != current_user.id:
-        abort(403)
-        
-    db.session.delete(startup)
-    db.session.commit()
-    flash('Startup removed successfully.', 'success')
-    return redirect(url_for('startups'))
+
 
 # ── Admin Management ─────────────────────────────────────────────────────────
 
@@ -1639,18 +1709,101 @@ def admin_careers():
     careers_list = Career.query.order_by(Career.created_at.desc()).all()
     return render_template('admin_careers.html', careers=careers_list)
 
-@app.route('/admin/startups')
+@app.route('/admin/challenges')
 @admin_required
-def admin_startups():
-    startups_list = Startup.query.order_by(Startup.created_at.desc()).all()
-    return render_template('admin_startups.html', startups=startups_list)
+def admin_challenges():
+    challenges_list = CodingChallenge.query.order_by(CodingChallenge.created_at.desc()).all()
+    return render_template('admin_challenges.html', challenges=challenges_list)
+
+@app.route('/admin/challenge/add', methods=['POST'])
+@admin_required
+def admin_add_challenge():
+    title = request.form.get('title')
+    description = request.form.get('description')
+    difficulty = request.form.get('difficulty', 'Medium')
+    base_code = request.form.get('base_code', '')
+    points = request.form.get('points_reward', 10)
+    xp = request.form.get('xp_reward', 50)
+    
+    challenge = CodingChallenge(
+        title=title,
+        description=description,
+        difficulty=difficulty,
+        base_code=base_code,
+        points_reward=int(points),
+        xp_reward=int(xp),
+        posted_by_id=current_user.id
+    )
+    db.session.add(challenge)
+    db.session.commit()
+    
+    # Notify users
+    # In a real system, you might broadcast a socket event or create notifications for active users
+    flash('Challenge posted successfully!', 'success')
+    return redirect(url_for('admin_challenges'))
+
+@app.route('/admin/submissions')
+@admin_required
+def admin_submissions():
+    status_filter = request.args.get('status', 'Pending')
+    if status_filter == 'All':
+        submissions = ChallengeSubmission.query.order_by(ChallengeSubmission.submitted_at.desc()).all()
+    else:
+        submissions = ChallengeSubmission.query.filter_by(status=status_filter).order_by(ChallengeSubmission.submitted_at.desc()).all()
+    return render_template('admin_submissions.html', submissions=submissions, current_filter=status_filter)
+
+@app.route('/admin/submission/<int:sub_id>/review', methods=['POST'])
+@admin_required
+def review_submission(sub_id):
+    sub = ChallengeSubmission.query.get_or_404(sub_id)
+    action = request.form.get('action') # 'accept' or 'reject'
+    feedback = request.form.get('feedback', '')
+    
+    sub.admin_feedback = feedback
+    sub.reviewed_at = datetime.utcnow()
+    sub.reviewed_by_id = current_user.id
+    
+    if action == 'accept':
+        sub.status = 'Accepted'
+        
+        # Award XP and Coins
+        profile = sub.user_submitted.gamification
+        if not profile:
+            profile = GamificationProfile(user_id=sub.user_id)
+            db.session.add(profile)
+            
+        profile.coins += sub.challenge.points_reward
+        profile.xp += sub.challenge.xp_reward
+        
+        create_notification(
+            user_id=sub.user_id,
+            title='Challenge Accepted!',
+            message=f'Your solution to "{sub.challenge.title}" was accepted! You earned {sub.challenge.points_reward} Coins and {sub.challenge.xp_reward} XP.',
+            type='system',
+            link=url_for('challenge_detail', challenge_id=sub.challenge_id)
+        )
+        flash('Submission Accepted.', 'success')
+        
+    else:
+        sub.status = 'Rejected'
+        create_notification(
+            user_id=sub.user_id,
+            title='Challenge Requires Revision',
+            message=f'Your solution to "{sub.challenge.title}" was rejected. Feedback: {feedback}',
+            type='system',
+            link=url_for('challenge_detail', challenge_id=sub.challenge_id)
+        )
+        flash('Submission Rejected.', 'info')
+        
+    db.session.commit()
+    return redirect(url_for('admin_submissions'))
 
 @app.route('/admin/applications')
 @admin_required
 def admin_applications():
     apps = CareerApplication.query.order_by(CareerApplication.applied_at.desc()).all()
-    conns = StartupConnection.query.order_by(StartupConnection.created_at.desc()).all()
-    return render_template('admin_interactions.html', applications=apps, connections=conns)
+    # Startup connections removed
+    return render_template('admin_interactions.html', applications=apps)
 
 def get_trending_topics(limit=5):
     """
@@ -2746,7 +2899,7 @@ def admin_dashboard():
     try:
         all_users = User.query.order_by(User.created_at.desc()).all()
         all_careers = Career.query.order_by(Career.created_at.desc()).all()
-        all_startups = Startup.query.order_by(Startup.created_at.desc()).all()
+        all_challenges = CodingChallenge.query.order_by(CodingChallenge.created_at.desc()).all()
         all_meetups = Meetup.query.order_by(Meetup.date_time.desc()).all()
         
         total_users   = len(all_users)
@@ -2760,13 +2913,13 @@ def admin_dashboard():
 
         # Engagement Metrics
         total_applications = CareerApplication.query.count()
-        total_connections = StartupConnection.query.count()
+        total_submissions = ChallengeSubmission.query.count()
 
         return render_template(
             'admin_dashboard.html',
             all_users=all_users,
             all_careers=all_careers,
-            all_startups=all_startups,
+            all_challenges=all_challenges,
             all_meetups=all_meetups,
             total_users=total_users,
             total_admins=total_admins,
@@ -2774,7 +2927,7 @@ def admin_dashboard():
             total_students=total_students,
             total_blocked=total_blocked,
             total_applications=total_applications,
-            total_connections=total_connections,
+            total_submissions=total_submissions,
             fs_analytics=fs_analytics,
         )
     except Exception as exc:
@@ -3096,35 +3249,7 @@ def admin_delete_career(item_id):
     flash(f'Career "{title}" deleted.', 'success')
     return redirect(url_for('admin_dashboard'))
 
-@app.route('/admin/startup/create', methods=['POST'])
-@login_required
-@admin_required
-def admin_create_startup():
-    try:
-        s = Startup(
-            name=request.form.get('name'),
-            industry=request.form.get('industry'),
-            description=request.form.get('description'),
-            funding_stage=request.form.get('funding_stage'),
-            website=request.form.get('website'),
-            founder_id=current_user.id
-        )
-        db.session.add(s)
-        db.session.commit()
-        return jsonify({'success': True, 'message': 'Startup created successfully!'})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 400
 
-@app.route('/admin/startup/delete/<int:item_id>', methods=['POST'])
-@login_required
-@admin_required
-def admin_delete_startup(item_id):
-    s = Startup.query.get_or_404(item_id)
-    name = s.name
-    db.session.delete(s)
-    db.session.commit()
-    flash(f'Startup "{name}" deleted.', 'success')
-    return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/meetup/create', methods=['POST'])
 @login_required
@@ -3732,4 +3857,5 @@ with app.app_context():
             pass
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5004, debug=True)
+    
+    socketio.run(app, host='0.0.0.0', port=5005, debug=True)

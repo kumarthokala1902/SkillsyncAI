@@ -48,8 +48,11 @@ class User(UserMixin, db.Model):
     # Careers posted by the user
     careers = db.relationship('Career', backref='poster', lazy=True, cascade='all, delete-orphan')
     
-    # Startups founded by the user
-    startups = db.relationship('Startup', backref='founder', lazy=True, cascade='all, delete-orphan')
+    # Coding challenges posted by admin
+    challenges_posted = db.relationship('CodingChallenge', backref='poster', lazy=True, cascade='all, delete-orphan')
+    
+    # Challenge submissions
+    challenge_submissions = db.relationship('ChallengeSubmission', backref='user_submitted', foreign_keys='ChallengeSubmission.user_id', lazy=True, cascade='all, delete-orphan')
 
     # Course Progress tracking
     course_progress = db.relationship('CourseProgress', backref='user', lazy=True, cascade='all, delete-orphan')
@@ -288,6 +291,16 @@ class Meetup(db.Model):
     def __repr__(self):
         return f'<Meetup {self.title}>'
 
+class MeetupRSVP(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    meetup_id = db.Column(db.Integer, db.ForeignKey('meetup.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    status = db.Column(db.String(20), default='Attending') # Attending, Not Attending
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', backref=db.backref('meetup_rsvps', lazy=True))
+    meetup = db.relationship('Meetup', backref=db.backref('rsvps', lazy=True, cascade='all, delete-orphan'))
+
 class Career(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
@@ -306,22 +319,62 @@ class Career(db.Model):
     def __repr__(self):
         return f'<Career {self.title} at {self.company}>'
 
-class Startup(db.Model):
+class CodingChallenge(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(200), nullable=False)
-    industry = db.Column(db.String(100), nullable=False)
-    domain = db.Column(db.String(100)) # e.g. Healthcare, Fintech, Edtech
+    title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, nullable=False)
-    funding_stage = db.Column(db.String(100))
-    website = db.Column(db.String(500))
-    founder_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    difficulty = db.Column(db.String(50), default='Medium') # Easy/Medium/Hard
+    base_code = db.Column(db.Text, default='')
+    points_reward = db.Column(db.Integer, default=10) # Coins
+    xp_reward = db.Column(db.Integer, default=50) # XP
+    is_active = db.Column(db.Boolean, default=True)
+    posted_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Relationships
-    connections = db.relationship('StartupConnection', backref='startup', lazy=True, cascade='all, delete-orphan')
+    submissions = db.relationship('ChallengeSubmission', backref='challenge', lazy=True, cascade='all, delete-orphan')
 
     def __repr__(self):
-        return f'<Startup {self.name}>'
+        return f'<CodingChallenge {self.title}>'
+
+class ChallengeSubmission(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    challenge_id = db.Column(db.Integer, db.ForeignKey('coding_challenge.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    submitted_code = db.Column(db.Text, nullable=False)
+    language = db.Column(db.String(50), default='python')
+    time_taken_seconds = db.Column(db.Integer, default=0)
+    status = db.Column(db.String(20), default='Pending') # Pending, Accepted, Rejected
+    admin_feedback = db.Column(db.Text, default='')
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+    reviewed_at = db.Column(db.DateTime)
+    reviewed_by_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+
+    def __repr__(self):
+        return f'<ChallengeSubmission User {self.user_id} Challenge {self.challenge_id} Status {self.status}>'
+
+class GamificationProfile(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
+    coins = db.Column(db.Integer, default=0)
+    xp = db.Column(db.Integer, default=0)
+    streak_days = db.Column(db.Integer, default=0)
+    last_active_date = db.Column(db.Date)
+
+    user = db.relationship('User', backref=db.backref('gamification', uselist=False, lazy=True))
+
+    @property
+    def rank_level(self):
+        if self.xp < 100:
+            return "Beginner"
+        elif self.xp < 500:
+            return "Pro"
+        elif self.xp < 2000:
+            return "Expert"
+        else:
+            return "Mentor Elite"
+
+    def __repr__(self):
+        return f'<GamificationProfile User {self.user_id} XP {self.xp} Rank {self.rank_level}>'
 
 class Group(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -339,6 +392,15 @@ class Group(db.Model):
     def __repr__(self):
         return f'<Group {self.name}>'
 
+class GroupMember(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    joined_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', backref=db.backref('group_memberships', lazy=True))
+    group = db.relationship('Group', backref=db.backref('members', lazy=True, cascade='all, delete-orphan'))
+
 class CareerApplication(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     career_id = db.Column(db.Integer, db.ForeignKey('career.id'), nullable=False)
@@ -352,18 +414,7 @@ class CareerApplication(db.Model):
     def __repr__(self):
         return f'<CareerApplication {self.user_id} for {self.career_id}>'
 
-class StartupConnection(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    startup_id = db.Column(db.Integer, db.ForeignKey('startup.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    status = db.Column(db.String(20), default='Pending') # Pending, Accepted, Rejected
-    message = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    user = db.relationship('User', backref=db.backref('startup_connections', lazy=True))
-
-    def __repr__(self):
-        return f'<StartupConnection {self.user_id} with {self.startup_id}>'
 
 class PeerConnection(db.Model):
     id = db.Column(db.Integer, primary_key=True)

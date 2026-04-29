@@ -384,6 +384,17 @@
                 </div>
                 {% endif %}
             </div>
+            <!-- ── Bookings Panel ──────────────────────── -->
+            <div id="panel-bookings" class="hub-panel" id="bookings">
+                <div id="bookings-loading" class="space-y-4">
+                    <div class="skeleton h-24 rounded-xl"></div>
+                    <div class="skeleton h-24 rounded-xl"></div>
+                    <div class="skeleton h-24 rounded-xl"></div>
+                </div>
+                <div id="bookings-content" class="hidden">
+                    <!-- Sub-sections rendered by JS -->
+                </div>
+            </div>
         </div><!-- /card-dark -->
 
     </div><!-- /Left -->
@@ -650,17 +661,7 @@
     </div>
 </div>
 
-<!-- ═══════ BOOKINGS PANEL (appended outside card, loaded by JS) ════════ -->
-<div id="panel-bookings" class="hub-panel card-dark rounded-2xl p-6">
-    <div id="bookings-loading" class="space-y-4">
-        <div class="skeleton h-24 rounded-xl"></div>
-        <div class="skeleton h-24 rounded-xl"></div>
-        <div class="skeleton h-24 rounded-xl"></div>
-    </div>
-    <div id="bookings-content" class="hidden">
-        <!-- Sub-sections rendered by JS -->
-    </div>
-</div>
+
 
 {% endblock %}
 

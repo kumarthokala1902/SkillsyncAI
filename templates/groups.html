@@ -29,7 +29,7 @@
                 <i class="fas fa-users text-2xl text-indigo-400"></i>
             </div>
             
-            <h3 class="text-xl font-bold text-white mb-1 transition-colors">{{ group.name }}</h3>
+            <a href="{{ url_for('group_detail', group_id=group.id) }}" class="text-xl font-bold text-white mb-1 hover:text-indigo-400 transition-colors block">{{ group.name }}</a>
             
             <div class="flex items-center gap-2 mb-4">
                 <span class="text-[10px] font-black px-2 py-1 bg-indigo-500/10 text-indigo-400 rounded-lg border border-indigo-500/20 uppercase tracking-widest">
@@ -54,9 +54,9 @@
                     <button onclick="openChat('group-{{ group.id }}', '{{ group.name }}', 'fa-users')" class="text-indigo-400 hover:text-indigo-300 transition-colors px-4 py-2 rounded-xl hover:bg-indigo-500/10 text-sm font-bold flex items-center gap-2">
                         <i class="fas fa-comments"></i> Chat
                     </button>
-                    <button class="text-indigo-400 hover:text-indigo-300 transition-colors px-4 py-2 rounded-xl hover:bg-indigo-500/10 text-sm font-bold flex items-center gap-2">
+                    <a href="{{ url_for('group_detail', group_id=group.id) }}" class="text-indigo-400 hover:text-indigo-300 transition-colors px-4 py-2 rounded-xl hover:bg-indigo-500/10 text-sm font-bold flex items-center gap-2">
                         Join Group
-                    </button>
+                    </a>
                 </div>
             </div>
         </div>

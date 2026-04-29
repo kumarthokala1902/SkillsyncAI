@@ -337,14 +337,14 @@
 
   <!-- ── Smart Filter Bar ── -->
   <div class="filter-bar" id="filterBar">
-    <button class="filter-pill active" data-filter="type" data-value="all" onclick="toggleFilter(this)">
-      <span class="pill-dot"></span> All People
+    <button class="filter-pill {% if request.args.get('tab') != 'mentors' %}active{% endif %}" data-filter="type" data-value="peer" onclick="toggleFilter(this)">
+      <i class="fas fa-graduation-cap text-emerald-400"></i> Students Only
     </button>
-    <button class="filter-pill" data-filter="type" data-value="mentor" onclick="toggleFilter(this)">
+    <button class="filter-pill {% if request.args.get('tab') == 'mentors' %}active{% endif %}" data-filter="type" data-value="mentor" onclick="toggleFilter(this)">
       <i class="fas fa-chalkboard-teacher text-indigo-400"></i> Mentors Only
     </button>
-    <button class="filter-pill" data-filter="type" data-value="peer" onclick="toggleFilter(this)">
-      <i class="fas fa-graduation-cap text-emerald-400"></i> Peers Only
+    <button class="filter-pill" data-filter="type" data-value="all" onclick="toggleFilter(this)">
+      <span class="pill-dot"></span> All People
     </button>
     <div style="width:1px;height:20px;background:rgba(255,255,255,0.08);margin:0 0.25rem;flex-shrink:0"></div>
     <button class="filter-pill" data-filter="available" data-value="true" data-toggle onclick="toggleFilter(this)">
@@ -402,6 +402,12 @@
         <div style="font-size:0.72rem;color:#475569;font-weight:600" id="queryLabel"></div>
       </div>
       <div class="people-grid" id="resultsGrid"></div>
+      
+      <div id="loadMoreWrap" class="text-center mt-8 hidden">
+        <button onclick="loadMore()" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-lg transition transform hover:-translate-y-0.5">
+          Load More <i class="fas fa-chevron-down ml-2"></i>
+        </button>
+      </div>
     </div>
 
     <!-- Empty State -->
@@ -438,7 +444,7 @@ const STATUS_MAP = {{ status_map | tojson }};
 const CIRCUM = 2 * Math.PI * 27; // circumference for r=27
 
 // ── State ────────────────────────────────────────────────────────────────────
-let activeFilters = { type: 'all' };
+let activeFilters = { type: '{{ "mentor" if request.args.get("tab") == "mentors" else "peer" }}' };
 let searchQuery = '{{ search_query | e }}';
 let debounceTimer = null;
 let allResults = [];
@@ -617,7 +623,13 @@ function showSkeletons(show = true) {
   document.getElementById('recommendedSection').classList.add('hidden');
   document.getElementById('allResultsWrap').style.display = show ? 'none' : 'block';
   document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('loadMoreWrap').classList.add('hidden');
 }
+
+let currentPage = 1;
+const ITEMS_PER_PAGE = 10;
+let restUsers = [];
+let currentQuery = '';
 
 function renderResults(users, query) {
   document.getElementById('skeletonGrid').style.display = 'none';
@@ -641,17 +653,52 @@ function renderResults(users, query) {
   }
 
   // All results (excluding recommended if shown)
-  const rest = (recommended.length && query) ? users.slice(3) : users;
-  document.getElementById('resultsCount').textContent = users.length;
+  restUsers = (recommended.length && query) ? users.slice(recommended.length) : users;
+  currentQuery = query;
+  currentPage = 1;
+  
+  document.getElementById('resultsCount').textContent = restUsers.length;
   document.getElementById('queryLabel').textContent = query ? `Results for "${query}"` : 'All users';
   document.getElementById('allResultsWrap').style.display = 'block';
-  document.getElementById('resultsGrid').innerHTML = rest.map(u => buildCard(u, query, false)).join('');
+  
+  const displayBatch = restUsers.slice(0, ITEMS_PER_PAGE);
+  document.getElementById('resultsGrid').innerHTML = displayBatch.map(u => buildCard(u, query, false)).join('');
+
+  if (restUsers.length > ITEMS_PER_PAGE) {
+    document.getElementById('loadMoreWrap').classList.remove('hidden');
+  } else {
+    document.getElementById('loadMoreWrap').classList.add('hidden');
+  }
 
   // Animate all donuts
   requestAnimationFrame(() => animateDonuts());
 
   // Restore connection buttons
   initConnectionButtons();
+}
+
+function loadMore() {
+  currentPage++;
+  const start = (currentPage - 1) * ITEMS_PER_PAGE;
+  const end = start + ITEMS_PER_PAGE;
+  const displayBatch = restUsers.slice(start, end);
+  
+  if (displayBatch.length > 0) {
+    const grid = document.getElementById('resultsGrid');
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = displayBatch.map(u => buildCard(u, currentQuery, false)).join('');
+    
+    while (tempDiv.firstChild) {
+      grid.appendChild(tempDiv.firstChild);
+    }
+    
+    requestAnimationFrame(() => animateDonuts());
+    initConnectionButtons();
+  }
+  
+  if (end >= restUsers.length) {
+    document.getElementById('loadMoreWrap').classList.add('hidden');
+  }
 }
 
 // ── Card Builder ───────────────────────────────────────────────────────────────
