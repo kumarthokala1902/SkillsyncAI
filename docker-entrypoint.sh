@@ -1,14 +1,10 @@
 #!/bin/sh
 set -e
 
-echo "Initializing local SQLite database..."
-python init_db.py
+if [ "${DB_AUTO_CREATE:-false}" = "true" ]; then
+	echo "Initializing database schema..."
+	python init_db.py
+fi
 
-echo "Restoring users from Firebase to local database..."
-python restore_users.py
-
-echo "Restoring meetings from Firebase to local database..."
-python restore_meetings.py
-
-echo "Starting application..."
+echo "Starting SkillSync..."
 exec "$@"

@@ -25,22 +25,13 @@ firebase_enabled = False
 
 def _resolve_service_account_path() -> str:
     """
-    Resolves the Firebase service account path using this priority order:
-      1. FIREBASE_SERVICE_ACCOUNT_KEY env var (if set — can be a path OR raw JSON)
-      2. service-account.json next to this file  (local development)
-      3. /app/service-account.json              (Docker / production container)
+        Resolve a path or inline JSON value supplied through the environment.
     """
     env_val = os.environ.get("FIREBASE_SERVICE_ACCOUNT_KEY", "").strip()
     if env_val:
         return env_val  # could be a file path or inline JSON
 
-    # Auto-detect: check local path first
-    local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "service-account.json")
-    if os.path.isfile(local_path):
-        return local_path
-
-    # Fallback to Docker / container path
-    return "/app/service-account.json"
+    return ""
 
 
 def init_firebase():
@@ -59,6 +50,9 @@ def init_firebase():
         from firebase_admin import credentials, firestore, auth
 
         service_account_path = _resolve_service_account_path()
+        if not service_account_path:
+            logger.warning("Firebase is not configured; continuing without Firebase integration")
+            return False
 
         # Support both a file path AND an inline JSON string (useful for
         # container / cloud environments where secrets are injected as env vars)
@@ -68,12 +62,10 @@ def init_firebase():
         elif os.path.isfile(service_account_path):
             cred = credentials.Certificate(service_account_path)
         else:
-            logger.error(
-                "Firebase service account not found at '%s'. "
-                "Firestore sync is REQUIRED. Set FIREBASE_SERVICE_ACCOUNT_KEY to enable it.",
-                service_account_path,
-            )
-            raise ValueError(f"Missing Firebase credentials at {service_account_path}")
+            logger.error("Firebase service account path does not exist")
+            if os.environ.get("FIREBASE_REQUIRED", "false").lower() == "true":
+                raise ValueError("Firebase service account path does not exist")
+            return False
 
         # Avoid double-initialisation if multiple calls happen
         if not firebase_admin._apps:
@@ -82,18 +74,19 @@ def init_firebase():
         db_firestore = firestore.client()
         fb_auth = auth
         firebase_enabled = True
-        logger.info("✅ Firebase Admin SDK initialised – Firestore sync ENABLED")
+        logger.info("Firebase Admin SDK initialized")
         return True
 
     except ImportError as exc:
-        logger.error(
-            "firebase-admin package not installed. Run: pip install firebase-admin. "
-            "Firestore sync is REQUIRED."
-        )
-        raise RuntimeError("firebase-admin package is missing") from exc
+        logger.error("firebase-admin package is not installed")
+        if os.environ.get("FIREBASE_REQUIRED", "false").lower() == "true":
+            raise RuntimeError("firebase-admin package is missing") from exc
+        return False
     except Exception as exc:
-        logger.error("Firebase initialisation failed: %s", exc)
-        raise RuntimeError(f"Firebase initialisation failed: {exc}") from exc
+        logger.error("Firebase initialization failed: %s", type(exc).__name__)
+        if os.environ.get("FIREBASE_REQUIRED", "false").lower() == "true":
+            raise RuntimeError("Firebase initialization failed") from exc
+        return False
 
 
 # ── Client-side config (safe to expose to the browser JS) ──────────────────

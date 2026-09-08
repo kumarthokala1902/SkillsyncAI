@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-skillsync}
+      POSTGRES_USER: ${POSTGRES_USER:-skillsync}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  core-service:
+    build: .
+    image: skillsync/core-service:0.1.0
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-skillsync}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-skillsync}
+      DB_AUTO_CREATE: "true"
+      PORT: "5000"
+    ports:
+      - "${APP_PORT:-5000}:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

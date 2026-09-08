@@ -16,3 +16,9 @@ instance/
 .env
 *.log
 service-account.json
+
+# Local secrets
+firebase-service-account.json
+cookies.txt
+*.pem
+*.key

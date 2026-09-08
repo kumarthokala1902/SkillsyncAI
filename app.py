@@ -1,14 +1,11 @@
 # Flask app main entry
 import os
 import json
+import logging
 import re
 import requests
 from collections import Counter
 from functools import wraps
-
-# Load .env before anything else
-from dotenv import load_dotenv
-load_dotenv()
 
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, abort, g
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
@@ -23,18 +20,20 @@ from youtube_utils import parse_roadmap_md, get_playlist_videos, get_single_vide
 from ai_engine import SkillMatcher
 from ai_assistant import SkillSyncAI
 from datetime import datetime, timedelta
+from config import settings
 
 # ── Firebase (imported lazily – app still works without service account) ──────
 from firebase_config import init_firebase, get_client_config
 import firebase_service as fs_svc
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s')
+logger = logging.getLogger(__name__)
+
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SESSION_SECRET', 'dev-secret-key-change-in-production')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///skillsync.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config.update(settings.as_flask_config())
 
 db.init_app(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -122,6 +121,12 @@ def create_notification(user_id, title, message, type='system', link=None):
 @app.route('/')
 def index():
     return render_template('index.html')
+
+
+@app.route('/health')
+def health():
+    """Return a lightweight health response for probes and load balancers."""
+    return jsonify({'status': 'healthy', 'service': 'skillsync-core'}), 200
 
 @app.route('/provide-meet-link', methods=['GET', 'POST'])
 @login_required
@@ -597,9 +602,9 @@ def progress_data():
         print(f"Progress data API error: {e}")
         return jsonify({'labels': [], 'values': []})
 
-@app.route('/settings')
+@app.route('/settings', endpoint='settings')
 @login_required
-def settings():
+def settings_page():
     return render_template('settings.html')
 
 @app.route('/api/colleges', methods=['GET'])
@@ -3837,25 +3842,5 @@ def init_sample_data():
     pass
 
 
-# Initialize database
-with app.app_context():
-    try:
-        print("Creating database tables...")
-        db.create_all()
-        print("Database tables created successfully.")
-        
-        # Initialize sample data
-        init_sample_data()
-        
-    except Exception as e:
-        print(f"Error during database initialization: {e}")
-        # Manual intervention required if schema is broken to prevent accidental data loss.
-        # db.create_all() will still attempt to create new tables if possible.
-        try:
-            db.create_all()
-        except:
-            pass
-
 if __name__ == '__main__':
-    
-    socketio.run(app, host='0.0.0.0', port=5005, debug=True)
+    socketio.run(app, host=settings.host, port=settings.port, debug=settings.debug)

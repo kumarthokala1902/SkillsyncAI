@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skillsync-core
+  namespace: skillsync
+  labels:
+    app.kubernetes.io/name: skillsync-core
+    app.kubernetes.io/component: core
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: skillsync-core
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: skillsync-core
+        app.kubernetes.io/component: core
+    spec:
+      containers:
+        - name: core-service
+          image: skillsync/core-service:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 5000
+          envFrom:
+            - configMapRef:
+                name: skillsync-config
+            - secretRef:
+                name: skillsync-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
