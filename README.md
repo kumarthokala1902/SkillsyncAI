@@ -1,6 +1,6 @@
 # SkillSyncAI
 
-CI Run Test
+CI Run Test 2
 
 SkillSync is a Flask learning and mentoring platform. The current product remains a single deployable **core service** because its UI, routes, models, and workflows share one database and do not yet have stable service contracts. The repository is prepared for future extraction of authentication or notifications without pretending those are independent services today.
 
