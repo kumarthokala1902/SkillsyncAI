@@ -39,12 +39,35 @@ Important variables are `FLASK_ENV`, `SESSION_SECRET`, `DATABASE_URL`, `HOST`, `
 SQLite is the default:
 
 ```sh
+python -m venv .venv
+. .venv/bin/activate
 python -m pip install -r requirements.txt
+cp .env.example .env
 python init_db.py
 python app.py
 ```
 
 Open `http://localhost:5000`. The process health endpoint is `GET /health`.
+
+### Local Firebase credentials
+
+Fork owners must use their own Firebase project and service account. Download a
+service-account JSON file from Firebase Console, keep it outside Git, and point
+the local `.env` file at it:
+
+```sh
+chmod 600 /absolute/path/to/firebase-service-account.json
+```
+
+```dotenv
+FIREBASE_SERVICE_ACCOUNT_KEY=/absolute/path/to/firebase-service-account.json
+FIREBASE_REQUIRED=true
+```
+
+Set the Firebase client variables in `.env` as well if browser Firebase
+features are enabled. Alternatively, leave `FIREBASE_REQUIRED=false` and the
+application will run locally without Firebase integration. Never commit the
+service-account JSON, `.env`, or inline service-account JSON to the fork.
 
 ## Run with Docker
 
