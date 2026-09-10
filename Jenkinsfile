@@ -8,7 +8,7 @@ pipeline {
     parameters {
         string(
             name: 'DOCKERHUB_REPOSITORY',
-            defaultValue: 'skillsync/core-service',
+            defaultValue: 'kumarreddy1902/skillsync',
             description: 'Docker Hub repository, including the Docker Hub namespace'
         )
     }

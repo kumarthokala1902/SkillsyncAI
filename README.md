@@ -74,8 +74,8 @@ service-account JSON, `.env`, or inline service-account JSON to the fork.
 Build and run the versioned image:
 
 ```sh
-docker build -t skillsync/core-service:0.1.0 .
-docker run --env-file .env -p 5000:5000 skillsync/core-service:0.1.0
+docker build -t kumarreddy1902/skillsync:0.1.0 .
+docker run --env-file .env -p 5000:5000 kumarreddy1902/skillsync:0.1.0
 ```
 
 ## Run with Docker Compose

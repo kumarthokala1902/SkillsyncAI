@@ -21,7 +21,7 @@ spec:
         - name: dockerhub-registry
       containers:
         - name: core-service
-          image: skillsync/core-service:0.1.0
+          image: kumarreddy1902/skillsync:0.1.0
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
