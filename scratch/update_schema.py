@@ -1,23 +1,12 @@
 import sys
 import os
 sys.path.append(os.getcwd())
-from app import app, db
-from sqlalchemy import text
+from firebase_config import init_firebase
 
 def update_db():
-    with app.app_context():
-        # Add columns to Meetup
-        try:
-            db.session.execute(text("ALTER TABLE meetup ADD COLUMN max_participants INTEGER DEFAULT 50"))
-            db.session.execute(text("ALTER TABLE meetup ADD COLUMN banner_url VARCHAR(500)"))
-            db.session.commit()
-            print("Meetup table updated successfully.")
-        except Exception as e:
-            print(f"Meetup columns might already exist or error: {e}")
-        
-        # Create new tables (like Group)
-        db.create_all()
-        print("db.create_all() executed.")
+    if not init_firebase():
+        raise RuntimeError("Firebase initialization failed")
+    print("Firestore schema is managed by document writes.")
 
 if __name__ == "__main__":
     update_db()

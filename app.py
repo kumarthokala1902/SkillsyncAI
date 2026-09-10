@@ -32,7 +32,6 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.config.update(settings.as_flask_config())
 
-db.init_app(app)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 login_manager = LoginManager()
@@ -193,6 +192,7 @@ def register():
         user = User(
             name=name,
             email=email,
+            firebase_uid=fb_user.uid,
             role=role,
             is_mentor=(role == 'mentor'),
             skills=skills,
@@ -208,8 +208,6 @@ def register():
             availability=availability,
             is_verified=False # Start as unverified per user request
         )
-        user.set_password(password)
-        
         db.session.add(user)
         db.session.commit()
         
@@ -269,18 +267,16 @@ def login():
             except Exception as e:
                 print(f'Firebase login network error: {e}')
 
-        # ── 2. Local password fallback ──────────────────────────────────
+        # ── 2. Load the Firestore profile for the authenticated Firebase user ─
         user = User.query.filter_by(email=email).first()
 
         if firebase_ok:
             if not user:
-                flash('User record missing in local database. Please contact support.', 'error')
+                flash('User profile missing in Firestore. Please contact support.', 'error')
                 return redirect(url_for('login'))
         else:
-            # Local auth: verify password against local hash
-            if not user or not user.check_password(password):
-                flash('Invalid email or password.', 'error')
-                return render_template('login.html')
+            flash('Firebase Authentication failed. Please try again.', 'error')
+            return render_template('login.html')
 
         # ── 3. Role validation (secure backend check) ───────────────────
         user_is_mentor = bool(user.is_mentor or user.role == 'mentor')
@@ -634,7 +630,10 @@ def update_profile():
         # Check if username exists? Wait, names don't have to be unique, emails do.
         current_user.name = new_username
     if new_password:
-        current_user.set_password(new_password)
+        import firebase_config
+        if not firebase_config.fb_auth or not current_user.firebase_uid:
+            return jsonify({'success': False, 'message': 'Firebase Authentication is unavailable'}), 503
+        firebase_config.fb_auth.update_user(current_user.firebase_uid, password=new_password)
         
     college_code = data.get('college_code')
     college_name = data.get('college_name')
@@ -2850,26 +2849,10 @@ def admin_login():
         email = request.form.get('email')
         password = request.form.get('password')
         
-        # --- Handle Default Admin Bypass ---
-        if (email == 'admin@skillsync.com' or email == 'admin') and password == 'admin123':
-            user = User.query.filter_by(email='admin@skillsync.com').first()
-            if not user:
-                # Create default admin in SQLite
-                user = User(
-                    name='Super Admin',
-                    email='admin@skillsync.com',
-                    role='admin',
-                    is_verified=True
-                )
-                user.set_password('admin123')
-                db.session.add(user)
-                db.session.commit()
-            
-            login_user(user)
-            flash('Welcome back, System Admin!', 'success')
-            return redirect(url_for('admin_dashboard'))
-        
         api_key = os.environ.get('FIREBASE_API_KEY')
+        if not api_key:
+            flash('Firebase Authentication is not configured.', 'error')
+            return render_template('admin_login.html')
         verify_url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={api_key}"
         payload = {"email": email, "password": password, "returnSecureToken": True}
         

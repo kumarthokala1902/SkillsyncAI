@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: skillsync-core-pod
+  namespace: skillsync
+  labels:
+    app.kubernetes.io/name: skillsync-core
+    app.kubernetes.io/component: standalone-pod
+spec:
+  imagePullSecrets:
+    - name: dockerhub-registry
+  containers:
+    - name: core-service
+      image: skillsync/core-service:0.1.0
+      imagePullPolicy: IfNotPresent
+      ports:
+        - name: http
+          containerPort: 5000
+      envFrom:
+        - configMapRef:
+            name: skillsync-config
+      env:
+        - name: SESSION_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: skillsync-secrets
+              key: SESSION_SECRET
+        - name: FIREBASE_SERVICE_ACCOUNT_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skillsync-secrets
+              key: FIREBASE_SERVICE_ACCOUNT_KEY

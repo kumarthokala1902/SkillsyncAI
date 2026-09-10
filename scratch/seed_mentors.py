@@ -1,6 +1,5 @@
 import sys
 import os
-from werkzeug.security import generate_password_hash
 
 # Add current directory to path
 sys.path.append(os.getcwd())
@@ -38,7 +37,6 @@ try:
                 u = User(
                     name=m_data['name'],
                     email=m_data['email'],
-                    password_hash=generate_password_hash('password123', method='pbkdf2:sha256'),
                     skills=m_data['skills'],
                     role=m_data['role'],
                     is_mentor=m_data['is_mentor'],

@@ -12,9 +12,6 @@ def migrate():
     print("🚀 Starting Migration: Recordings Markdown -> Database")
     
     with app.app_context():
-        # Create tables
-        db.create_all()
-        
         md_path = 'Cources_links/tech_roadmap_youtube_playlists.md'
         categories_data = parse_roadmap_md(md_path)
         

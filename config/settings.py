@@ -17,7 +17,6 @@ class Settings:
         self.environment = os.getenv("FLASK_ENV", "development").lower()
         self.debug = self.environment == "development"
         self.secret_key = os.getenv("SESSION_SECRET", "")
-        self.database_url = os.getenv("DATABASE_URL", "sqlite:///skillsync.db")
         self.firebase_required = os.getenv("FIREBASE_REQUIRED", "false").lower() == "true"
         self.host = os.getenv("HOST", "0.0.0.0")
         self.port = int(os.getenv("PORT", "5000"))
@@ -31,8 +30,6 @@ class Settings:
         """Fail fast for settings that would make a production deployment unsafe."""
         if self.is_production and not self.secret_key:
             raise RuntimeError("SESSION_SECRET must be set when FLASK_ENV=production")
-        if self.is_production and self.database_url.startswith("sqlite:"):
-            raise RuntimeError("DATABASE_URL must use PostgreSQL when FLASK_ENV=production")
         if self.firebase_required and not os.getenv("FIREBASE_SERVICE_ACCOUNT_KEY"):
             raise RuntimeError("FIREBASE_SERVICE_ACCOUNT_KEY is required when FIREBASE_REQUIRED=true")
 
@@ -40,8 +37,6 @@ class Settings:
         """Return settings in Flask's configuration format."""
         return {
             "SECRET_KEY": self.secret_key or "local-development-secret",
-            "SQLALCHEMY_DATABASE_URI": self.database_url,
-            "SQLALCHEMY_TRACK_MODIFICATIONS": False,
             "ENV": self.environment,
             "DEBUG": self.debug,
         }

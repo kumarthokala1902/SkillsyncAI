@@ -7,9 +7,3 @@ data:
   FLASK_ENV: production
   PORT: "5000"
   FIREBASE_REQUIRED: "true"
----
-# Create the referenced Secret separately; secret values never belong in Git.
-# kubectl create secret generic skillsync-secrets -n skillsync \\
-#   --from-literal=SESSION_SECRET=... \\
-#   --from-literal=DATABASE_URL=... \\
-#   --from-literal=FIREBASE_SERVICE_ACCOUNT_KEY=...

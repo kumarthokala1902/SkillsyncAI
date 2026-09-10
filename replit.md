@@ -12,7 +12,7 @@ SkillSync is a Flask-based mentorship platform that intelligently connects learn
 
 ### Backend (Flask + Python)
 - **Framework:** Flask 3.0.0
-- **Database:** SQLite (SQLAlchemy ORM)
+- **Database:** Cloud Firestore
 - **Authentication:** Flask-Login with password hashing
 - **AI Matching:** scikit-learn TF-IDF for skill-based recommendations
 
@@ -122,7 +122,7 @@ The app automatically initializes with sample users:
 
 ## Next Phase Enhancements
 1. **Real-time Chat:** Flask-SocketIO for live mentorship sessions
-2. **PostgreSQL Database:** Production-ready persistence
+2. **Firebase Storage:** Production file uploads
 3. **Advanced AI:** Upgrade to sentence-transformers or OpenAI embeddings
 4. **AI Chat Assistant:** OpenAI integration for career guidance
 5. **Gamification:** Badges and achievement system
@@ -136,5 +136,5 @@ Sample data is automatically initialized on first run.
 
 ## Notes
 - TailwindCSS is loaded via CDN (development only)
-- SQLite database file: `skillsync.db` (auto-created)
+- Cloud Firestore collections are created on first write.
 - Session secret managed via environment variable SESSION_SECRET

@@ -1,6 +1,5 @@
-from app import app
-from models import db
+from firebase_config import init_firebase
 
-with app.app_context():
-    db.create_all()
-    print("Database tables updated successfully!")
+if not init_firebase():
+    raise RuntimeError("Firebase initialization failed")
+print("Challenge collection is created on first write")

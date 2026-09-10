@@ -1,10 +1,10 @@
 import logging
 
-from app import app, db
+from firebase_config import init_firebase
 
 logger = logging.getLogger(__name__)
 
-with app.app_context():
-    logger.info("Creating database tables if they do not exist")
-    db.create_all()
-    logger.info("Database schema initialization complete")
+logger.info("Initializing Firebase services")
+if not init_firebase():
+    raise RuntimeError("Firebase initialization failed")
+logger.info("Firebase initialization complete")

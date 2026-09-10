@@ -1,836 +1,408 @@
-from flask_sqlalchemy import SQLAlchemy
+"""Firestore-backed application models.
+
+Existing route-facing model/query APIs are preserved while Firestore is the
+only persistence layer. No relational database or ORM is used here.
+"""
+from __future__ import annotations
+
+import json
+import random
+import time
+from datetime import date, datetime, time, timedelta
+from typing import Callable
+
 from flask_login import UserMixin
-from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
 
-db = SQLAlchemy()
 
-class User(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(200), nullable=False)
-    skills = db.Column(db.Text, nullable=False, default='')
-    goals = db.Column(db.Text, nullable=False, default='')
-    bio = db.Column(db.Text, default='')
-    is_mentor = db.Column(db.Boolean, default=False)
-    role = db.Column(db.String(20), default='student')  # admin | mentor | student
-    is_blocked = db.Column(db.Boolean, default=False)
-    education_level = db.Column(db.String(100))
-    college_code = db.Column(db.String(50))
-    college_name = db.Column(db.String(255))
-    learning_mode = db.Column(db.String(50))
-    expertise = db.Column(db.String(200))
-    years_experience = db.Column(db.Integer)
-    job_role = db.Column(db.String(200))
-    is_verified = db.Column(db.Boolean, default=False)
-    verified_skill = db.Column(db.String(100))
-    verified_role = db.Column(db.String(20))
-    verification_status = db.Column(db.String(20), default='none') # none | pending | approved | rejected
-    availability = db.Column(db.String(200), default='')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    # Relationships
-    skill_progress = db.relationship('SkillProgress', backref='user', lazy=True, cascade='all, delete-orphan')
-    
-    # Sessions where user is a mentor
-    sessions_mentoring = db.relationship('MentorSession', 
-                                       foreign_keys='MentorSession.mentor_id', 
-                                       backref='mentor', 
-                                       lazy=True)
-    
-    # Sessions where user is a learner
-    sessions_learning = db.relationship('MentorSession', 
-                                      foreign_keys='MentorSession.learner_id', 
-                                      backref='learner', 
-                                      lazy=True)
-    
-    # Careers posted by the user
-    careers = db.relationship('Career', backref='poster', lazy=True, cascade='all, delete-orphan')
-    
-    # Coding challenges posted by admin
-    challenges_posted = db.relationship('CodingChallenge', backref='poster', lazy=True, cascade='all, delete-orphan')
-    
-    # Challenge submissions
-    challenge_submissions = db.relationship('ChallengeSubmission', backref='user_submitted', foreign_keys='ChallengeSubmission.user_id', lazy=True, cascade='all, delete-orphan')
+def _next_id():
+    return int(time.time() * 1000000) + random.randint(0, 999)
 
-    # Course Progress tracking
-    course_progress = db.relationship('CourseProgress', backref='user', lazy=True, cascade='all, delete-orphan')
-    
-    def set_password(self, password):
-        # Use pbkdf2:sha256 explicitly — avoids scrypt incompatibility with macOS LibreSSL
-        self.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
 
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
-    
-    def get_skills_list(self):
-        return [s.strip() for s in self.skills.split(',') if s.strip()]
-    
-    def get_goals_list(self):
-        return [g.strip() for g in self.goals.split(',') if g.strip()]
-    
+class _Condition:
+    def __init__(self, predicate: Callable):
+        self.predicate = predicate
+
+    def __call__(self, item):
+        try:
+            return bool(self.predicate(item))
+        except (AttributeError, TypeError, ValueError):
+            return False
+
+    def __and__(self, other):
+        return _Condition(lambda item: self(item) and other(item))
+
+    def __or__(self, other):
+        return _Condition(lambda item: self(item) or other(item))
+
+
+class _Field:
+    def __init__(self, name):
+        self.name = name
+
+    def __get__(self, instance, owner):
+        return self if instance is None else instance._data.get(self.name)
+
+    def __set__(self, instance, value):
+        instance._data[self.name] = value
+
+    def _compare(self, operation, other):
+        return _Condition(lambda item: operation(getattr(item, self.name, None), other))
+
+    def __eq__(self, other): return self._compare(lambda a, b: a == b, other)
+    def __ne__(self, other): return self._compare(lambda a, b: a != b, other)
+    def __lt__(self, other): return self._compare(lambda a, b: a is not None and a < b, other)
+    def __le__(self, other): return self._compare(lambda a, b: a is not None and a <= b, other)
+    def __gt__(self, other): return self._compare(lambda a, b: a is not None and a > b, other)
+    def __ge__(self, other): return self._compare(lambda a, b: a is not None and a >= b, other)
+    def contains(self, value): return _Condition(lambda item: value in (getattr(item, self.name, "") or ""))
+    def in_(self, values): return _Condition(lambda item: getattr(item, self.name, None) in values)
+    def asc(self): return _Order(self.name, False)
+    def desc(self): return _Order(self.name, True)
+
+
+class _Order:
+    def __init__(self, field, reverse):
+        self.field = field
+        self.reverse = reverse
+
+
+class _RandomOrder:
+    field = ""
+    reverse = False
+
+
+class _Page:
+    def __init__(self, items, page, per_page, total):
+        self.items = items
+        self.page = page
+        self.per_page = per_page
+        self.total = total
+        self.pages = max(1, (total + per_page - 1) // per_page)
+        self.has_next = page < self.pages
+        self.has_prev = page > 1
+
+
+class _Query:
+    def __init__(self, model, conditions=None, orders=None, max_items=None):
+        self.model = model
+        self.conditions = conditions or []
+        self.orders = orders or []
+        self.max_items = max_items
+
+    def _items(self):
+        items = self.model._load_all()
+        for condition in self.conditions:
+            items = [item for item in items if condition(item)]
+        for order in reversed(self.orders):
+            if isinstance(order, _RandomOrder):
+                random.shuffle(items)
+            else:
+                items.sort(key=lambda item: getattr(item, order.field, None) or "", reverse=order.reverse)
+        return items[:self.max_items] if self.max_items is not None else items
+
+    def filter(self, *conditions): return _Query(self.model, self.conditions + list(conditions), self.orders, self.max_items)
+    def filter_by(self, **values):
+        return self.filter(*[_Condition(lambda item, key=k, value=v: getattr(item, key, None) == value) for k, v in values.items()])
+    def order_by(self, *orders): return _Query(self.model, self.conditions, self.orders + list(orders), self.max_items)
+    def limit(self, amount): return _Query(self.model, self.conditions, self.orders, amount)
+    def all(self): return self._items()
+    def first(self):
+        items = self.limit(1)._items()
+        return items[0] if items else None
+    def first_or_404(self):
+        item = self.first()
+        if item is None:
+            from flask import abort
+            abort(404)
+        return item
+    def get(self, identifier):
+        return self.filter(_Condition(lambda item: str(getattr(item, "id", "")) == str(identifier))).first()
+    def get_or_404(self, identifier):
+        item = self.get(identifier)
+        if item is None:
+            from flask import abort
+            abort(404)
+        return item
+    def count(self): return len(self._items())
+    def paginate(self, page=1, per_page=20, error_out=False):
+        if page < 1:
+            if error_out:
+                from flask import abort
+                abort(404)
+            page = 1
+        items = self._items()
+        start = (page - 1) * per_page
+        return _Page(items[start:start + per_page], page, per_page, len(items))
+    def delete(self):
+        items = self._items()
+        for item in items: db.session.delete(item)
+        return len(items)
+    def update(self, values):
+        items = self._items()
+        for item in items:
+            for key, value in values.items(): setattr(item, key, value)
+            db.session.track(item)
+        return len(items)
+
+
+class _QueryDescriptor:
+    def __get__(self, instance, owner): return _Query(owner)
+
+
+class _Session:
+    def __init__(self):
+        self.pending = []
+        self.deleted = []
+        self.tracked = {}
+
+    def add(self, item):
+        if item not in self.pending: self.pending.append(item)
+        return item
+
+    def track(self, item):
+        self.tracked[(item.__class__, str(item.id))] = item
+        return item
+
+    def delete(self, item):
+        if item not in self.deleted: self.deleted.append(item)
+
+    def flush(self):
+        for item in self.pending: item._ensure_id()
+
+    def commit(self):
+        self.flush()
+        for item in self.pending + list(self.tracked.values()):
+            if item not in self.deleted: item._save()
+        for item in self.deleted: item._delete()
+        self.pending.clear(); self.deleted.clear()
+
+    def remove(self):
+        self.pending.clear(); self.deleted.clear(); self.tracked.clear()
+
+    def rollback(self):
+        self.pending.clear(); self.deleted.clear()
+
+
+class _Functions:
+    @staticmethod
+    def random(): return _RandomOrder()
+
+
+class _FirestoreStore:
+    func = _Functions()
+
+    def __init__(self): self.session = _Session()
+    def init_app(self, app): return None
+    @staticmethod
+    def or_(*conditions): return _Condition(lambda item: any(condition(item) for condition in conditions))
+    @staticmethod
+    def and_(*conditions): return _Condition(lambda item: all(condition(item) for condition in conditions))
+    @staticmethod
+    def extract(part, field):
+        return _Condition(lambda item: getattr(item, field.name, None).year == part if part == "year" else getattr(item, field.name, None).month == part)
+
+
+db = _FirestoreStore()
+
+
+class FirestoreModel:
+    query = _QueryDescriptor()
+    _collection = None
+
+    def __init__(self, **values):
+        self._data = {}
+        for key, value in values.items():
+            if isinstance(value, str) and key in {"date", "last_active_date"}:
+                try: value = date.fromisoformat(value)
+                except ValueError: pass
+            elif isinstance(value, str) and key == "time":
+                try: value = time.fromisoformat(value)
+                except ValueError: pass
+            elif isinstance(value, str) and key in {"created_at", "updated_at", "scheduled_time", "scheduled_at", "start_time", "end_time", "submitted_at", "reviewed_at", "applied_at", "joined_at", "completed_at", "expires_at"}:
+                try: value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                except ValueError: pass
+            setattr(self, key, value)
+        self._ensure_id()
+
+    def _ensure_id(self):
+        if not self._data.get("id"): self._data["id"] = _next_id()
+
+    @classmethod
+    def _firestore(cls):
+        from firebase_config import db_firestore
+        return db_firestore
+
+    @classmethod
+    def _load_all(cls):
+        fs = cls._firestore()
+        if fs is None: return []
+        try:
+            result = []
+            for doc in fs.collection(cls._collection).stream():
+                values = doc.to_dict()
+                values.setdefault("id", doc.id)
+                item = cls(**values)
+                db.session.track(item)
+                result.append(item)
+            return result
+        except Exception:
+            return []
+
+    def _save(self):
+        fs = self._firestore()
+        if fs is None: return
+        data = {}
+        for key, value in self._data.items():
+            if key.startswith("_"): continue
+            if isinstance(value, (date, time)) and not isinstance(value, datetime): value = value.isoformat()
+            data[key] = value
+        fs.collection(self._collection).document(str(self.id)).set(data, merge=True)
+
+    def _delete(self):
+        fs = self._firestore()
+        if fs is not None: fs.collection(self._collection).document(str(self.id)).delete()
+
+    def __repr__(self): return f"<{self.__class__.__name__} {getattr(self, 'id', '')}>"
+
+
+def _define_fields(cls, fields):
+    for field in fields: setattr(cls, field, _Field(field))
+    return cls
+
+
+def _related(model, foreign_key, many=True):
+    def getter(self):
+        query = model.query.filter_by(**{foreign_key: self.id})
+        return query.all() if many else query.first()
+    return property(getter)
+
+
+class User(UserMixin, FirestoreModel):
+    _collection = "users"
+    def get_skills_list(self): return [item.strip() for item in str(self.skills or "").split(",") if item.strip()]
+    def get_goals_list(self): return [item.strip() for item in str(self.goals or "").split(",") if item.strip()]
     @property
     def connection_count(self):
-        """Returns the number of accepted/completed peer connections."""
-        sent = [c for c in self.sent_connections if c.status in ('Accepted', 'Completed')]
-        received = [c for c in self.received_connections if c.status in ('Accepted', 'Completed')]
-        return len(sent) + len(received)
+        return len([item for item in self.sent_connections + self.received_connections if item.status in ("Accepted", "Completed")])
 
-    def __repr__(self):
-        return f'<User {self.name} ({self.email})>'
 
-class SkillProgress(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    skill_name = db.Column(db.String(100), nullable=False)
-    level = db.Column(db.Float, default=0.0)
-    last_updated = db.Column(db.DateTime, default=datetime.utcnow)
-    
+class SkillProgress(FirestoreModel):
+    _collection = "skill_progress"
     def update_progress(self, increment=0.1):
-        self.level = min(1.0, self.level + increment)
-        self.last_updated = datetime.utcnow()
-    
-    def __repr__(self):
-        return f'<SkillProgress {self.skill_name}: {self.level}>'
+        self.level = min(1.0, (self.level or 0) + increment); self.last_updated = datetime.utcnow()
 
-class MentorSession(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    mentor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    learner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    scheduled_time = db.Column(db.DateTime, nullable=False)
-    duration_minutes = db.Column(db.Integer, default=30)
-    topic = db.Column(db.String(200), nullable=False)
-    status = db.Column(db.String(20), default='scheduled')  # scheduled, completed, cancelled
-    meet_link = db.Column(db.String(500))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    notes = db.Column(db.Text, default='')
-    feedback = db.Column(db.Text, default='')
-    
-    def __repr__(self):
-        return f'<MentorSession {self.topic} ({self.status})>'
 
-class MentorBooking(db.Model):
-    """Student-initiated booking request for a 1-on-1 mentor session."""
-    id = db.Column(db.Integer, primary_key=True)
-    mentor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    student_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    topic = db.Column(db.String(300), nullable=False)  # Acts as 'skill'
-    date = db.Column(db.Date, nullable=False)
-    time = db.Column(db.Time, nullable=False)
-    duration = db.Column(db.Integer, default=60)           # minutes
-    mode = db.Column(db.String(20), default='video')       # video | audio | chat
-    status = db.Column(db.String(20), default='pending')   # pending | accepted | rejected | cancelled
-    meeting_link = db.Column(db.String(500))
-    message = db.Column(db.Text, default='')
-    reject_reason = db.Column(db.String(300), default='')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    mentor  = db.relationship('User', foreign_keys=[mentor_id],  backref=db.backref('received_bookings', lazy=True))
-    student = db.relationship('User', foreign_keys=[student_id], backref=db.backref('sent_bookings',     lazy=True))
-    meeting = db.relationship('MentorBookingMeeting', 
-                              primaryjoin="MentorBooking.id == MentorBookingMeeting.booking_id",
-                              foreign_keys="MentorBookingMeeting.booking_id",
-                              backref=db.backref('booking_link', uselist=False),
-                              uselist=False)
-
+class MentorBooking(FirestoreModel):
+    _collection = "mentor_bookings"
     @property
-    def start_datetime(self):
-        return datetime.combine(self.date, self.time)
-
+    def start_datetime(self): return datetime.combine(self.date, self.time)
     @property
-    def end_datetime(self):
-        return self.start_datetime + __import__('datetime').timedelta(minutes=self.duration)
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'mentor_id': self.mentor_id,
-            'student_id': self.student_id,
-            'mentor_name': self.mentor.name if self.mentor else '',
-            'student_name': self.student.name if self.student else '',
-            'topic': self.topic,
-            'date': self.date.strftime('%Y-%m-%d') if self.date else '',
-            'date_display': self.date.strftime('%b %d, %Y') if self.date else '',
-            'time': self.time.strftime('%H:%M') if self.time else '',
-            'time_display': self.time.strftime('%I:%M %p') if self.time else '',
-            'duration': self.duration,
-            'mode': self.mode,
-            'status': self.status,
-            'meeting_id': self.meeting.id if self.meeting else None,
-            'meeting_link': self.meeting_link or '',
-            'message': self.message or '',
-            'reject_reason': self.reject_reason or '',
-            'created_at': self.created_at.isoformat() if self.created_at else '',
-            'is_active': self.status == 'accepted' and datetime.utcnow() >= self.start_datetime and datetime.utcnow() <= self.end_datetime
-        }
-
-    def __repr__(self):
-        return f'<MentorBooking {self.id} {self.status}>'
-
-class MentorBookingMeeting(db.Model):
-    """Automated WebRTC meeting associated with a mentor booking."""
-    id = db.Column(db.Integer, primary_key=True)
-    booking_id = db.Column(db.Integer, db.ForeignKey('mentor_booking.id'), nullable=True) # Linked after creation
-    room_id = db.Column(db.String(100), unique=True, nullable=False)
-    meeting_link = db.Column(db.String(500))
-    start_time = db.Column(db.DateTime, nullable=False)
-    end_time = db.Column(db.DateTime, nullable=False)
-    # status: upcoming | live | completed | cancelled
-    status = db.Column(db.String(20), default='upcoming')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    def is_joinable(self):
-        now = datetime.utcnow()
-        return self.status == 'upcoming' and now >= (self.start_time - __import__('datetime').timedelta(minutes=5)) and now <= self.end_time
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'room_id': self.room_id,
-            'meeting_link': self.meeting_link,
-            'start_time': self.start_time.isoformat(),
-            'end_time': self.end_time.isoformat(),
-            'status': self.status,
-            'is_joinable': self.is_joinable()
-        }
-
-class Post(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    content = db.Column(db.Text, nullable=False)
-    link = db.Column(db.String(500))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    share_count = db.Column(db.Integer, default=0)
-    views_count = db.Column(db.Integer, default=0)
-    
-    author = db.relationship('User', backref=db.backref('posts', lazy=True, cascade='all, delete-orphan'))
-    poll = db.relationship('Poll', backref='post', uselist=False, cascade='all, delete-orphan')
-    likes = db.relationship('PostLike', backref='post', lazy=True, cascade='all, delete-orphan')
-    comments = db.relationship('PostComment', backref='post', lazy=True, cascade='all, delete-orphan')
-    saves = db.relationship('PostSave', backref='post', lazy=True, cascade='all, delete-orphan')
-    views = db.relationship('PostView', backref='post', lazy=True, cascade='all, delete-orphan')
-
-class Poll(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
-    question = db.Column(db.String(200), nullable=False)
-    options = db.Column(db.Text, nullable=False)  # Semicolon-separated options
-    votes = db.Column(db.Text, default='') # Semicolon-separated vote counts (e.g., "0;0;0")
-
-    def get_options_list(self):
-        return [o.strip() for o in self.options.split(';') if o.strip()]
-
-    def get_votes_list(self):
-        if not self.votes:
-            return [0] * len(self.get_options_list())
-        return [int(v) for v in self.votes.split(';') if v.strip()]
-
-    def set_votes_list(self, votes_list):
-        self.votes = ';'.join(map(str, votes_list))
-
-class PostLike(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    # Ensure a user can only like a post once
-    __table_args__ = (db.UniqueConstraint('post_id', 'user_id', name='_post_user_like_uc'),)
-
-    user = db.relationship('User', backref=db.backref('likes', lazy=True))
-
-class PostSave(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    # Ensure a user can only save a post once
-    __table_args__ = (db.UniqueConstraint('post_id', 'user_id', name='_post_user_save_uc'),)
-
-    user = db.relationship('User', backref=db.backref('saves', lazy=True))
-
-class PostView(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    __table_args__ = (db.UniqueConstraint('post_id', 'user_id', name='_post_user_view_uc'),)
-
-    user = db.relationship('User', backref=db.backref('views', lazy=True))
-
-    def __repr__(self):
-        return f'<PostView {self.user_id} on {self.post_id}>'
-
-class PostComment(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    content = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    author = db.relationship('User', backref=db.backref('comments', lazy=True))
-
-class Meetup(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text, nullable=False)
-    date_time = db.Column(db.DateTime, nullable=False)
-    location = db.Column(db.String(200), nullable=False)
-    organizer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    max_participants = db.Column(db.Integer, default=50)
-    banner_url = db.Column(db.String(500))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    organizer = db.relationship('User', backref=db.backref('meetups', lazy=True))
-
-    def __repr__(self):
-        return f'<Meetup {self.title}>'
-
-class MeetupRSVP(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    meetup_id = db.Column(db.Integer, db.ForeignKey('meetup.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    status = db.Column(db.String(20), default='Attending') # Attending, Not Attending
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    user = db.relationship('User', backref=db.backref('meetup_rsvps', lazy=True))
-    meetup = db.relationship('Meetup', backref=db.backref('rsvps', lazy=True, cascade='all, delete-orphan'))
-
-class Career(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(200), nullable=False)
-    company = db.Column(db.String(200), nullable=False)
-    location = db.Column(db.String(200), nullable=False)
-    job_type = db.Column(db.String(50), default='Full-time')  # Internship, Full-time, Remote
-    description = db.Column(db.Text, nullable=False)
-    requirements = db.Column(db.Text, nullable=False)
-    salary_range = db.Column(db.String(100))
-    posted_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    # Relationships
-    applications = db.relationship('CareerApplication', backref='career', lazy=True, cascade='all, delete-orphan')
-
-    def __repr__(self):
-        return f'<Career {self.title} at {self.company}>'
-
-class CodingChallenge(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text, nullable=False)
-    difficulty = db.Column(db.String(50), default='Medium') # Easy/Medium/Hard
-    base_code = db.Column(db.Text, default='')
-    points_reward = db.Column(db.Integer, default=10) # Coins
-    xp_reward = db.Column(db.Integer, default=50) # XP
-    is_active = db.Column(db.Boolean, default=True)
-    posted_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    submissions = db.relationship('ChallengeSubmission', backref='challenge', lazy=True, cascade='all, delete-orphan')
-
-    def __repr__(self):
-        return f'<CodingChallenge {self.title}>'
-
-class ChallengeSubmission(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    challenge_id = db.Column(db.Integer, db.ForeignKey('coding_challenge.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    submitted_code = db.Column(db.Text, nullable=False)
-    language = db.Column(db.String(50), default='python')
-    time_taken_seconds = db.Column(db.Integer, default=0)
-    status = db.Column(db.String(20), default='Pending') # Pending, Accepted, Rejected
-    admin_feedback = db.Column(db.Text, default='')
-    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
-    reviewed_at = db.Column(db.DateTime)
-    reviewed_by_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-
-    def __repr__(self):
-        return f'<ChallengeSubmission User {self.user_id} Challenge {self.challenge_id} Status {self.status}>'
-
-class GamificationProfile(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
-    coins = db.Column(db.Integer, default=0)
-    xp = db.Column(db.Integer, default=0)
-    streak_days = db.Column(db.Integer, default=0)
-    last_active_date = db.Column(db.Date)
-
-    user = db.relationship('User', backref=db.backref('gamification', uselist=False, lazy=True))
-
-    @property
-    def rank_level(self):
-        if self.xp < 100:
-            return "Beginner"
-        elif self.xp < 500:
-            return "Pro"
-        elif self.xp < 2000:
-            return "Expert"
-        else:
-            return "Mentor Elite"
-
-    def __repr__(self):
-        return f'<GamificationProfile User {self.user_id} XP {self.xp} Rank {self.rank_level}>'
-
-class Group(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text, nullable=False)
-    category = db.Column(db.String(100), nullable=False)
-    location = db.Column(db.String(200))
-    mode = db.Column(db.String(50), default='Online') # Online / Offline
-    banner_url = db.Column(db.String(500))
-    creator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    creator = db.relationship('User', backref=db.backref('groups', lazy=True))
-
-    def __repr__(self):
-        return f'<Group {self.name}>'
-
-class GroupMember(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    joined_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    user = db.relationship('User', backref=db.backref('group_memberships', lazy=True))
-    group = db.relationship('Group', backref=db.backref('members', lazy=True, cascade='all, delete-orphan'))
-
-class CareerApplication(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    career_id = db.Column(db.Integer, db.ForeignKey('career.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    status = db.Column(db.String(20), default='Pending') # Pending, Reviewed, Accepted, Rejected
-    resume_url = db.Column(db.String(500))
-    applied_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    user = db.relationship('User', backref=db.backref('career_applications', lazy=True))
-
-    def __repr__(self):
-        return f'<CareerApplication {self.user_id} for {self.career_id}>'
+    def end_datetime(self): return self.start_datetime + timedelta(minutes=self.duration)
+    def to_dict(self): return {key: value for key, value in self._data.items() if not key.startswith("_")}
 
 
+class Poll(FirestoreModel):
+    _collection = "polls"
+    def get_options_list(self): return [item.strip() for item in str(self.options or "").split(";") if item.strip()]
+    def get_votes_list(self): return [int(item) for item in str(self.votes or "").split(";") if item.strip()] or [0] * len(self.get_options_list())
+    def set_votes_list(self, values): self.votes = ";".join(map(str, values))
 
-class PeerConnection(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    receiver_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    status = db.Column(db.String(20), default='Pending') # Pending, Accepted, Rejected, Completed
-    topic = db.Column(db.String(200))
-    scheduled_at = db.Column(db.DateTime)
-    meeting_id = db.Column(db.String(100), unique=True) # Firestore doc ID
-    rating = db.Column(db.Integer)
-    feedback = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    expires_at = db.Column(db.DateTime)
-    zoom_url = db.Column(db.String(500))
-    zoom_meeting_id = db.Column(db.String(100))
 
-    sender = db.relationship('User', foreign_keys=[sender_id], backref=db.backref('sent_connections', lazy=True))
-    receiver = db.relationship('User', foreign_keys=[receiver_id], backref=db.backref('received_connections', lazy=True))
-
-    def __repr__(self):
-        return f'<PeerConnection {self.id} ({self.status})>'
-
-class PeerRequest(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    receiver_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    skills_expected = db.Column(db.String(500))  # JSON or comma-separated
-    skills_offered = db.Column(db.String(500))
-    peer_mode = db.Column(db.Boolean, default=False)
-    date = db.Column(db.Date)
-    time = db.Column(db.Time)
-    duration = db.Column(db.Integer, default=30)  # Session duration in minutes
-    message = db.Column(db.Text)
-    status = db.Column(db.String(20), default='Pending') # Pending, Accepted, Rejected
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    sender = db.relationship('User', foreign_keys=[sender_id], backref=db.backref('sent_peer_reqs', lazy=True))
-    receiver = db.relationship('User', foreign_keys=[receiver_id], backref=db.backref('received_peer_reqs', lazy=True))
-
-class PeerSession(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_a_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False) # Caller / Learner in 1-way
-    user_b_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False) # Receiver / Teacher
-    session_type = db.Column(db.String(50), default='one-way') # one-way, peer-mode-1, peer-mode-2
-    start_time = db.Column(db.DateTime)
-    end_time = db.Column(db.DateTime)
-    status = db.Column(db.String(20), default='scheduled') # scheduled, live, completed, cancelled
-    video_link = db.Column(db.String(500))
-    associated_request_id = db.Column(db.Integer, db.ForeignKey('peer_request.id'), nullable=True)
-
-    user_a = db.relationship('User', foreign_keys=[user_a_id])
-    user_b = db.relationship('User', foreign_keys=[user_b_id])
-    request = db.relationship('PeerRequest', backref=db.backref('sessions', lazy=True))
-
-class Notification(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    title = db.Column(db.String(100), nullable=False)
-    message = db.Column(db.String(500), nullable=False)
-    type = db.Column(db.String(20)) # 'connection', 'like', 'comment', 'system'
-    link = db.Column(db.String(255))
-    is_read = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    user = db.relationship('User', backref=db.backref('notifications', lazy=True, cascade='all, delete-orphan'))
-
-    def __repr__(self):
-        return f'<Notification {self.id} for User {self.user_id}>'
-
-class AIConversation(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    title = db.Column(db.String(200), default='New Chat')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    user = db.relationship('User', backref=db.backref('ai_conversations', lazy=True))
-    messages = db.relationship('AIMessage', backref='conversation', lazy=True, cascade='all, delete-orphan', order_by='AIMessage.created_at')
-
-    def __repr__(self):
-        return f'<AIConversation {self.id} for User {self.user_id}>'
-
-class AIMessage(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    conversation_id = db.Column(db.Integer, db.ForeignKey('ai_conversation.id'), nullable=False)
-    role = db.Column(db.String(20), nullable=False)  # 'user' or 'assistant'
-    content = db.Column(db.Text, nullable=False)
-    context_type = db.Column(db.String(50))  # 'profile_analysis', 'job_match', 'learning_path', etc
-    confidence = db.Column(db.Integer, default=0)
-    metadata_json = db.Column(db.Text, default='{}')  # Extra structured data
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
+class AIMessage(FirestoreModel):
+    _collection = "ai_messages"
     def get_metadata(self):
-        import json
-        try:
-            return json.loads(self.metadata_json or '{}')
-        except:
-            return {}
+        try: return json.loads(self.metadata_json or "{}")
+        except (TypeError, ValueError): return {}
+    def set_metadata(self, data): self.metadata_json = json.dumps(data)
 
-    def set_metadata(self, data):
-        import json
-        self.metadata_json = json.dumps(data)
 
-    def __repr__(self):
-        return f'<AIMessage {self.role}: {self.content[:40]}>'
-
-class LearningPath(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    goal = db.Column(db.String(300), nullable=False)
-    milestones_json = db.Column(db.Text, default='[]')
-    current_milestone = db.Column(db.Integer, default=0)
-    completion_pct = db.Column(db.Float, default=0.0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    user = db.relationship('User', backref=db.backref('learning_paths', lazy=True))
-
+class LearningPath(FirestoreModel):
+    _collection = "learning_paths"
     def get_milestones(self):
-        import json
-        try:
-            return json.loads(self.milestones_json or '[]')
-        except:
-            return []
+        try: return json.loads(self.milestones_json or "[]")
+        except (TypeError, ValueError): return []
+    def set_milestones(self, milestones): self.milestones_json = json.dumps(milestones)
 
-    def set_milestones(self, milestones):
-        import json
-        self.milestones_json = json.dumps(milestones)
 
-    def __repr__(self):
-        return f'<LearningPath {self.goal} ({self.completion_pct}%)>'
+class MockInterview(FirestoreModel):
+    _collection = "mock_interviews"
+    def _json_list(self, field):
+        try: return json.loads(getattr(self, field) or "[]")
+        except (TypeError, ValueError): return []
+    def get_questions(self): return self._json_list("questions_json")
+    def get_answers(self): return self._json_list("answers_json")
+    def get_scores(self): return self._json_list("scores_json")
+    def get_feedback(self): return self._json_list("feedback_json")
 
-class MockInterview(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    interview_type = db.Column(db.String(50), default='technical')
-    questions_json = db.Column(db.Text, default='[]')
-    answers_json = db.Column(db.Text, default='[]')
-    scores_json = db.Column(db.Text, default='[]')
-    feedback_json = db.Column(db.Text, default='[]')
-    overall_score = db.Column(db.Integer, default=0)
-    current_question = db.Column(db.Integer, default=0)
-    is_complete = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    user = db.relationship('User', backref=db.backref('mock_interviews', lazy=True))
-
-    def get_questions(self):
-        import json
-        try:
-            return json.loads(self.questions_json or '[]')
-        except:
-            return []
-
-    def get_answers(self):
-        import json
-        try:
-            return json.loads(self.answers_json or '[]')
-        except:
-            return []
-
-    def get_scores(self):
-        import json
-        try:
-            return json.loads(self.scores_json or '[]')
-        except:
-            return []
-
-    def get_feedback(self):
-        import json
-        try:
-            return json.loads(self.feedback_json or '[]')
-        except:
-            return []
-
-    def __repr__(self):
-        return f'<MockInterview {self.interview_type} score={self.overall_score}>'
-
-class CourseProgress(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    playlist_id = db.Column(db.String(100), nullable=False)
-    # Store completed video IDs as a JSON-encoded list
-    completed_videos_json = db.Column(db.Text, default='[]')
-    last_video_id = db.Column(db.String(100))
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
+class CourseProgress(FirestoreModel):
+    _collection = "course_progress"
     def get_completed_videos(self):
-        import json
-        try:
-            return json.loads(self.completed_videos_json or '[]')
-        except:
-            return []
+        try: return json.loads(self.completed_videos_json or "[]")
+        except (TypeError, ValueError): return []
+    def set_completed_videos(self, ids): self.completed_videos_json = json.dumps(ids)
 
-    def set_completed_videos(self, video_ids):
-        import json
-        self.completed_videos_json = json.dumps(video_ids)
 
-    def __repr__(self):
-        return f'<CourseProgress user={self.user_id} playlist={self.playlist_id}>'
-
-class CourseCategory(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False, unique=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    courses = db.relationship('Course', backref='category', lazy=True)
-
-    def __repr__(self):
-        return f'<CourseCategory {self.name}>'
-
-class Course(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(255), nullable=False)
-    instructor = db.Column(db.String(100))
-    thumbnail = db.Column(db.String(500))
-    playlist_id = db.Column(db.String(100), unique=True) # Usually the part after list=
-    playlist_link = db.Column(db.String(500), nullable=False)
-    category_id = db.Column(db.Integer, db.ForeignKey('course_category.id'))
-    # Storing videos summary as JSON for quick access
-    videos_json = db.Column(db.Text, default='[]') 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
+class Course(FirestoreModel):
+    _collection = "courses"
     def get_videos(self):
-        import json
-        try:
-            return json.loads(self.videos_json or '[]')
-        except:
-            return []
+        try: return json.loads(self.videos_json or "[]")
+        except (TypeError, ValueError): return []
+    def set_videos(self, videos): self.videos_json = json.dumps(videos)
 
-    def set_videos(self, videos):
-        import json
-        self.videos_json = json.dumps(videos)
 
-    def __repr__(self):
-        return f'<Course {self.title}>'
-
-class SkillQuestion(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    category = db.Column(db.String(50), nullable=False) # python, java, javascript, cpp, devops, dsa
-    type = db.Column(db.String(20), nullable=False) # mcq, coding
-    question_text = db.Column(db.Text, nullable=False)
-    options_json = db.Column(db.Text, default='[]') # For MCQs: JSON list of strings
-    correct_answer = db.Column(db.String(200)) # For MCQs: the correct option index or text
-    base_code = db.Column(db.Text) # For coding: starter code
-    difficulty = db.Column(db.String(20), default='medium')
-
+class SkillQuestion(FirestoreModel):
+    _collection = "skill_questions"
     def get_options(self):
-        import json
-        try:
-            return json.loads(self.options_json or '[]')
-        except:
-            return []
-
-class VerificationRequest(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    role = db.Column(db.String(20), nullable=False)
-    language = db.Column(db.String(50), nullable=False)
-    mcq_answers_json = db.Column(db.Text, default='{}') # JSON mapping question_id to selection
-    coding_answers_json = db.Column(db.Text, default='{}') # JSON mapping question_id to code
-    score = db.Column(db.Integer, default=0)
-    status = db.Column(db.String(20), default='pending') # pending, approved, rejected
-    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
-    reviewed_at = db.Column(db.DateTime)
-    reviewed_by = db.Column(db.Integer, db.ForeignKey('user.id'))
-    reviewer_notes = db.Column(db.Text)
-
-    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('verification_requests', lazy=True))
-    reviewer = db.relationship('User', foreign_keys=[reviewed_by], backref=db.backref('reviewed_requests', lazy=True))
+        try: return json.loads(self.options_json or "[]")
+        except (TypeError, ValueError): return []
 
 
-# ─── Live Meeting Management ───────────────────────────────────────────────────
-
-class LiveMeeting(db.Model):
-    """A public live meeting created by a mentor for students to join."""
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text, default='')
-    language = db.Column(db.String(50), default='English')           # Meeting language
-    skill_category = db.Column(db.String(100), default='General')    # e.g. Python, DSA, ML
-    scheduled_at = db.Column(db.DateTime, nullable=False)
-    duration_minutes = db.Column(db.Integer, default=60)
-    meeting_link = db.Column(db.String(500), default='')             # External meet URL or auto-generated
-    max_participants = db.Column(db.Integer, default=50)
-    # Status: upcoming | live | completed | cancelled
-    status = db.Column(db.String(20), default='upcoming')
-    creator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    creator = db.relationship('User', backref=db.backref('live_meetings', lazy=True, cascade='all, delete-orphan'))
-    participants = db.relationship('MeetingParticipant', backref='meeting', lazy=True, cascade='all, delete-orphan')
-
+class LiveMeeting(FirestoreModel):
+    _collection = "live_meetings"
     @property
-    def participant_count(self):
-        return len(self.participants)
-
+    def participant_count(self): return len(self.participants)
     @property
-    def is_full(self):
-        return self.participant_count >= self.max_participants
-
+    def is_full(self): return self.participant_count >= self.max_participants
     def auto_update_status(self):
-        """Auto-flip status based on current time."""
-        now = datetime.utcnow()
-        end_time = self.scheduled_at + __import__('datetime').timedelta(minutes=self.duration_minutes)
-        if now >= end_time:
-            self.status = 'completed'
-        elif now >= self.scheduled_at:
-            self.status = 'live'
-        else:
-            self.status = 'upcoming'
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'title': self.title,
-            'description': self.description,
-            'language': self.language,
-            'skill_category': self.skill_category,
-            'scheduled_at': self.scheduled_at.isoformat() if self.scheduled_at else None,
-            'scheduled_at_display': self.scheduled_at.strftime('%b %d, %Y · %I:%M %p') if self.scheduled_at else '',
-            'duration_minutes': self.duration_minutes,
-            'meeting_link': self.meeting_link,
-            'max_participants': self.max_participants,
-            'participant_count': self.participant_count,
-            'status': self.status,
-            'creator_id': self.creator_id,
-            'creator_name': self.creator.name if self.creator else '',
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-        }
-
-    def __repr__(self):
-        return f'<LiveMeeting {self.title} ({self.status})>'
+        now = datetime.utcnow(); end_time = self.scheduled_at + timedelta(minutes=self.duration_minutes)
+        self.status = "completed" if now >= end_time else "live" if now >= self.scheduled_at else "upcoming"
+    def to_dict(self): return {key: value for key, value in self._data.items() if not key.startswith("_")}
 
 
-class MeetingParticipant(db.Model):
-    """Tracks which user joined which live meeting."""
-    id = db.Column(db.Integer, primary_key=True)
-    meeting_id = db.Column(db.Integer, db.ForeignKey('live_meeting.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    joined_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    __table_args__ = (db.UniqueConstraint('meeting_id', 'user_id', name='_meeting_user_uc'),)
-
-    user = db.relationship('User', backref=db.backref('meeting_participations', lazy=True))
-
-    def __repr__(self):
-        return f'<MeetingParticipant user={self.user_id} meeting={self.meeting_id}>'
-
-
-# ─── Skill Tests ───────────────────────────────────────────────────────────────
-
-class SkillTest(db.Model):
-    """A test created by a mentor to assess student skills."""
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(200), nullable=False)
-    skill_category = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text, default='')
-    questions_json = db.Column(db.Text, default='[]')   # JSON list of {question, options, answer}
-    pass_score = db.Column(db.Integer, default=60)       # Minimum % to pass
-    time_limit_minutes = db.Column(db.Integer, default=30)
-    is_active = db.Column(db.Boolean, default=True)
-    creator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    creator = db.relationship('User', backref=db.backref('skill_tests', lazy=True))
-    results = db.relationship('TestResult', backref='test', lazy=True, cascade='all, delete-orphan')
-
+class SkillTest(FirestoreModel):
+    _collection = "skill_tests"
     def get_questions(self):
-        import json
-        try:
-            return json.loads(self.questions_json or '[]')
-        except:
-            return []
-
-    def set_questions(self, questions):
-        import json
-        self.questions_json = json.dumps(questions)
-
-    def __repr__(self):
-        return f'<SkillTest {self.title}>'
+        try: return json.loads(self.questions_json or "[]")
+        except (TypeError, ValueError): return []
+    def set_questions(self, questions): self.questions_json = json.dumps(questions)
 
 
-class TestResult(db.Model):
-    """Records a student's result on a SkillTest."""
-    id = db.Column(db.Integer, primary_key=True)
-    test_id = db.Column(db.Integer, db.ForeignKey('skill_test.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    score = db.Column(db.Integer, default=0)        # Percentage 0-100
-    passed = db.Column(db.Boolean, default=False)
-    answers_json = db.Column(db.Text, default='{}')
-    completed_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    user = db.relationship('User', backref=db.backref('test_results', lazy=True))
-
-    def __repr__(self):
-        return f'<TestResult user={self.user_id} test={self.test_id} score={self.score}>'
+_MODEL_NAMES = [
+    "MentorSession", "MentorBookingMeeting", "Post", "PostLike", "PostSave", "PostView", "PostComment",
+    "Meetup", "MeetupRSVP", "Career", "CodingChallenge", "ChallengeSubmission", "GamificationProfile", "Group",
+    "GroupMember", "CareerApplication", "PeerConnection", "PeerRequest", "PeerSession", "Notification", "AIConversation",
+    "CourseCategory", "VerificationRequest", "MeetingParticipant", "TestResult", "MentorFeedback",
+]
+_COLLECTIONS = {
+    "MentorSession": "mentor_sessions", "MentorBookingMeeting": "mentor_booking_meetings", "Post": "posts", "PostLike": "post_likes", "PostSave": "post_saves", "PostView": "post_views", "PostComment": "post_comments", "Meetup": "meetups", "MeetupRSVP": "meetup_rsvps", "Career": "careers", "CodingChallenge": "coding_challenges", "ChallengeSubmission": "challenge_submissions", "GamificationProfile": "gamification_profiles", "Group": "groups", "GroupMember": "group_members", "CareerApplication": "career_applications", "PeerConnection": "peer_connections", "PeerRequest": "peer_requests", "PeerSession": "peer_sessions", "Notification": "notifications", "AIConversation": "ai_conversations", "CourseCategory": "course_categories", "VerificationRequest": "verification_requests", "MeetingParticipant": "meeting_participants", "TestResult": "test_results", "MentorFeedback": "mentor_feedback",
+}
+for _name in _MODEL_NAMES: globals()[_name] = type(_name, (FirestoreModel,), {"_collection": _COLLECTIONS[_name]})
 
 
-# ─── Feedback / Ratings ────────────────────────────────────────────────────────
+_FIELDS = {
+    "User": "id name email skills goals bio is_mentor role is_blocked education_level college_code college_name learning_mode expertise years_experience job_role is_verified verified_skill verified_role verification_status availability created_at firebase_uid".split(),
+    "SkillProgress": "id user_id skill_name level last_updated".split(), "MentorSession": "id mentor_id learner_id scheduled_time duration_minutes topic status meet_link created_at updated_at notes feedback".split(), "MentorBooking": "id mentor_id student_id topic date time duration mode status meeting_link message reject_reason created_at updated_at".split(), "MentorBookingMeeting": "id booking_id room_id meeting_link start_time end_time status created_at".split(),
+    "Post": "id user_id content link created_at share_count views_count".split(), "Poll": "id post_id question options votes".split(), "PostLike": "id post_id user_id created_at".split(), "PostSave": "id post_id user_id created_at".split(), "PostView": "id post_id user_id created_at".split(), "PostComment": "id post_id user_id content created_at".split(), "Meetup": "id title description date_time location organizer_id max_participants banner_url created_at".split(), "MeetupRSVP": "id meetup_id user_id status created_at".split(),
+    "Career": "id title company location job_type description requirements salary_range posted_by_id created_at".split(), "CodingChallenge": "id title description difficulty base_code points_reward xp_reward is_active posted_by_id created_at".split(), "ChallengeSubmission": "id challenge_id user_id submitted_code language time_taken_seconds status admin_feedback submitted_at reviewed_at reviewed_by_id".split(), "GamificationProfile": "id user_id coins xp streak_days last_active_date".split(), "Group": "id name description category location mode banner_url creator_id created_at".split(), "GroupMember": "id group_id user_id joined_at".split(), "CareerApplication": "id career_id user_id status resume_url applied_at".split(),
+    "PeerConnection": "id sender_id receiver_id status topic scheduled_at meeting_id rating feedback created_at expires_at zoom_url zoom_meeting_id".split(), "PeerRequest": "id sender_id receiver_id skills_expected skills_offered peer_mode date time duration message status created_at".split(), "PeerSession": "id user_a_id user_b_id session_type start_time end_time status video_link associated_request_id".split(), "Notification": "id user_id title message type link is_read created_at".split(), "AIConversation": "id user_id title created_at updated_at".split(), "AIMessage": "id conversation_id role content context_type confidence metadata_json created_at".split(), "LearningPath": "id user_id goal milestones_json current_milestone completion_pct created_at updated_at".split(), "MockInterview": "id user_id interview_type questions_json answers_json scores_json feedback_json overall_score current_question is_complete created_at".split(), "CourseProgress": "id user_id playlist_id completed_videos_json last_video_id updated_at".split(), "CourseCategory": "id name created_at".split(), "Course": "id title instructor thumbnail playlist_id playlist_link category_id videos_json created_at".split(), "SkillQuestion": "id category type question_text options_json correct_answer base_code difficulty".split(), "VerificationRequest": "id user_id role language mcq_answers_json coding_answers_json score status submitted_at reviewed_at reviewed_by reviewer_notes".split(), "LiveMeeting": "id title description language skill_category scheduled_at duration_minutes meeting_link max_participants status creator_id created_at updated_at".split(), "MeetingParticipant": "id meeting_id user_id joined_at".split(), "SkillTest": "id title skill_category description questions_json pass_score time_limit_minutes is_active creator_id created_at".split(), "TestResult": "id test_id user_id score passed answers_json completed_at".split(), "MentorFeedback": "id mentor_id student_id rating comment session_id created_at".split(),
+}
+for _name, _fields in _FIELDS.items(): _define_fields(globals()[_name], _fields)
 
-class MentorFeedback(db.Model):
-    """Student feedback and rating for a mentor."""
-    id = db.Column(db.Integer, primary_key=True)
-    mentor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    student_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    rating = db.Column(db.Integer, default=5)       # 1-5 stars
-    comment = db.Column(db.Text, default='')
-    session_id = db.Column(db.Integer, db.ForeignKey('mentor_session.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    __table_args__ = (db.UniqueConstraint('mentor_id', 'student_id', 'session_id', name='_mentor_student_session_uc'),)
-
-    mentor = db.relationship('User', foreign_keys=[mentor_id], backref=db.backref('received_feedback', lazy=True))
-    student = db.relationship('User', foreign_keys=[student_id], backref=db.backref('given_feedback', lazy=True))
-
-    def __repr__(self):
-        return f'<MentorFeedback mentor={self.mentor_id} student={self.student_id} rating={self.rating}>'
+_RELATIONS = {
+    ("User", "skill_progress"): (SkillProgress, "user_id", True), ("User", "sessions_mentoring"): (MentorSession, "mentor_id", True), ("User", "sessions_learning"): (MentorSession, "learner_id", True), ("User", "careers"): (Career, "posted_by_id", True), ("User", "challenges_posted"): (CodingChallenge, "posted_by_id", True), ("User", "challenge_submissions"): (ChallengeSubmission, "user_id", True), ("User", "course_progress"): (CourseProgress, "user_id", True), ("User", "sent_connections"): (PeerConnection, "sender_id", True), ("User", "received_connections"): (PeerConnection, "receiver_id", True), ("User", "received_bookings"): (MentorBooking, "mentor_id", True), ("User", "sent_bookings"): (MentorBooking, "student_id", True), ("User", "notifications"): (Notification, "user_id", True), ("User", "posts"): (Post, "user_id", True), ("User", "likes"): (PostLike, "user_id", True), ("User", "saves"): (PostSave, "user_id", True),
+    ("Post", "author"): (User, "user_id", False), ("Post", "poll"): (Poll, "post_id", False), ("Post", "likes"): (PostLike, "post_id", True), ("Post", "comments"): (PostComment, "post_id", True), ("Post", "saves"): (PostSave, "post_id", True), ("Post", "views"): (PostView, "post_id", True), ("PostComment", "author"): (User, "user_id", False), ("PostLike", "user"): (User, "user_id", False), ("PostSave", "user"): (User, "user_id", False), ("PostView", "user"): (User, "user_id", False),
+    ("MentorBooking", "mentor"): (User, "mentor_id", False), ("MentorBooking", "student"): (User, "student_id", False), ("MentorBooking", "meeting"): (MentorBookingMeeting, "booking_id", False), ("ChallengeSubmission", "challenge"): (CodingChallenge, "challenge_id", False), ("ChallengeSubmission", "user_submitted"): (User, "user_id", False), ("GamificationProfile", "user"): (User, "user_id", False), ("Group", "creator"): (User, "creator_id", False), ("Group", "members"): (GroupMember, "group_id", True), ("Career", "poster"): (User, "posted_by_id", False), ("Career", "applications"): (CareerApplication, "career_id", True), ("CareerApplication", "career"): (Career, "career_id", False), ("CareerApplication", "user"): (User, "user_id", False), ("PeerConnection", "sender"): (User, "sender_id", False), ("PeerConnection", "receiver"): (User, "receiver_id", False), ("PeerRequest", "sender"): (User, "sender_id", False), ("PeerRequest", "receiver"): (User, "receiver_id", False), ("PeerSession", "user_a"): (User, "user_a_id", False), ("PeerSession", "user_b"): (User, "user_b_id", False), ("AIConversation", "messages"): (AIMessage, "conversation_id", True), ("Course", "category"): (CourseCategory, "category_id", False), ("VerificationRequest", "user"): (User, "user_id", False), ("VerificationRequest", "reviewer"): (User, "reviewed_by", False), ("LiveMeeting", "creator"): (User, "creator_id", False), ("LiveMeeting", "participants"): (MeetingParticipant, "meeting_id", True), ("MeetingParticipant", "user"): (User, "user_id", False), ("SkillTest", "creator"): (User, "creator_id", False), ("SkillTest", "results"): (TestResult, "test_id", True), ("TestResult", "user"): (User, "user_id", False), ("TestResult", "test"): (SkillTest, "test_id", False), ("MentorFeedback", "mentor"): (User, "mentor_id", False), ("MentorFeedback", "student"): (User, "student_id", False),
+}
+for (_owner, _name), (_model, _foreign_key, _many) in _RELATIONS.items(): setattr(globals()[_owner], _name, _related(_model, _foreign_key, _many))

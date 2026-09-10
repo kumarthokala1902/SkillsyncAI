@@ -17,6 +17,8 @@ spec:
         app.kubernetes.io/name: skillsync-core
         app.kubernetes.io/component: core
     spec:
+      imagePullSecrets:
+        - name: dockerhub-registry
       containers:
         - name: core-service
           image: skillsync/core-service:0.1.0
@@ -27,8 +29,17 @@ spec:
           envFrom:
             - configMapRef:
                 name: skillsync-config
-            - secretRef:
-                name: skillsync-secrets
+          env:
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: skillsync-secrets
+                  key: SESSION_SECRET
+            - name: FIREBASE_SERVICE_ACCOUNT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: skillsync-secrets
+                  key: FIREBASE_SERVICE_ACCOUNT_KEY
           resources:
             requests:
               cpu: 100m

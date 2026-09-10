@@ -26,11 +26,10 @@ with app.app_context():
                     college_name=data.get('collegeName', ''),
                     college_code=data.get('collegeCode', '')
                 )
-                user.set_password('RestoredPassword123!') # Temp password, Firebase Auth is the real auth
                 db.session.add(user)
                 restored += 1
                 
         db.session.commit()
-        print(f"Restored {restored} users to local DB.")
+        print(f"Restored {restored} users to Firestore.")
     else:
         print("Firebase not configured.")

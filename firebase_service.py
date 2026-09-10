@@ -29,17 +29,19 @@ def _get_fs():
 
 def sync_user_to_firestore(user) -> bool:
     """
-    Upsert a SQLAlchemy User object to Firestore users/{userId}.
+    Upsert a user profile object to Firestore users/{userId}.
     Safe to call on every login/register – uses merge=True (no overwrite).
     """
     fs = _get_fs()
     if fs is None:
         return False
     try:
-        doc_ref = fs.collection("users").document(str(user.id))
+        firebase_uid = getattr(user, "firebase_uid", None) or str(user.id)
+        doc_ref = fs.collection("users").document(str(firebase_uid))
         doc_ref.set(
             {
-                "userId":    str(user.id),
+                "userId":    str(firebase_uid),
+                "legacyId":  str(user.id),
                 "name":      user.name,
                 "email":     user.email,
                 "role":      user.role,
@@ -51,6 +53,7 @@ def sync_user_to_firestore(user) -> bool:
                 "collegeName": getattr(user, "college_name", ""),
                 "createdAt": user.created_at.isoformat() if user.created_at else datetime.now(timezone.utc).isoformat(),
                 "updatedAt": datetime.now(timezone.utc).isoformat(),
+                "firebaseUid": str(firebase_uid),
             },
             merge=True,
         )

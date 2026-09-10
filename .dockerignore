@@ -25,7 +25,10 @@ instance/
 
 # Local env vars
 .env
+.env.*
+!.env.example
 
 # Credentials must be injected at runtime, never copied into an image.
 service-account.json
 firebase-service-account.json
+skillsync-firebase-service-account.json

@@ -14,11 +14,14 @@ instance/
 *.sqlite3
 .DS_Store
 .env
+.env.*
+!.env.example
 *.log
 service-account.json
 
 # Local secrets
 firebase-service-account.json
+skillsync-firebase-service-account.json
 cookies.txt
 *.pem
 *.key

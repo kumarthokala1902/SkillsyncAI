@@ -5,7 +5,7 @@ metadata:
   namespace: skillsync
 spec:
   rules:
-    - host: skillsync.local
+    - host: skillsync.com
       http:
         paths:
           - path: /
