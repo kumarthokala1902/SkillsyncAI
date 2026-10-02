@@ -19,6 +19,7 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
@@ -32,6 +33,7 @@ pipeline {
                         script: 'git rev-parse --short=7 HEAD',
                         returnStdout: true
                     ).trim()
+
                     env.IMAGE_TAG = "${env.BUILD_NUMBER}-${commit}"
                     env.IMAGE = "${params.DOCKERHUB_REPOSITORY}:${env.IMAGE_TAG}"
                 }
@@ -45,13 +47,17 @@ pipeline {
                 ]) {
                     sh '''
                         set -eu
+
                         echo "$DOCKER_PASSWORD" | docker login \
                             -u "$DOCKER_USERNAME" \
                             --password-stdin
+
                         docker build --pull -t "$IMAGE" .
                         docker push "$IMAGE"
+
                         docker pull "$IMAGE"
                         docker image inspect "$IMAGE" >/dev/null
+
                         docker logout >/dev/null 2>&1 || true
                     '''
                 }
@@ -63,6 +69,26 @@ pipeline {
                 timeout(time: 2, unit: 'MINUTES') {
                     input message: 'Do you need to deploy into the Kubernetes? If yes continue the deployment else stop the pipeline.', ok: 'Deploy'
                 }
+            }
+        }
+
+        stage('Check Minikube') {
+            steps {
+                sh '''
+                    set -eu
+
+                    echo "Checking Minikube status..."
+
+                    if minikube status --output=json | grep -q '"Host": "Running"'; then
+                        echo "Minikube is already running."
+                    else
+                        echo "Minikube is stopped. Starting Minikube..."
+                        minikube start --driver=docker
+                    fi
+
+                    echo "Verifying Kubernetes cluster connectivity..."
+                    kubectl get nodes
+                '''
             }
         }
 
@@ -89,6 +115,7 @@ pipeline {
                 ]) {
                     sh '''
                         set -eu
+
                         kubectl create namespace "$KUBERNETES_NAMESPACE" \
                             --dry-run=client -o yaml | kubectl apply -f -
 
@@ -106,8 +133,10 @@ pipeline {
                             --dry-run=client -o yaml | kubectl apply -f -
 
                         kubectl apply -k infrastructure/kubernetes/base
+
                         kubectl -n "$KUBERNETES_NAMESPACE" set image \
                             deployment/skillsync-core core-service="$IMAGE"
+
                         kubectl -n "$KUBERNETES_NAMESPACE" rollout status \
                             deployment/skillsync-core --timeout=5m
                     '''
